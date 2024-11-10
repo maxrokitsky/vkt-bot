@@ -1,0 +1,136 @@
+[tool.poetry]
+name = "teams-bot"
+version = "0.1.0"
+description = ""
+authors = ["Max Rokitsky <max@rokitsky.ru>"]
+readme = "README.md"
+
+[tool.poetry.scripts]
+runserver = 'teams_bot.main:run_server'
+ishell = 'teams_bot.main:shell'
+
+[tool.poetry.dependencies]
+python = "^3.13"
+sqlalchemy = {extras = ["asyncio"], version = "^2.0.36"}
+alembic = "^1.13.3"
+pydantic-settings = "^2.6.1"
+psycopg = {extras = ["binary"], version = "^3.2.3"}
+aiohttp = "^3.10.10"
+pydantic = "^2.9.2"
+aio-pika = "^9.4.3"
+ipython = "^8.29.0"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.3"
+ruff = "^0.7.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.ruff]
+target-version = "py313"
+line-length = 120
+extend-exclude = [
+    ".devcontainer",
+    ".vscode",
+    # "build",
+    # "docs",
+    # "fixtures",
+    # "migrations",
+]
+
+[tool.ruff.format]
+quote-style = "single"
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+    "RUF",
+
+    "F",   # pyflakes
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "C90", # mccabe
+    "N",   # pep8-namin
+    "UP",  # pyupgrade
+    "FBT", # flake8-boolean-trap
+    "B",   # flake8-bugbear
+    "A",   # flake8-builtins
+    "COM", # flake8-commas
+    "C4",  # flake8-comprehensions
+    "DTZ",  # flake8-datetimez
+    "ISC", # flake8-implicit-str-concat
+    "INP", # flake8-no-pep420
+    "PIE", # flake8-pie
+    "RET", # flake8-return
+    "SLF", # flake8-self
+    "SIM", # flake8-simplify
+    "ARG", # flake8-unused-arguments
+    "PL",  # Pylint
+    "FLY", # flynt
+
+    "BLE", # flake8-blind-except
+    "EM",  # flake8-errmsg
+    "G",   # flake8-logging-format
+    "T20", # flake8-print
+    "RSE", # flake8-raise
+    "TRY", # tryceratops
+    "LOG", # flake8-logging
+
+    "I",   # isort
+    "ICN", # flake8-import-conventions
+    "TID", # flake8-tidy-imports
+
+    "ANN", # flake8-annotations
+    "FA",  # flake8-future-annotations
+    "PYI", # flake8-pyi
+    "TCH", # flake8-type-checking
+
+    "DJ", # flake8-django
+
+    "D",   # pydocstyle https://peps.python.org/pep-0257/
+    "TD",  # flake8-todos
+    "FIX", # flake8-fixme
+    "ERA", # eradicate
+
+    "ASYNC", # flake8-async
+    "S",     # flake8-bandit
+    "EXE",   # flake8-executable
+    "INT",   # flake8-gettext
+    "PT",    # flake8-pytest-style
+    "PTH",   # flake8-use-pathlib
+    "PGH",   # pygrep-hooks
+    "PERF",  # Perflint
+]
+
+ignore = [
+    # Ruff
+    "RUF001",
+    "RUF002",
+    "RUF003",
+
+    # pydocstyle
+    "D100",
+    "D104",
+    "D107",
+    "D300",
+    "D203",  # or D211
+    "D212",  # or D213
+    "D401",
+
+    "ISC001",
+    "COM812",
+
+    "ANN101",
+    "ANN102",
+    "TCH003",
+]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+
+pythonVersion = "3.13"
+pythonPlatform = "Linux"

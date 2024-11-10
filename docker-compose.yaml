@@ -1,0 +1,31 @@
+volumes:
+  vk-bot-pg:
+  rabbitmq-data:
+
+services:
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    volumes:
+      - vk-bot-pg:/bitnami/postgresql
+    environment:
+      - POSTGRES_HOST_AUTH_METHOD=trust
+      - POSTGRES_USER=vkbot
+      - POSTGRES_DB=vkbot
+    env_file: .env
+    # expose:
+    #   - "5432"
+    ports:
+      - "6432:5432"
+
+  rabbitmq:
+    image: bitnami/rabbitmq:latest
+    container_name: rabbitmq
+    environment:
+      - RABBITMQ_MANAGEMENT_ALLOW_WEB_ACCESS=true
+    volumes:
+      - rabbitmq-data:/bitnami/rabbitmq/mnesia
+    env_file: .env
+    ports:
+      - "15672:15672"
+      - "5672:5672"
