@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Literal
 
 from pydantic import PostgresDsn
@@ -13,6 +14,7 @@ class Settings(BaseSettings):
     db_url: PostgresDsn
     broker_url: str
     owner_id: str | None = None
+    log_file: Path | None = None
 
     model_config = SettingsConfigDict(
         env_file='.env', env_file_encoding='utf-8', case_sensitive=False, extra="ignore"

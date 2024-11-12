@@ -3,9 +3,19 @@ from typing import Any, Literal
 
 import aiohttp
 
-from .types import ChatMember, EventsResponse, GetMembersResponse, GetSelfResponse, Response
+from .types import EventsResponse, GetMembersResponse, GetSelfResponse, Response
 
 logger = logging.getLogger('teams_bot.client')
+
+
+async def log_response(response: aiohttp.ClientResponse) -> dict[str, Any]:
+    return {
+        'ok': response.ok,
+        'path': response.url.path,
+        'status': response.status,
+        'body': await response.json(),
+        'method': response.method,
+    }
 
 
 class VkTeamsBot:
@@ -39,8 +49,12 @@ class VkTeamsBot:
             params={'token': self.token},
         ) as response:
             response_body = await response.text()
-            logger.debug('%s %s: %s %s', 'GET', path, response.status, response_body)
-            return GetSelfResponse.model_validate_json(response_body)
+            result = GetSelfResponse.model_validate_json(response_body)
+            logger.debug(
+                'VKTeamsBotApiResponse',
+                extra=await log_response(response),
+            )
+            return result
 
     async def send_text(
         self,
@@ -72,8 +86,10 @@ class VkTeamsBot:
             params=params,
             timeout=aiohttp.ClientTimeout(30),
         ) as response:
-            response_body = await response.text()
-            logger.debug('%s %s: %s %s', 'GET', path, response.status, response_body)
+            logger.debug(
+                'VKTeamsBotApiResponse',
+                extra=await log_response(response),
+            )
 
     async def edit_text(
         self,
@@ -102,8 +118,10 @@ class VkTeamsBot:
             params=params,
             timeout=aiohttp.ClientTimeout(30),
         ) as response:
-            response_body = await response.text()
-            logger.debug('%s %s: %s %s', 'GET', path, response.status, response_body)
+            logger.debug(
+                'VKTeamsBotApiResponse',
+                extra=await log_response(response),
+            )
 
     async def answer_callback_query(
         self,
@@ -132,8 +150,10 @@ class VkTeamsBot:
             params=params,
             timeout=aiohttp.ClientTimeout(30),
         ) as response:
-            response_body = await response.text()
-            logger.debug('%s %s: %s %s', 'GET', path, response.status, response_body)
+            logger.debug(
+                'VKTeamsBotApiResponse',
+                extra=await log_response(response),
+            )
 
     async def get_events(self, last_event_id: int, poll_time: int) -> EventsResponse:
         """Отправить текстовое сообщение."""
@@ -151,7 +171,10 @@ class VkTeamsBot:
             response_body = await response.text()
             result = EventsResponse.model_validate_json(response_body)
             if result.events:
-                logger.debug('%s %s: %s %s', 'GET', path, response.status, response_body)
+                logger.debug(
+                    'VKTeamsBotApiResponse',
+                    extra=await log_response(response),
+                )
             return result
 
     async def get_members(self, chat_id: str) -> GetMembersResponse:
@@ -164,8 +187,12 @@ class VkTeamsBot:
             params=params,
         ) as response:
             response_body = await response.text()
-            logger.debug('%s %s: %s %s', 'GET', path, response.status, response_body)
-            return GetMembersResponse.model_validate_json(response_body)
+            result = GetMembersResponse.model_validate_json(response_body)
+            logger.debug(
+                'VKTeamsBotApiResponse',
+                extra=await log_response(response),
+            )
+            return result
 
     async def delete_messages(self, chat_id: str, msg_id: str) -> Response:
         """Получить информацию о боте."""
@@ -177,5 +204,9 @@ class VkTeamsBot:
             params=params,
         ) as response:
             response_body = await response.text()
-            logger.debug('%s %s: %s %s', 'GET', path, response.status, response_body)
-            return Response.model_validate_json(response_body)
+            result = Response.model_validate_json(response_body)
+            logger.debug(
+                'VKTeamsBotApiResponse',
+                extra=await log_response(response),
+            )
+            return result
