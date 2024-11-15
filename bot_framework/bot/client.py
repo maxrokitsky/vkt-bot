@@ -51,7 +51,7 @@ class VkTeamsBot:
             response_body = await response.text()
             result = GetSelfResponse.model_validate_json(response_body)
             logger.debug(
-                'VKTeamsBotApiResponse',
+                'Информация о боте',
                 extra=await log_response(response),
             )
             return result
@@ -87,7 +87,7 @@ class VkTeamsBot:
             timeout=aiohttp.ClientTimeout(30),
         ) as response:
             logger.debug(
-                'VKTeamsBotApiResponse',
+                'Сообщение отправлено в чат',
                 extra=await log_response(response),
             )
 
@@ -119,7 +119,7 @@ class VkTeamsBot:
             timeout=aiohttp.ClientTimeout(30),
         ) as response:
             logger.debug(
-                'VKTeamsBotApiResponse',
+                'Сообщение отредактировано',
                 extra=await log_response(response),
             )
 
@@ -151,7 +151,7 @@ class VkTeamsBot:
             timeout=aiohttp.ClientTimeout(30),
         ) as response:
             logger.debug(
-                'VKTeamsBotApiResponse',
+                'Ответ на callback',
                 extra=await log_response(response),
             )
 
@@ -172,7 +172,7 @@ class VkTeamsBot:
             result = EventsResponse.model_validate_json(response_body)
             if result.events:
                 logger.debug(
-                    'VKTeamsBotApiResponse',
+                    'Получены новые события',
                     extra=await log_response(response),
                 )
             return result
@@ -189,7 +189,7 @@ class VkTeamsBot:
             response_body = await response.text()
             result = GetMembersResponse.model_validate_json(response_body)
             logger.debug(
-                'VKTeamsBotApiResponse',
+                'Список пользователей',
                 extra=await log_response(response),
             )
             return result
@@ -206,7 +206,7 @@ class VkTeamsBot:
             response_body = await response.text()
             result = Response.model_validate_json(response_body)
             logger.debug(
-                'VKTeamsBotApiResponse',
+                'Удаление сообщения',
                 extra=await log_response(response),
             )
             return result

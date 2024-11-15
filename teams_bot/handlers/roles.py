@@ -3,7 +3,7 @@ import logging
 import re
 from typing import ClassVar, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter
 
 from bot_framework.bot.client import VkTeamsBot
 from bot_framework.bot.types import CallbackQueryEvent, NewMessageEvent
@@ -12,6 +12,7 @@ from bot_framework.filters import RegexpFilter
 from bot_framework.handlers import BotButtonCommandHandler, CommandHandler, MessageHandler
 from bot_framework.repository import NotFoundError
 from teams_bot.app import dispatcher
+from teams_bot.handlers.callback import CallbackData, DeleteRoleCallbackData
 from teams_bot.handlers.mixins import AdminRequiredMixin
 from teams_bot.queries.roles import RoleAssignmentUserAndRoleQuery, RoleUserQuery
 from teams_bot.queries.user import UserHasRoleQuery
@@ -25,12 +26,6 @@ from teams_bot.repositories.user import CreateUserSchema, UserRepository
 from teams_bot.utils import mention
 
 logger = logging.getLogger('teams_bot.handlers.roles')
-
-
-class DeleteRoleCallbackData(BaseModel):
-    command: Literal['deleterole']
-    role: str
-    requested_by: str
 
 
 @dispatcher.register_handler
@@ -330,7 +325,12 @@ class NotifyRoleIsTaggedHandler(MessageHandler):
 @dispatcher.register_handler
 class DeleteRoleConfirmation(BotButtonCommandHandler):
     async def callback(self, bot: VkTeamsBot, event: CallbackQueryEvent) -> None:
-        data = DeleteRoleCallbackData.model_validate_json(event.payload.callbackData)
+        ta: TypeAdapter[CallbackData] = TypeAdapter(CallbackData)
+        data = ta.validate_json(event.payload.callbackData)
+
+        if not isinstance(data, DeleteRoleCallbackData):
+            return
+
         if event.payload.sender.userId != data.requested_by:
             await bot.answer_callback_query(
                 query_id=event.payload.queryId,
