@@ -294,6 +294,50 @@ class ListRolesHandler(CommandHandler):
 
 
 @dispatcher.register_handler
+class ListRoleMembersHandler(CommandHandler):
+    """/listrolemembers."""
+
+    commands: ClassVar[list[str]] = ['listrolemembers']
+
+    async def callback(self, bot: VkTeamsBot, event: NewMessageEvent) -> None:
+        """/listrolemembers."""
+        if not event.payload.text:
+            return
+        words = event.payload.text.split(' ')[1:]
+        async with async_session() as session:
+            user_repository = UserRepository(session)
+            role_repository = RoleRepository(session)
+
+            if not words:
+                await bot.send_text(
+                    event.payload.chat.chatId, f'{mention(event.payload.sender.userId)}, укажите навзвание роли'
+                )
+                return
+
+            role_name = words[0]
+            try:
+                role = await role_repository.get_by_name(role_name)
+            except NotFoundError:
+                await bot.send_text(
+                    event.payload.chat.chatId,
+                    f'{mention(event.payload.sender.userId)}, роль {role_name} не найдена.',
+                )
+                return
+
+            users = [user.id for user in await user_repository.list_by_roles([role.name])]
+            if users:
+                await bot.send_text(
+                    event.payload.chat.chatId,
+                    f'{mention(event.payload.sender.userId)}, пользователи с ролью {role.name}:\n{'\n'.join(users)}',
+                )
+            else:
+                await bot.send_text(
+                    event.payload.chat.chatId,
+                    f'{mention(event.payload.sender.userId)}, нет пользователей с ролью {role.name}',
+                )
+
+
+@dispatcher.register_handler
 class NotifyRoleIsTaggedHandler(MessageHandler):
     """/role_is_tagged."""
 
