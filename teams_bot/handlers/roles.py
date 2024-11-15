@@ -15,14 +15,14 @@ from teams_bot.app import dispatcher
 from teams_bot.handlers.callback import CallbackData, DeleteRoleCallbackData
 from teams_bot.handlers.mixins import AdminRequiredMixin
 from teams_bot.queries.roles import RoleAssignmentUserAndRoleQuery, RoleUserQuery
-from teams_bot.queries.user import UserHasRoleQuery
+from teams_bot.queries.user import ChatUserHasRoleQuery
 from teams_bot.repositories.role import (
     CreateRoleAssignmentSchema,
     CreateRoleSchema,
     RoleAssignmentRepository,
     RoleRepository,
 )
-from teams_bot.repositories.user import CreateUserSchema, UserRepository
+from teams_bot.repositories.user import CreateChatUserSchema, ChatUserRepository
 from teams_bot.utils import mention
 
 logger = logging.getLogger('teams_bot.handlers.roles')
@@ -143,7 +143,7 @@ class AssignRoleHandler(AdminRequiredMixin, CommandHandler):
         try:
             async with async_session() as session:
                 role_repository = RoleRepository(session)
-                user_repository = UserRepository(session)
+                chat_user_repository = ChatUserRepository(session)
                 try:
                     role = await role_repository.get_by_name(role_name)
                 except NotFoundError:
@@ -171,9 +171,9 @@ class AssignRoleHandler(AdminRequiredMixin, CommandHandler):
                     )
                     return
                 try:
-                    await user_repository.get(user_id)
+                    await chat_user_repository.get(user_id)
                 except NotFoundError:
-                    await user_repository.create(CreateUserSchema(id=user_id))
+                    await chat_user_repository.create(CreateChatUserSchema(id=user_id))
                 await role_assignment_repository.create(CreateRoleAssignmentSchema(role_id=role.id, user_id=user_id))
                 await session.commit()
         except Exception:
@@ -272,7 +272,7 @@ class ListRolesHandler(CommandHandler):
                 return
 
             user_id = words[0]
-            if not await UserRepository(session).exists(pk=user_id):
+            if not await ChatUserRepository(session).exists(pk=user_id):
                 await bot.send_text(
                     event.payload.chat.chatId,
                     f'{mention(event.payload.sender.userId)}, пользователь {user_id} не найден.',
@@ -305,7 +305,7 @@ class ListRoleMembersHandler(CommandHandler):
             return
         words = event.payload.text.split(' ')[1:]
         async with async_session() as session:
-            user_repository = UserRepository(session)
+            chat_user_repository = ChatUserRepository(session)
             role_repository = RoleRepository(session)
 
             if not words:
@@ -324,7 +324,7 @@ class ListRoleMembersHandler(CommandHandler):
                 )
                 return
 
-            users = [user.id for user in await user_repository.list_by_roles([role.name])]
+            users = [user.id for user in await chat_user_repository.list_by_roles([role.name])]
             if users:
                 await bot.send_text(
                     event.payload.chat.chatId,
@@ -354,7 +354,7 @@ class NotifyRoleIsTaggedHandler(MessageHandler):
 
         async with async_session() as session:
             try:
-                users = await UserRepository(session).query(UserHasRoleQuery(roles=hashtags)).list()
+                users = await ChatUserRepository(session).query(ChatUserHasRoleQuery(roles=hashtags)).list()
                 for user in users:
                     await bot.send_text(
                         chat_id=user.id,

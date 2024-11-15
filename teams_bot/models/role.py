@@ -10,7 +10,7 @@ from sqlalchemy import orm
 from bot_framework.db.base import Model
 
 if TYPE_CHECKING:
-    from .user import User
+    from .user import ChatUser
 
 
 class RoleAssignment(Model):
@@ -21,8 +21,8 @@ class RoleAssignment(Model):
     id: orm.Mapped[int] = orm.mapped_column(primary_key=True, index=True, autoincrement=True, unique=True)
     role_id: orm.Mapped[uuid.UUID] = orm.mapped_column(sa.ForeignKey("roles.id"))
     role: orm.Mapped[Role] = orm.relationship(back_populates="assignments")
-    user_id: orm.Mapped[str] = orm.mapped_column(sa.ForeignKey("users.id"))
-    user: orm.Mapped[User] = orm.relationship(back_populates="role_assignments")
+    user_id: orm.Mapped[str] = orm.mapped_column(sa.ForeignKey("chat_users.id"))
+    user: orm.Mapped[ChatUser] = orm.relationship(back_populates="role_assignments")
 
 
 class Role(Model):

@@ -7,10 +7,10 @@ from teams_bot.models.chat import ChatMembership
 from .role import RoleAssignment
 
 
-class User(Model):
+class ChatUser(Model):
     """Пользователь."""
 
-    __tablename__ = 'users'
+    __tablename__ = 'chat_users'
 
     id: orm.Mapped[str] = orm.mapped_column(primary_key=True, index=True, unique=True)
     role_assignments: orm.Mapped[list[RoleAssignment]] = orm.relationship(back_populates='user')

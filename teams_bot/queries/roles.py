@@ -4,7 +4,7 @@ from bot_framework.query import Query
 import sqlalchemy as sa
 
 from teams_bot.models.role import Role, RoleAssignment
-from teams_bot.models.user import User
+from teams_bot.models.user import ChatUser
 
 
 type Statement = sa.Select[Any]
@@ -18,7 +18,7 @@ class RoleUserQuery(RoleQuery):
 
     def apply(self, statement: Statement) -> Statement:
         if self.user_id:
-            statement = statement.join(Role.assignments).join(RoleAssignment.user).where(User.id == self.user_id)
+            statement = statement.join(Role.assignments).join(RoleAssignment.user).where(ChatUser.id == self.user_id)
         return statement
 
 
