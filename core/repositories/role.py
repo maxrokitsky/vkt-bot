@@ -5,8 +5,8 @@ import sqlalchemy as sa
 from pydantic import BaseModel
 
 from bot_framework.repository import AsyncRepository, NotFoundError
-from teams_bot.models import Role
-from teams_bot.models.role import RoleAssignment
+from core.models import Role
+from core.models.role import RoleAssignment
 
 
 class CreateRoleSchema(BaseModel):

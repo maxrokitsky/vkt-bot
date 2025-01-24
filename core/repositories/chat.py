@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from bot_framework.bot.enums import ChatType
 from bot_framework.repository import AsyncRepository
-from teams_bot.models import Chat
+from core.models import Chat
 
 
 class CreateChatSchema(BaseModel):

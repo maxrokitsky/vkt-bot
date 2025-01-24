@@ -1,9 +1,9 @@
 import json
 import logging
 import re
-from typing import ClassVar, Literal
+from typing import ClassVar
 
-from pydantic import BaseModel, TypeAdapter
+from pydantic import TypeAdapter
 
 from bot_framework.bot.client import VkTeamsBot
 from bot_framework.bot.types import CallbackQueryEvent, NewMessageEvent
@@ -11,18 +11,18 @@ from bot_framework.db.session import async_session
 from bot_framework.filters import RegexpFilter
 from bot_framework.handlers import BotButtonCommandHandler, CommandHandler, MessageHandler
 from bot_framework.repository import NotFoundError
-from teams_bot.app import dispatcher
-from teams_bot.handlers.callback import CallbackData, DeleteRoleCallbackData
-from teams_bot.handlers.mixins import AdminRequiredMixin
-from teams_bot.queries.roles import RoleAssignmentUserAndRoleQuery, RoleUserQuery
-from teams_bot.queries.user import ChatUserHasRoleQuery
-from teams_bot.repositories.role import (
+from core.queries.roles import RoleAssignmentUserAndRoleQuery, RoleUserQuery
+from core.queries.user import ChatUserHasRoleQuery
+from core.repositories.role import (
     CreateRoleAssignmentSchema,
     CreateRoleSchema,
     RoleAssignmentRepository,
     RoleRepository,
 )
-from teams_bot.repositories.user import CreateChatUserSchema, ChatUserRepository
+from core.repositories.user import ChatUserRepository, CreateChatUserSchema
+from teams_bot.app import dispatcher
+from teams_bot.handlers.callback import CallbackData, DeleteRoleCallbackData
+from teams_bot.handlers.mixins import AdminRequiredMixin
 from teams_bot.utils import mention
 
 logger = logging.getLogger('teams_bot.handlers.roles')

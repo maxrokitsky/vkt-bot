@@ -4,8 +4,8 @@ from typing import Any
 import sqlalchemy as sa
 
 from bot_framework.query import Query
-from teams_bot.models.role import Role, RoleAssignment
-from teams_bot.models.user import ChatUser
+from core.models.role import Role, RoleAssignment
+from core.models.user import ChatUser
 
 type Statement = sa.Select[Any]
 

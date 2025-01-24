@@ -1,11 +1,11 @@
 from typing import Any
 from uuid import UUID
-from bot_framework.query import Query
+
 import sqlalchemy as sa
 
-from teams_bot.models.role import Role, RoleAssignment
-from teams_bot.models.user import ChatUser
-
+from bot_framework.query import Query
+from core.models.role import Role, RoleAssignment
+from core.models.user import ChatUser
 
 type Statement = sa.Select[Any]
 

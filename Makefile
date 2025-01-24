@@ -3,3 +3,6 @@ build:
 
 push:
 	docker push git.rokitsky.ru/vkt-bot/vkt-bot
+
+migrate:
+	alembic upgrade head

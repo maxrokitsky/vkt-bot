@@ -22,4 +22,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()  # type: ignore [reportCallIssue]
-print('logging', settings.logging)

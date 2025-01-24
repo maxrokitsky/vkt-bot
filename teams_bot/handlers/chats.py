@@ -3,9 +3,8 @@ import logging
 from bot_framework.bot.types import Event, NewMessageEvent
 from bot_framework.db.session import async_session
 from bot_framework.middleware import Middleware
-from bot_framework.repository import NotFoundError
+from core.repositories.chat import ChatRepository, CreateChatSchema
 from teams_bot.app import dispatcher
-from teams_bot.repositories.chat import ChatRepository, CreateChatSchema
 
 logger = logging.getLogger('teams_bot')
 

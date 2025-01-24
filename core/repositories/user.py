@@ -1,12 +1,11 @@
 from typing import Any
 
-from pydantic import BaseModel
 import sqlalchemy as sa
+from pydantic import BaseModel
 
 from bot_framework.repository import AsyncRepository
-from teams_bot.models import ChatUser
-from teams_bot.models.role import Role, RoleAssignment
-
+from core.models import ChatUser
+from core.models.role import Role, RoleAssignment
 
 
 class CreateChatUserSchema(BaseModel):

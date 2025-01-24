@@ -7,9 +7,9 @@ from bot_framework.bot.types import NewMessageEvent
 from bot_framework.db.session import async_session
 from bot_framework.exceptions import NotFoundError
 from bot_framework.filters import FilterBase
+from core.repositories.role import CreateRoleSchema, RoleAssignmentRepository, RoleRepository
 from teams_bot.config import settings
-from teams_bot.queries.roles import RoleAssignmentUserAndRoleQuery
-from teams_bot.repositories.role import CreateRoleSchema, RoleAssignmentRepository, RoleRepository
+from core.queries.roles import RoleAssignmentUserAndRoleQuery
 from teams_bot.utils import mention
 
 if TYPE_CHECKING:

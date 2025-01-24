@@ -2,7 +2,7 @@
 from sqlalchemy import orm
 
 from bot_framework.db.base import Model
-from teams_bot.models.chat import ChatMembership
+from core.models.chat import ChatMembership
 
 from .role import RoleAssignment
 
