@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 from bot_framework.exceptions import NotFoundError
 from core.repositories.role import CreateRoleSchema, RoleRepository
 from dashboard.db import DB
+from dashboard.schemas.pagination import PaginatedResponse
 from dashboard.schemas.role import CreateRoleAPISchema, DetailRoleAPISchema
 
 roles_router = APIRouter(
@@ -14,10 +15,10 @@ roles_router = APIRouter(
 )
 
 
-@roles_router.get('', response_model=list[DetailRoleAPISchema])
-async def list_roles(session: DB) -> Any:
-    role_repository = RoleRepository(session)
-    return await role_repository.list()
+@roles_router.get('', response_model=PaginatedResponse[DetailRoleAPISchema])
+async def list_roles(session: DB, page: int = 1, page_size: int = 50) -> Any:
+    query = RoleRepository(session).query()
+    return await query.paginate(page=page, size=page_size)
 
 
 @roles_router.get('/{role_id}', response_model=DetailRoleAPISchema)

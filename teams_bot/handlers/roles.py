@@ -11,7 +11,7 @@ from bot_framework.db.session import async_session
 from bot_framework.filters import RegexpFilter
 from bot_framework.handlers import BotButtonCommandHandler, CommandHandler, MessageHandler
 from bot_framework.repository import NotFoundError
-from core.queries.roles import RoleAssignmentUserAndRoleQuery, RoleUserQuery
+from core.queries.roles import RoleAssignmentByUserAndRoleQuery, RoleByUserQuery
 from core.queries.user import ChatUserHasRoleQuery
 from core.repositories.role import (
     CreateRoleAssignmentSchema,
@@ -91,7 +91,7 @@ class DeleteRoleHandler(AdminRequiredMixin, CommandHandler):
 
             role_assignment_repository = RoleAssignmentRepository(session)
             assignments = await role_assignment_repository.query(
-                RoleAssignmentUserAndRoleQuery(
+                RoleAssignmentByUserAndRoleQuery(
                     role_id=role.id,
                 )
             ).list()
@@ -163,7 +163,7 @@ class AssignRoleHandler(AdminRequiredMixin, CommandHandler):
                     return
 
                 if await role_assignment_repository.query(
-                    RoleAssignmentUserAndRoleQuery(user_id=user_id, role_id=role.id)
+                    RoleAssignmentByUserAndRoleQuery(user_id=user_id, role_id=role.id)
                 ).exists():
                     await bot.send_text(
                         event.payload.chat.chatId,
@@ -224,7 +224,7 @@ class RevokeRoleHandler(AdminRequiredMixin, CommandHandler):
 
                 role_assignment_repository = RoleAssignmentRepository(session)
                 role_assignment = await role_assignment_repository.query(
-                    RoleAssignmentUserAndRoleQuery(user_id=user_id, role_id=role.id)
+                    RoleAssignmentByUserAndRoleQuery(user_id=user_id, role_id=role.id)
                 ).one_or_none()
                 if not role_assignment:
                     await bot.send_text(
@@ -279,7 +279,7 @@ class ListRolesHandler(CommandHandler):
                 )
                 return
 
-            roles = await role_repository.query(RoleUserQuery(user_id=user_id)).list()
+            roles = await role_repository.query(RoleByUserQuery(user_id=user_id)).list()
             if not roles:
                 await bot.send_text(
                     event.payload.chat.chatId,
@@ -396,7 +396,7 @@ class DeleteRoleConfirmation(BotButtonCommandHandler):
 
             role_assignment_repository = RoleAssignmentRepository(session)
             assignments = await role_assignment_repository.query(
-                RoleAssignmentUserAndRoleQuery(
+                RoleAssignmentByUserAndRoleQuery(
                     role_id=role.id,
                 )
             ).list()

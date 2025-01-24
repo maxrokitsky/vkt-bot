@@ -9,7 +9,7 @@ from bot_framework.exceptions import NotFoundError
 from bot_framework.filters import FilterBase
 from core.repositories.role import CreateRoleSchema, RoleAssignmentRepository, RoleRepository
 from teams_bot.config import settings
-from core.queries.roles import RoleAssignmentUserAndRoleQuery
+from core.queries.roles import RoleAssignmentByUserAndRoleQuery
 from teams_bot.utils import mention
 
 if TYPE_CHECKING:
@@ -58,6 +58,6 @@ class AdminRequiredMixin:
                 )
             return (
                 await RoleAssignmentRepository(session)
-                .query(RoleAssignmentUserAndRoleQuery(user_id=user_id, role_id=role.id))
+                .query(RoleAssignmentByUserAndRoleQuery(user_id=user_id, role_id=role.id))
                 .exists()
             )

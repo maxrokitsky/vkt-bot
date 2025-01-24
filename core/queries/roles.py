@@ -13,7 +13,16 @@ type Statement = sa.Select[Any]
 class RoleQuery(Query): ...
 
 
-class RoleUserQuery(RoleQuery):
+class RoleByIdQuery(RoleQuery):
+    role_id: str | None = None
+
+    def apply(self, statement: Statement) -> Statement:
+        if self.role_id:
+            statement = statement.where(Role.id == self.role_id)
+        return statement
+
+
+class RoleByUserQuery(RoleQuery):
     user_id: str | None = None
 
     def apply(self, statement: Statement) -> Statement:
@@ -25,7 +34,7 @@ class RoleUserQuery(RoleQuery):
 class RoleAssignmentQuery(Query): ...
 
 
-class RoleAssignmentUserAndRoleQuery(RoleAssignmentQuery):
+class RoleAssignmentByUserAndRoleQuery(RoleAssignmentQuery):
     user_id: str | None = None
     role_id: UUID | None = None
 

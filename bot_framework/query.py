@@ -1,4 +1,6 @@
-from typing import Any, Sequence
+from dataclasses import dataclass
+import math
+from typing import Any, Generic, Sequence, TypeVar
 
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,6 +8,13 @@ from pydantic import BaseModel
 
 from bot_framework.db import Statement, Model
 from bot_framework.exceptions import NotFoundError
+
+
+@dataclass
+class Page[T: Model]:
+    results: list[T]
+    total: int
+    page: int
 
 
 class QueryResult[T: Model]:
@@ -29,6 +38,23 @@ class QueryResult[T: Model]:
 
     async def list(self) -> Sequence[T]:
         return (await self.session.scalars(self.statement)).all()
+
+    async def paginate(self, page: int, size: int) -> Page[T]:
+        statement = self.statement
+
+        page = max(page, 1)
+        total = await self.session.scalar(sa.select(sa.func.count()).select_from(statement.froms[0])) or 0
+        max_pages = math.ceil(total / size)
+        page = min(page, max_pages)
+
+        limit = size
+        offset = (page - 1) * size
+        results = (await self.session.scalars(statement.limit(limit).offset(offset))).all()
+        return Page(
+            results=list(results),
+            total=total,
+            page=page
+        )
 
 
 class Query(BaseModel):
