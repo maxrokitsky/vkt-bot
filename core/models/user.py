@@ -1,10 +1,24 @@
 
+import datetime
+
+import sqlalchemy as sa
 from sqlalchemy import orm
 
 from bot_framework.db.base import Model
 from core.models.chat import ChatMembership
 
 from .role import RoleAssignment
+
+
+class User(Model):
+    """Юзер."""
+
+    __tablename__ = 'users'
+
+    username: orm.Mapped[str] = orm.mapped_column(primary_key=True, index=True, unique=True)
+    hashed_password: orm.Mapped[str]
+    email: orm.Mapped[str] = orm.mapped_column(index=True)
+    created_at: orm.Mapped[datetime.datetime] = orm.mapped_column(server_default=sa.func.now())
 
 
 class ChatUser(Model):

@@ -44,7 +44,7 @@ class QueryResult[T: Model]:
 
         page = max(page, 1)
         total = await self.session.scalar(sa.select(sa.func.count()).select_from(statement.froms[0])) or 0
-        max_pages = math.ceil(total / size)
+        max_pages = math.ceil(total / size) or 1
         page = min(page, max_pages)
 
         limit = size

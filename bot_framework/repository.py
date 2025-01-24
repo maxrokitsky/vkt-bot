@@ -43,7 +43,8 @@ class AsyncRepository[T_Model: Model, T_PK: Any, T_CreateSchema: BaseModel, T_Up
 
     async def get(self, pk: T_PK) -> T_Model:
         """Get."""
-        if result := await self.session.scalar(sa.select(self.model).where(self.model.id == pk)):
+        pk_column = sa.inspect(self.model).primary_key[0]
+        if result := await self.session.scalar(sa.select(self.model).where(pk_column == pk)):
             return result
         raise NotFoundError
 
