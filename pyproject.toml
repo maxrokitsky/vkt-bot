@@ -19,6 +19,9 @@ aiohttp = "^3.10.10"
 pydantic = "^2.9.2"
 aio-pika = "^9.4.3"
 ipython = "^8.29.0"
+fastapi = "^0.115.7"
+uvicorn = "^0.34.0"
+fastapi-cli = "^0.0.7"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -126,6 +129,7 @@ ignore = [
 
     "ANN101",
     "ANN102",
+    "ANN401",
     "TCH003",
 ]
 
