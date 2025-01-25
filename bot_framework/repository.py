@@ -66,6 +66,7 @@ class AsyncRepository[T_Model: Model, T_PK: Any, T_CreateSchema: BaseModel, T_Up
         self.session.add(obj)
         if commit:
             await self.session.commit()
+            await self.session.refresh(obj)
         return obj
 
     async def update(self, pk: T_PK, data: T_UpdateSchema | dict[str, Any], *, commit: bool = False) -> T_Model:
@@ -78,6 +79,7 @@ class AsyncRepository[T_Model: Model, T_PK: Any, T_CreateSchema: BaseModel, T_Up
         self.session.add(obj)
         if commit:
             await self.session.commit()
+            await self.session.refresh(obj)
         return obj
 
     async def delete(self, pk: T_PK, *, commit: bool = False) -> None:
