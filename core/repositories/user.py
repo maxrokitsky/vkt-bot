@@ -17,7 +17,14 @@ class CreateUserSchema(BaseModel):
     email: EmailStr
 
 
-class UserRepository(AsyncRepository[User, str, CreateUserSchema, Any]):
+class UpdateUserSchema(BaseModel):
+    """UpdateUserSchema."""
+
+    hashed_password: str
+    email: EmailStr
+
+
+class UserRepository(AsyncRepository[User, str, CreateUserSchema, UpdateUserSchema]):
     """User Repository."""
 
 

@@ -1,8 +1,8 @@
 from collections.abc import Iterable
 from typing import Any
 
-from pydantic import EmailStr
 import sqlalchemy as sa
+from pydantic import EmailStr
 
 from bot_framework.query import Query
 from core.models.role import Role, RoleAssignment
@@ -15,11 +15,17 @@ class UserQuery(Query): ...
 
 
 class UserByUsernameOrEmail(UserQuery):
-    username: str
-    email: EmailStr
+    username: str | None = None
+    email: EmailStr | None = None
 
     def apply(self, statement: Statement) -> Statement:
-        return statement.where((User.email == self.email) | (User.username == self.username))
+        if self.username and self.email:
+            return statement.where((User.email == self.email) | (User.username == self.username))
+        if self.email:
+            return statement.where(User.email == self.email)
+        if self.username:
+            return statement.where(User.username == self.username)
+        raise Exception
 
 
 class ChatUserQuery(Query): ...

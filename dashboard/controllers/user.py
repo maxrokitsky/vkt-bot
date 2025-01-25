@@ -4,10 +4,15 @@ from fastapi import APIRouter, HTTPException
 
 from bot_framework.exceptions import NotFoundError
 from core.queries.user import UserByUsernameOrEmail
-from core.repositories.user import CreateUserSchema, UserRepository
+from core.repositories.user import CreateUserSchema, UpdateUserSchema, UserRepository
 from dashboard.db import DB
 from dashboard.schemas.pagination import PaginatedResponse
-from dashboard.schemas.user import CreateUserAPISchema, DetailUserAPISchema
+from dashboard.schemas.user import (
+    CreateUserAPISchema,
+    DetailUserAPISchema,
+    PartialUpdateUserAPISchema,
+    UpdateUserAPISchema,
+)
 
 user_router = APIRouter(
     prefix='/users',
@@ -41,5 +46,32 @@ async def create_user(session: DB, user_data: CreateUserAPISchema) -> Any:
             hashed_password=user_data.password,
             email=user_data.email,
         ),
+        commit=True,
+    )
+
+
+@user_router.put('/{username}', response_model=DetailUserAPISchema)
+async def update_user(session: DB, username: str, user_data: UpdateUserAPISchema) -> Any:
+    user_repository = UserRepository(session)
+    if not await user_repository.query(UserByUsernameOrEmail(username=username)).exists():
+        raise HTTPException(status_code=404, detail='Пользователь не найден')
+    return await user_repository.update(
+        pk=username,
+        data=UpdateUserSchema(
+            hashed_password=user_data.password,
+            email=user_data.email,
+        ),
+        commit=True,
+    )
+
+
+@user_router.patch('/{username}', response_model=DetailUserAPISchema)
+async def partial_update_user(session: DB, username: str, user_data: PartialUpdateUserAPISchema) -> Any:
+    user_repository = UserRepository(session)
+    if not await user_repository.query(UserByUsernameOrEmail(username=username)).exists():
+        raise HTTPException(status_code=404, detail='Пользователь не найден')
+    return await user_repository.update(
+        pk=username,
+        data=user_data.model_dump(exclude_unset=True),
         commit=True,
     )

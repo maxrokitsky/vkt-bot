@@ -68,6 +68,18 @@ class AsyncRepository[T_Model: Model, T_PK: Any, T_CreateSchema: BaseModel, T_Up
             await self.session.commit()
         return obj
 
+    async def update(self, pk: T_PK, data: T_UpdateSchema | dict[str, Any], *, commit: bool = False) -> T_Model:
+        """Update."""
+        if isinstance(data, BaseModel):
+            data = data.model_dump()
+        obj = await self.get(pk)
+        for k, v in data.items():
+            setattr(obj, k, v)
+        self.session.add(obj)
+        if commit:
+            await self.session.commit()
+        return obj
+
     async def delete(self, pk: T_PK, *, commit: bool = False) -> None:
         """Save."""
         stmt = sa.delete(self.model).where(self.model.id == pk)

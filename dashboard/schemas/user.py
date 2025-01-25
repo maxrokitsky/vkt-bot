@@ -13,6 +13,20 @@ class CreateUserAPISchema(BaseModel):
     email: EmailStr
 
 
+class UpdateUserAPISchema(BaseModel):
+    """Юзер."""
+
+    password: Annotated[str, Len(8, 40)]
+    email: EmailStr
+
+
+class PartialUpdateUserAPISchema(BaseModel):
+    """Юзер."""
+
+    password: Annotated[str, Len(8, 40)] | None = None
+    email: EmailStr | None = None
+
+
 class DetailUserAPISchema(BaseModel):
     """Юзер."""
 
