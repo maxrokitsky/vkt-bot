@@ -7,6 +7,8 @@ from bot_framework.repository import AsyncRepository
 from core.models import ChatUser
 from core.models.role import Role, RoleAssignment
 from core.models.user import User
+from core.queries.user import UserByUsernameOrEmail
+from core.security import verify_password
 
 
 class CreateUserSchema(BaseModel):
@@ -26,6 +28,17 @@ class UpdateUserSchema(BaseModel):
 
 class UserRepository(AsyncRepository[User, str, CreateUserSchema, UpdateUserSchema]):
     """User Repository."""
+
+    async def authenticate(self, email_or_username: str, password: str) -> User | None:
+        """Авторизует пользователя."""
+        user = await self.query(
+            UserByUsernameOrEmail(email=email_or_username, username=email_or_username)
+        ).one_or_none()
+        if not user:
+            return None
+        if not verify_password(password, user.hashed_password):
+            return None
+        return user
 
 
 class CreateChatUserSchema(BaseModel):

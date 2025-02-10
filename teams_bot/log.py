@@ -90,6 +90,7 @@ LOGGING = {
     'loggers': {
         'teams_bot': {'level': settings.logging},
         'aio_pika': {'level': settings.rabbitmq_logging},
+        'passlib': { 'level': logging.ERROR},
     },
 }
 
@@ -107,11 +108,12 @@ def init_logging() -> None:
         'bot_token': mask_string,
         'db_url': mask_url,
         'broker_url': mask_url,
+        'secret_key': mask_string,
     }
 
     def format_setting(k: str, v: Any):
         if k in mask_settings:
-            v = mask_settings[k](v)
+            v = mask_settings[k](v) if v else "<NOT_SET>"
         return f'{k}: {v}'
 
     msg = [f'   * {format_setting(k, v)}' for k, v in settings.model_dump().items()]

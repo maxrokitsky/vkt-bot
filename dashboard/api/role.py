@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 from bot_framework.exceptions import NotFoundError
 from core.repositories.role import CreateRoleSchema, RoleRepository
 from dashboard.db import DB
+from dashboard.dependencies import CurrentUser
 from dashboard.schemas.pagination import PaginatedResponse
 from dashboard.schemas.role import CreateRoleAPISchema, DetailRoleAPISchema
 
@@ -16,13 +17,15 @@ roles_router = APIRouter(
 
 
 @roles_router.get('', response_model=PaginatedResponse[DetailRoleAPISchema])
-async def list_roles(session: DB, page: int = 1, page_size: int = 50) -> Any:
+async def list_roles(session: DB, _user: CurrentUser, page: int = 1, page_size: int = 50) -> Any:
+    """Список ролей."""
     query = RoleRepository(session).query()
     return await query.paginate(page=page, size=page_size)
 
 
 @roles_router.get('/{role_id}', response_model=DetailRoleAPISchema)
-async def get_role(session: DB, role_id: uuid.UUID) -> Any:
+async def get_role(session: DB, _user: CurrentUser, role_id: uuid.UUID) -> Any:
+    """Получить информацию о роли."""
     role_repository = RoleRepository(session)
     try:
         return await role_repository.get(role_id)
@@ -30,7 +33,8 @@ async def get_role(session: DB, role_id: uuid.UUID) -> Any:
         raise HTTPException(status_code=404, detail="Роль не найдена") from err
 
 @roles_router.post('', response_model=DetailRoleAPISchema)
-async def create_role(session: DB, role_data: CreateRoleAPISchema) -> Any:
+async def create_role(session: DB, _user: CurrentUser, role_data: CreateRoleAPISchema) -> Any:
+    """Создать роль."""
     role_repository = RoleRepository(session)
     if await role_repository.get_by_name(role_data.name):
         raise HTTPException(status_code=404, detail="Роль уже существует")

@@ -16,15 +16,18 @@ class UserQuery(Query): ...
 
 class UserByUsernameOrEmail(UserQuery):
     username: str | None = None
-    email: EmailStr | None = None
+    email: str | None = None
 
     def apply(self, statement: Statement) -> Statement:
         if self.username and self.email:
-            return statement.where((User.email == self.email) | (User.username == self.username))
+            return statement.where(
+                (sa.func.lower(User.email) == self.email.lower())
+                | (sa.func.lower(User.username) == self.username.lower())
+            )
         if self.email:
-            return statement.where(User.email == self.email)
+            return statement.where(sa.func.lower(User.email) == self.email.lower())
         if self.username:
-            return statement.where(User.username == self.username)
+            return statement.where(sa.func.lower(User.username) == self.username.lower())
         raise Exception
 
 
