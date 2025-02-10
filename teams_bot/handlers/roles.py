@@ -358,7 +358,7 @@ class NotifyRoleIsTaggedHandler(MessageHandler):
                 for user in users:
                     await bot.send_text(
                         chat_id=user.id,
-                        text=f'Вас упоминули в группе "{event.payload.chat.title}"',
+                        text=f'Вас упомянули в группе "{event.payload.chat.title}"',
                         forward_chat_id=event.payload.chat.chatId,
                         forward_msg_id=event.payload.msgId,
                     )
