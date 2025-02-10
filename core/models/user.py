@@ -19,6 +19,8 @@ class User(Model):
     hashed_password: orm.Mapped[str]
     email: orm.Mapped[str] = orm.mapped_column(index=True)
     created_at: orm.Mapped[datetime.datetime] = orm.mapped_column(server_default=sa.func.now())
+    is_active: orm.Mapped[bool] = orm.mapped_column(default=True, server_default=sa.sql.true())
+    is_superuser: orm.Mapped[bool] = orm.mapped_column(default=False, server_default=sa.sql.false())
 
 
 class ChatUser(Model):

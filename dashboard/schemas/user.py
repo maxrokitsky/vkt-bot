@@ -11,6 +11,8 @@ class CreateUserAPISchema(BaseModel):
     username: str
     password: Annotated[str, Len(8, 40)]
     email: EmailStr
+    is_active: bool
+    is_superuser: bool
 
 
 class UpdateUserAPISchema(BaseModel):
@@ -18,6 +20,8 @@ class UpdateUserAPISchema(BaseModel):
 
     password: Annotated[str, Len(8, 40)]
     email: EmailStr
+    is_active: bool
+    is_superuser: bool
 
 
 class PartialUpdateUserAPISchema(BaseModel):
@@ -25,7 +29,8 @@ class PartialUpdateUserAPISchema(BaseModel):
 
     password: Annotated[str, Len(8, 40)] | None = None
     email: EmailStr | None = None
-
+    is_active: bool | None = None
+    is_superuser: bool | None = None
 
 class DetailUserAPISchema(BaseModel):
     """Юзер."""
@@ -33,3 +38,5 @@ class DetailUserAPISchema(BaseModel):
     username: str
     email: EmailStr
     created_at: dt.datetime
+    is_active: bool
+    is_superuser: bool

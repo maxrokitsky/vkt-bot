@@ -50,6 +50,8 @@ async def create_user(session: DB, _user: CurrentUser, user_data: CreateUserAPIS
             username=user_data.username,
             hashed_password=get_password_hash(user_data.password),
             email=user_data.email,
+            is_active=user_data.is_active,
+            is_superuser=user_data.is_superuser,
         ),
         commit=True,
     )
@@ -66,6 +68,8 @@ async def update_user(session: DB, _user: CurrentUser, username: str, user_data:
         data=UpdateUserSchema(
             hashed_password=get_password_hash(user_data.password),
             email=user_data.email,
+            is_active=user_data.is_active,
+            is_superuser=user_data.is_superuser,
         ),
         commit=True,
     )
