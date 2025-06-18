@@ -5,7 +5,7 @@ class Token(BaseModel):
     """Токен."""
 
     access_token: str
-    token_type: str = 'bearer'
+    token_type: str = "bearer"
 
 
 class TokenPayload(BaseModel):

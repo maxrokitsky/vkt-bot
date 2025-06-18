@@ -32,6 +32,7 @@ class PartialUpdateUserAPISchema(BaseModel):
     is_active: bool | None = None
     is_superuser: bool | None = None
 
+
 class DetailUserAPISchema(BaseModel):
     """Юзер."""
 

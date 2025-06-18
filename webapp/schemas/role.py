@@ -16,5 +16,3 @@ class DetailRoleAPISchema(BaseModel):
     id: uuid.UUID
     name: str
     created_at: dt.datetime
-
-
