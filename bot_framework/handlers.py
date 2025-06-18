@@ -23,7 +23,11 @@ class HandlerBase:
     filters: FilterBase | None = None
     callback: Callable[..., Any] | None = None
 
-    def __init__(self, filters: FilterBase | None = None, callback: Callable[..., Any] | None = None) -> None:
+    def __init__(
+        self,
+        filters: FilterBase | None = None,
+        callback: Callable[..., Any] | None = None,
+    ) -> None:
         """__init__."""
         if filters:
             self.filters = filters
@@ -49,7 +53,9 @@ class DefaultHandler(HandlerBase):
     def check(self, event: Event, dispatcher: Dispatcher) -> bool:
         """Check."""
         return super().check(event=event, dispatcher=dispatcher) and not any(
-            h.check(event=event, dispatcher=dispatcher) for h in dispatcher.handlers if h is not self
+            h.check(event=event, dispatcher=dispatcher)
+            for h in dispatcher.handlers
+            if h is not self
         )
 
     async def handle(self, event: Event, dispatcher: Dispatcher) -> NoReturn:
@@ -63,7 +69,10 @@ class NewChatMembersHandler(HandlerBase):
 
     def check(self, event: Event, dispatcher: Dispatcher) -> bool:
         """Check."""
-        return super().check(event=event, dispatcher=dispatcher) and event.type == EventType.NEW_CHAT_MEMBERS
+        return (
+            super().check(event=event, dispatcher=dispatcher)
+            and event.type == EventType.NEW_CHAT_MEMBERS
+        )
 
 
 class LeftChatMembersHandler(HandlerBase):
@@ -71,7 +80,10 @@ class LeftChatMembersHandler(HandlerBase):
 
     def check(self, event: Event, dispatcher: Dispatcher) -> bool:
         """Check."""
-        return super().check(event=event, dispatcher=dispatcher) and event.type == EventType.LEFT_CHAT_MEMBERS
+        return (
+            super().check(event=event, dispatcher=dispatcher)
+            and event.type == EventType.LEFT_CHAT_MEMBERS
+        )
 
 
 class PinnedMessageHandler(HandlerBase):
@@ -79,7 +91,10 @@ class PinnedMessageHandler(HandlerBase):
 
     def check(self, event: Event, dispatcher: Dispatcher) -> bool:
         """Check."""
-        return super().check(event=event, dispatcher=dispatcher) and event.type == EventType.PINNED_MESSAGE
+        return (
+            super().check(event=event, dispatcher=dispatcher)
+            and event.type == EventType.PINNED_MESSAGE
+        )
 
 
 class UnPinnedMessageHandler(HandlerBase):
@@ -87,7 +102,10 @@ class UnPinnedMessageHandler(HandlerBase):
 
     def check(self, event: Event, dispatcher: Dispatcher) -> bool:
         """Check."""
-        return super().check(event=event, dispatcher=dispatcher) and event.type == EventType.UNPINNED_MESSAGE
+        return (
+            super().check(event=event, dispatcher=dispatcher)
+            and event.type == EventType.UNPINNED_MESSAGE
+        )
 
 
 class MessageHandler(HandlerBase):
@@ -95,7 +113,10 @@ class MessageHandler(HandlerBase):
 
     def check(self, event: Event, dispatcher: Dispatcher) -> bool:
         """Check."""
-        return super().check(event=event, dispatcher=dispatcher) and event.type == EventType.NEW_MESSAGE
+        return (
+            super().check(event=event, dispatcher=dispatcher)
+            and event.type == EventType.NEW_MESSAGE
+        )
 
 
 class EditedMessageHandler(HandlerBase):
@@ -103,7 +124,10 @@ class EditedMessageHandler(HandlerBase):
 
     def check(self, event: Event, dispatcher: Dispatcher) -> bool:
         """Check."""
-        return super().check(event=event, dispatcher=dispatcher) and event.type == EventType.EDITED_MESSAGE
+        return (
+            super().check(event=event, dispatcher=dispatcher)
+            and event.type == EventType.EDITED_MESSAGE
+        )
 
 
 class DeletedMessageHandler(HandlerBase):
@@ -111,7 +135,10 @@ class DeletedMessageHandler(HandlerBase):
 
     def check(self, event: Event, dispatcher: Dispatcher) -> bool:
         """Check."""
-        return super().check(event=event, dispatcher=dispatcher) and event.type == EventType.DELETED_MESSAGE
+        return (
+            super().check(event=event, dispatcher=dispatcher)
+            and event.type == EventType.DELETED_MESSAGE
+        )
 
 
 class CommandHandler(MessageHandler):
@@ -125,7 +152,10 @@ class CommandHandler(MessageHandler):
         roles: list[str] | None = None,
     ) -> None:
         """__init__."""
-        super().__init__(filters=Filter.command if filters is None else Filter.command & filters, callback=callback)
+        super().__init__(
+            filters=Filter.command if filters is None else Filter.command & filters,
+            callback=callback,
+        )
         if command:
             self.commands = [command] if command else []
         if roles is not None:
@@ -136,7 +166,7 @@ class CommandHandler(MessageHandler):
         if not isinstance(event, NewMessageEvent) or not event.payload.text:
             return False
         if super().check(event=event, dispatcher=dispatcher):
-            command = event.payload.text.partition(' ')[0][1:].lower()
+            command = event.payload.text.partition(" ")[0][1:].lower()
             return not self.commands or any(c.lower() == command for c in self.commands)
         return False
 
@@ -144,17 +174,25 @@ class CommandHandler(MessageHandler):
 class HelpCommandHandler(CommandHandler):
     """HelpCommandHandler."""
 
-    def __init__(self, filters: FilterBase | None = None, callback: Callable[..., Any] | None = None) -> None:
+    def __init__(
+        self,
+        filters: FilterBase | None = None,
+        callback: Callable[..., Any] | None = None,
+    ) -> None:
         """__init__."""
-        super().__init__(command='help', filters=filters, callback=callback)
+        super().__init__(command="help", filters=filters, callback=callback)
 
 
 class StartCommandHandler(CommandHandler):
     """StartCommandHandler."""
 
-    def __init__(self, filters: FilterBase | None = None, callback: Callable[..., Any] | None = None) -> None:
+    def __init__(
+        self,
+        filters: FilterBase | None = None,
+        callback: Callable[..., Any] | None = None,
+    ) -> None:
         """__init__."""
-        super().__init__(command='start', filters=filters, callback=callback)
+        super().__init__(command="start", filters=filters, callback=callback)
 
 
 # class FeedbackCommandHandler(CommandHandler):
@@ -215,4 +253,7 @@ class BotButtonCommandHandler(HandlerBase):
 
     def check(self, event: Event, dispatcher: Dispatcher) -> bool:
         """Check."""
-        return super().check(event=event, dispatcher=dispatcher) and event.type == EventType.CALLBACK_QUERY
+        return (
+            super().check(event=event, dispatcher=dispatcher)
+            and event.type == EventType.CALLBACK_QUERY
+        )

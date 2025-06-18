@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 import math
-from typing import Any, Generic, Sequence, TypeVar
+from typing import Any, Sequence
 
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -43,19 +43,24 @@ class QueryResult[T: Model]:
         statement = self.statement
 
         page = max(page, 1)
-        total = await self.session.scalar(sa.select(sa.func.count()).select_from(statement.froms[0])) or 0
+        total = (
+            await self.session.scalar(
+                sa.select(sa.func.count()).select_from(statement.froms[0])
+            )
+            or 0
+        )
         max_pages = math.ceil(total / size) or 1
         page = min(page, max_pages)
 
         limit = size
         offset = (page - 1) * size
-        results = (await self.session.scalars(statement.limit(limit).offset(offset))).all()
-        return Page(
-            results=list(results),
-            total=total,
-            page=page
-        )
+        results = (
+            await self.session.scalars(statement.limit(limit).offset(offset))
+        ).all()
+        return Page(results=list(results), total=total, page=page)
 
 
 class Query(BaseModel):
-    def apply[T_Statement: sa.Select[Any]](self, statement: T_Statement) -> T_Statement: ...
+    def apply[T_Statement: sa.Select[Any]](
+        self, statement: T_Statement
+    ) -> T_Statement: ...

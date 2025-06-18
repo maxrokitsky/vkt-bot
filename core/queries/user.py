@@ -2,7 +2,6 @@ from collections.abc import Iterable
 from typing import Any
 
 import sqlalchemy as sa
-from pydantic import EmailStr
 
 from bot_framework.query import Query
 from core.models.role import Role, RoleAssignment
@@ -27,7 +26,9 @@ class UserByUsernameOrEmail(UserQuery):
         if self.email:
             return statement.where(sa.func.lower(User.email) == self.email.lower())
         if self.username:
-            return statement.where(sa.func.lower(User.username) == self.username.lower())
+            return statement.where(
+                sa.func.lower(User.username) == self.username.lower()
+            )
         raise Exception
 
 

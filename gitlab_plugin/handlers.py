@@ -1,36 +1,18 @@
-import json
 import logging
-import re
 from typing import ClassVar
 from urllib.parse import urljoin
 import uuid
 from teams_bot.config import settings
-from pydantic import TypeAdapter
 
 from bot_framework.bot.client import VkTeamsBot
-from bot_framework.bot.enums import ChatType
-from bot_framework.bot.types import CallbackQueryEvent, NewMessageEvent
+from bot_framework.bot.types import NewMessageEvent
 from bot_framework.db.session import async_session
-from bot_framework.filters import RegexpFilter
 from bot_framework.handlers import (
-    BotButtonCommandHandler,
     CommandHandler,
-    MessageHandler,
 )
-from bot_framework.repository import NotFoundError
-from core.queries.roles import RoleAssignmentByUserAndRoleQuery, RoleByUserQuery
-from core.queries.user import ChatUserHasRoleQuery
-from core.repositories.role import (
-    CreateRoleAssignmentSchema,
-    CreateRoleSchema,
-    RoleAssignmentRepository,
-    RoleRepository,
-)
-from core.repositories.user import ChatUserRepository, CreateChatUserSchema
 from core.security import get_password_hash, get_random_string
 from gitlab_plugin.repositories import CreateGlWebhookSchema, GlWebhookRepository
 from teams_bot.app import dispatcher
-from teams_bot.handlers.callback import CallbackData, DeleteRoleCallbackData
 from teams_bot.handlers.mixins import AdminRequiredMixin
 from teams_bot.utils import mention
 

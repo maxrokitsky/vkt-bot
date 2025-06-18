@@ -8,10 +8,13 @@ from gitlab_plugin.models import GlWebhook
 
 class CreateGlWebhookSchema(BaseModel):
     """CreateGlWebhookSchema."""
+
     hashed_secret: str
     chat_id: str
     created_by_id: str
 
 
-class GlWebhookRepository(AsyncRepository[GlWebhook, uuid.UUID, CreateGlWebhookSchema, Any]):
+class GlWebhookRepository(
+    AsyncRepository[GlWebhook, uuid.UUID, CreateGlWebhookSchema, Any]
+):
     """GlWebhook Repository."""

@@ -27,7 +27,11 @@ class RoleByUserQuery(RoleQuery):
 
     def apply(self, statement: Statement) -> Statement:
         if self.user_id:
-            statement = statement.join(Role.assignments).join(RoleAssignment.user).where(ChatUser.id == self.user_id)
+            statement = (
+                statement.join(Role.assignments)
+                .join(RoleAssignment.user)
+                .where(ChatUser.id == self.user_id)
+            )
         return statement
 
 

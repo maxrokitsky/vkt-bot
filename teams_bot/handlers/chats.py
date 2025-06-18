@@ -6,7 +6,7 @@ from bot_framework.middleware import Middleware
 from core.repositories.chat import ChatRepository, CreateChatSchema
 from teams_bot.app import dispatcher
 
-logger = logging.getLogger('teams_bot')
+logger = logging.getLogger("teams_bot")
 
 
 @dispatcher.register_middleware
@@ -24,4 +24,7 @@ class CreateChatMiddleware(Middleware):
                     ),
                     commit=True,
                 )
-                logger.info("First event from chat %s. Created chat in database.", event.payload.chat.chatId)
+                logger.info(
+                    "First event from chat %s. Created chat in database.",
+                    event.payload.chat.chatId,
+                )

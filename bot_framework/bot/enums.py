@@ -5,16 +5,16 @@ from enum import Enum, StrEnum, unique
 class EventType(StrEnum):
     """Тип события."""
 
-    NEW_MESSAGE = 'newMessage'
-    EDITED_MESSAGE = 'editedMessage'
-    NEW_CHAT_MEMBERS = 'newChatMembers'
+    NEW_MESSAGE = "newMessage"
+    EDITED_MESSAGE = "editedMessage"
+    NEW_CHAT_MEMBERS = "newChatMembers"
 
-    DELETED_MESSAGE = 'deletedMessage'
-    PINNED_MESSAGE = 'pinnedMessage'
-    UNPINNED_MESSAGE = 'unpinnedMessage'
-    LEFT_CHAT_MEMBERS = 'leftChatMembers'
-    CHANGED_CHAT_INFO = 'changedChatInfo'
-    CALLBACK_QUERY = 'callbackQuery'
+    DELETED_MESSAGE = "deletedMessage"
+    PINNED_MESSAGE = "pinnedMessage"
+    UNPINNED_MESSAGE = "unpinnedMessage"
+    LEFT_CHAT_MEMBERS = "leftChatMembers"
+    CHANGED_CHAT_INFO = "changedChatInfo"
+    CALLBACK_QUERY = "callbackQuery"
 
 
 @unique

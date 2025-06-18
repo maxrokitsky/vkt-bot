@@ -14,7 +14,7 @@ from .bot.types import (
     GetSelfResponse,
 )
 
-logger = logging.getLogger('teams_bot.bot')
+logger = logging.getLogger("teams_bot.bot")
 
 
 class Dispatcher:
@@ -22,7 +22,7 @@ class Dispatcher:
 
     inited: bool = False
     info: GetSelfResponse | None = None
-    base_url: str = 'https://myteam.mail.ru/bot/v1'
+    base_url: str = "https://myteam.mail.ru/bot/v1"
     handlers: list[HandlerBase]
     middlewares: list[Middleware]
 
@@ -44,7 +44,7 @@ class Dispatcher:
         try:
             self.info = await self.bot.get_self()
             self.inited = True
-            logger.info('Bot signed in as %s', self.info.nick)
+            logger.info("Bot signed in as %s", self.info.nick)
             await self.start_polling()
         finally:
             await self.bot.close()
@@ -52,7 +52,9 @@ class Dispatcher:
     async def start_polling(self) -> None:
         """Start polling."""
         while True:
-            response = await self.bot.get_events(last_event_id=self.last_event_id, poll_time=20)
+            response = await self.bot.get_events(
+                last_event_id=self.last_event_id, poll_time=20
+            )
             for event in response.events:
                 await self.trigger(event)
                 self.last_event_id = max(self.last_event_id, event.eventId)
@@ -63,25 +65,37 @@ class Dispatcher:
             self.apply_middlewares(event, [mw.on_event for mw in self.middlewares]),
             asyncio.TaskGroup() as tg,
         ):
-            for handler in (h for h in self.handlers if h.check(event=event, dispatcher=self)):
+            for handler in (
+                h for h in self.handlers if h.check(event=event, dispatcher=self)
+            ):
                 tg.create_task(self.run_handler(handler, event))
 
     async def run_handler(self, handler: HandlerBase, event: Event) -> None:
         try:
-            async with self.apply_middlewares(event, [mw.on_callback for mw in self.middlewares]):
+            async with self.apply_middlewares(
+                event, [mw.on_callback for mw in self.middlewares]
+            ):
                 if inspect.iscoroutinefunction(handler.handle):
                     await handler.handle(event, self)
                 else:
-                    await asyncio.to_thread(self.wrap_handler(handler.handle, event, self))
+                    await asyncio.to_thread(
+                        self.wrap_handler(handler.handle, event, self)
+                    )
         except Exception:
-            logger.exception('Ошибка при обработке хэндлера')
+            logger.exception("Ошибка при обработке хэндлера")
 
     @contextlib.asynccontextmanager
     async def apply_middlewares(
         self,
         event: Event,
         middlewares: list[
-            Callable[[Event], AsyncGenerator[None, Any] | Generator[None, Any, None] | Coroutine[Any, Any, Any] | None],
+            Callable[
+                [Event],
+                AsyncGenerator[None, Any]
+                | Generator[None, Any, None]
+                | Coroutine[Any, Any, Any]
+                | None,
+            ],
         ],
     ) -> AsyncGenerator[None, Any]:
         post_triggers: list[Any] = []
@@ -107,14 +121,16 @@ class Dispatcher:
                 with contextlib.suppress(StopAsyncIteration):
                     await anext(trigger)
 
-    def wrap_handler(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Callable[[], Any]:  # noqa: ANN401
+    def wrap_handler(
+        self, func: Callable[..., Any], *args: Any, **kwargs: Any
+    ) -> Callable[[], Any]:  # noqa: ANN401
         """wrap_function."""
 
         def wrapper() -> Any:  # noqa: ANN401
             try:
                 return func(*args, **kwargs)
             except Exception:
-                logger.exception('Ошибка при обработке хэндлера')
+                logger.exception("Ошибка при обработке хэндлера")
 
         return wrapper
 

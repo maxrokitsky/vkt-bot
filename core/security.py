@@ -29,6 +29,5 @@ def get_password_hash(password: str) -> str:
 
 
 def get_random_string(length: int = 32) -> str:
-    allowed_chars = ''.join((string.ascii_letters, string.digits))
-    return ''.join(random.choice(allowed_chars) for _ in range(length))
-    
+    allowed_chars = "".join((string.ascii_letters, string.digits))
+    return "".join(random.choice(allowed_chars) for _ in range(length))

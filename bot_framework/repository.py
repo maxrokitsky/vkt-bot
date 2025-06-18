@@ -10,7 +10,12 @@ from bot_framework.exceptions import NotFoundError
 from bot_framework.query import Query, QueryResult
 
 
-class AsyncRepository[T_Model: Model, T_PK: Any, T_CreateSchema: BaseModel, T_UpdateSchema: BaseModel]:
+class AsyncRepository[
+    T_Model: Model,
+    T_PK: Any,
+    T_CreateSchema: BaseModel,
+    T_UpdateSchema: BaseModel,
+]:
     """Repository."""
 
     session: AsyncSession
@@ -21,7 +26,7 @@ class AsyncRepository[T_Model: Model, T_PK: Any, T_CreateSchema: BaseModel, T_Up
 
     def __init_subclass__(cls) -> None:
         """__init_subclass__."""
-        if not hasattr(cls, 'model'):
+        if not hasattr(cls, "model"):
             for orig_cls in cls.__orig_bases__:
                 if issubclass(get_origin(orig_cls), AsyncRepository):  # type: ignore [reportUnknownArgumentType]
                     args = get_args(orig_cls)
@@ -44,7 +49,9 @@ class AsyncRepository[T_Model: Model, T_PK: Any, T_CreateSchema: BaseModel, T_Up
     async def get(self, pk: T_PK) -> T_Model:
         """Get."""
         pk_column = sa.inspect(self.model).primary_key[0]
-        if result := await self.session.scalar(sa.select(self.model).where(pk_column == pk)):
+        if result := await self.session.scalar(
+            sa.select(self.model).where(pk_column == pk)
+        ):
             return result
         raise NotFoundError
 
@@ -69,7 +76,9 @@ class AsyncRepository[T_Model: Model, T_PK: Any, T_CreateSchema: BaseModel, T_Up
             await self.session.refresh(obj)
         return obj
 
-    async def update(self, pk: T_PK, data: T_UpdateSchema | dict[str, Any], *, commit: bool = False) -> T_Model:
+    async def update(
+        self, pk: T_PK, data: T_UpdateSchema | dict[str, Any], *, commit: bool = False
+    ) -> T_Model:
         """Update."""
         if isinstance(data, BaseModel):
             data = data.model_dump()
@@ -90,4 +99,3 @@ class AsyncRepository[T_Model: Model, T_PK: Any, T_CreateSchema: BaseModel, T_Up
             raise NotFoundError
         if commit:
             await self.session.commit()
-

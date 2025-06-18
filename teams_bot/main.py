@@ -6,11 +6,11 @@ from importlib import import_module
 import IPython
 
 from bot_framework.db.session import async_session
-from teams_bot.app import broker, dispatcher
+from teams_bot.app import dispatcher
 
-import_module('teams_bot.handlers')
+import_module("teams_bot.handlers")
 
-logger = logging.getLogger('teams_bot')
+logger = logging.getLogger("teams_bot")
 
 
 async def main() -> None:
@@ -21,9 +21,9 @@ async def main() -> None:
             # broker.execute(),
         )
     except asyncio.CancelledError:
-        sys.stdout.write('\r')
+        sys.stdout.write("\r")
         # await broker.close()
-        logger.info('Shutting down...')
+        logger.info("Shutting down...")
 
 
 def run_server() -> None:
@@ -36,12 +36,12 @@ def shell() -> None:
         IPython.start_ipython(
             argv=[],
             user_ns={
-                'session': session,
+                "session": session,
             },
         )
     finally:
         asyncio.run(session.close())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     run_server()

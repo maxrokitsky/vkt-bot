@@ -11,11 +11,21 @@ class Middleware:
     def on_event(
         self,
         event: Event,  # noqa: ARG002
-    ) -> AsyncGenerator[None, Any] | Generator[None, Any, None] | Coroutine[Any, Any, Any] | None:
+    ) -> (
+        AsyncGenerator[None, Any]
+        | Generator[None, Any, None]
+        | Coroutine[Any, Any, Any]
+        | None
+    ):
         return None
 
     def on_callback(
         self,
         event: Event,  # noqa: ARG002
-    ) -> AsyncGenerator[None, Any] | Generator[None, Any, None] | Coroutine[Any, Any, Any] | None:
+    ) -> (
+        AsyncGenerator[None, Any]
+        | Generator[None, Any, None]
+        | Coroutine[Any, Any, Any]
+        | None
+    ):
         return None

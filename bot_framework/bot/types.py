@@ -1,7 +1,7 @@
 # ruff: noqa: N815
 import datetime
 from enum import StrEnum
-from typing import Annotated, Any, Literal, Self, Union
+from typing import Annotated, Any, Literal, Union
 from typing_extensions import TypeIs
 
 from pydantic import BaseModel, Field
@@ -55,15 +55,15 @@ class FormatPart(BaseModel):
 class FormatType(StrEnum):
     """FormatType."""
 
-    MENTION = 'mention'
-    FORWARD = 'forward'
+    MENTION = "mention"
+    FORWARD = "forward"
 
 
 class NewMessagePayload(BaseModel):
     """NewMessagePayload."""
 
     chat: Chat
-    sender: User | Bot = Field(alias='from')
+    sender: User | Bot = Field(alias="from")
     msgId: str
     text: str | None = None
     timestamp: datetime.datetime
@@ -135,9 +135,8 @@ class ChangedChatInfoEvent(BaseEvent[Any]):
 class CallbackQueryEventPayload(BaseModel):
     callbackData: str
     queryId: str
-    sender: User = Field(alias='from')
+    sender: User = Field(alias="from")
     message: NewMessagePayload
-
 
 
 class CallbackQueryEvent(BaseEvent[CallbackQueryEventPayload]):
@@ -158,7 +157,7 @@ type Event = Annotated[
         ChangedChatInfoEvent,
         CallbackQueryEvent,
     ],
-    Field(discriminator='type'),
+    Field(discriminator="type"),
 ]
 
 

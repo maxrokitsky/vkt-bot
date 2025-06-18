@@ -11,7 +11,7 @@ from teams_bot.app import dispatcher
 
 from .callback import CallbackData, ShowCommandsCallbackData
 
-logger = logging.getLogger('teams_bot.handlers.roles')
+logger = logging.getLogger("teams_bot.handlers.roles")
 
 
 help_msg = """
@@ -38,14 +38,14 @@ help_msg = """
 class HelpHandler(CommandHandler):
     """/help."""
 
-    commands: ClassVar[list[str]] = ['help']
-    description = '/help - Описание бота и команд'
+    commands: ClassVar[list[str]] = ["help"]
+    description = "/help - Описание бота и команд"
 
     async def callback(self, bot: VkTeamsBot, event: NewMessageEvent) -> None:
         await bot.send_text(
             event.payload.chat.chatId,
             help_msg,
-            parse_mode='MarkdownV2',
+            parse_mode="MarkdownV2",
         )
 
 
@@ -67,20 +67,20 @@ by max@rokitsky.ru
 class StartHandler(CommandHandler):
     """/start."""
 
-    commands: ClassVar[list[str]] = ['start']
-    description = '/start - Приветственное сообщение.'
+    commands: ClassVar[list[str]] = ["start"]
+    description = "/start - Приветственное сообщение."
 
     async def callback(self, bot: VkTeamsBot, event: NewMessageEvent) -> None:
         await bot.send_text(
             event.payload.chat.chatId,
             start_msg,
-            parse_mode='MarkdownV2',
-            inline_keyboard_markup='[{}]'.format(
+            parse_mode="MarkdownV2",
+            inline_keyboard_markup="[{}]".format(
                 json.dumps(
                     [
                         {
-                            'text': 'Показать команды',
-                            'callbackData': ShowCommandsCallbackData(
+                            "text": "Показать команды",
+                            "callbackData": ShowCommandsCallbackData(
                                 requested_by=event.payload.sender.userId,
                             ).model_dump_json(),
                         },
@@ -102,6 +102,6 @@ class DeleteRoleConfirmation(BotButtonCommandHandler):
         await bot.send_text(
             event.payload.message.chat.chatId,
             help_msg,
-            parse_mode='MarkdownV2',
+            parse_mode="MarkdownV2",
         )
         await bot.answer_callback_query(query_id=event.payload.queryId)

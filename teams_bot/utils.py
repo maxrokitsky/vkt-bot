@@ -4,37 +4,37 @@ import logging
 from typing import Any, ClassVar, override
 
 LOG_RECORD_BUILTIN_ATTRS = [
-    'name',
-    'msg',
-    'args',
-    'levelname',
-    'levelno',
-    'pathname',
-    'filename',
-    'module',
-    'exc_info',
-    'exc_text',
-    'stack_info',
-    'lineno',
-    'funcName',
-    'created',
-    'msecs',
-    'relativeCreated',
-    'thread',
-    'threadName',
-    'processName',
-    'process',
-    'taskName',
+    "name",
+    "msg",
+    "args",
+    "levelname",
+    "levelno",
+    "pathname",
+    "filename",
+    "module",
+    "exc_info",
+    "exc_text",
+    "stack_info",
+    "lineno",
+    "funcName",
+    "created",
+    "msecs",
+    "relativeCreated",
+    "thread",
+    "threadName",
+    "processName",
+    "process",
+    "taskName",
 ]
 
 
 class ColorFormatter(logging.Formatter):
-    grey = '\x1b[38;20m'
-    yellow = '\x1b[33;20m'
-    red = '\x1b[31;20m'
-    bold_red = '\x1b[31;1m'
-    reset = '\x1b[0m'
-    format_string = '[%(levelname)s %(asctime)s]: %(pathname)s:%(lineno)s::%(funcName)s\n %(message)s\n'
+    grey = "\x1b[38;20m"
+    yellow = "\x1b[33;20m"
+    red = "\x1b[31;20m"
+    bold_red = "\x1b[31;1m"
+    reset = "\x1b[0m"
+    format_string = "[%(levelname)s %(asctime)s]: %(pathname)s:%(lineno)s::%(funcName)s\n %(message)s\n"
 
     FORMATS: ClassVar[dict[int, str]] = {
         logging.DEBUG: grey + format_string + reset,
@@ -51,7 +51,7 @@ class ColorFormatter(logging.Formatter):
 
 
 def mention(user_id: str) -> str:
-    return f'@[{user_id}]'
+    return f"@[{user_id}]"
 
 
 class JsonFormatter(logging.Formatter):
@@ -66,20 +66,22 @@ class JsonFormatter(logging.Formatter):
 
     def _prepare_log_dict(self, record: logging.LogRecord) -> dict[str, Any]:
         always_fields = {
-            'message': record.getMessage(),
-            'timestamp': dt.datetime.fromtimestamp(record.created).isoformat(),  # noqa: DTZ006
-            'module_path': record.filename,
-            'pathname': record.pathname,
-            'func_name': record.funcName,
+            "message": record.getMessage(),
+            "timestamp": dt.datetime.fromtimestamp(record.created).isoformat(),  # noqa: DTZ006
+            "module_path": record.filename,
+            "pathname": record.pathname,
+            "func_name": record.funcName,
         }
         if record.exc_info is not None:
-            always_fields['exc_info'] = self.formatException(record.exc_info)
+            always_fields["exc_info"] = self.formatException(record.exc_info)
 
         if record.stack_info is not None:
-            always_fields['stack_info'] = self.formatStack(record.stack_info)
+            always_fields["stack_info"] = self.formatStack(record.stack_info)
 
         message = {
-            key: msg_val if (msg_val := always_fields.pop(val, None)) is not None else getattr(record, val)
+            key: msg_val
+            if (msg_val := always_fields.pop(val, None)) is not None
+            else getattr(record, val)
             for key, val in self.fmt_keys.items()
         }
         message.update(always_fields)

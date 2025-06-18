@@ -22,10 +22,14 @@ class FilterBase(ABC):
     def __call__(self, event: Event) -> bool:
         return self.filter(event)
 
-    def __and__[T_RightFilter: FilterBase](self, other: T_RightFilter) -> AndFilter[Self, T_RightFilter]:
+    def __and__[T_RightFilter: FilterBase](
+        self, other: T_RightFilter
+    ) -> AndFilter[Self, T_RightFilter]:
         return AndFilter(self, other)
 
-    def __or__[T_RightFilter: FilterBase](self, other: T_RightFilter) -> OrFilter[Self, T_RightFilter]:
+    def __or__[T_RightFilter: FilterBase](
+        self, other: T_RightFilter
+    ) -> OrFilter[Self, T_RightFilter]:
         return OrFilter(self, other)
 
     def __invert__(self) -> InvertFilter[Self]:
@@ -49,14 +53,18 @@ class CompositeFilter[T_LeftFilter: FilterBase, T_RightFilter: FilterBase](Filte
         self.filter_2 = filter_2
 
 
-class AndFilter[T_LeftFilter: FilterBase, T_RightFilter: FilterBase](CompositeFilter[T_LeftFilter, T_RightFilter]):
+class AndFilter[T_LeftFilter: FilterBase, T_RightFilter: FilterBase](
+    CompositeFilter[T_LeftFilter, T_RightFilter]
+):
     """AndFilter."""
 
     def filter(self, event: Event) -> bool:
         return self.filter_1(event) and self.filter_2(event)
 
 
-class OrFilter[T_LeftFilter: FilterBase, T_RightFilter: FilterBase](CompositeFilter[T_LeftFilter, T_RightFilter]):
+class OrFilter[T_LeftFilter: FilterBase, T_RightFilter: FilterBase](
+    CompositeFilter[T_LeftFilter, T_RightFilter]
+):
     """OrFilter."""
 
     def filter(self, event: Event) -> bool:
@@ -112,7 +120,7 @@ class MessageFilter(FilterBase):
 class CommandFilter(MessageFilter):
     """CommandFilter."""
 
-    COMMAND_PREFIXES = ('/', '.', '!')
+    COMMAND_PREFIXES = ("/", ".", "!")
 
     def filter(self, event: Event) -> bool:
         if not super().filter(event):
@@ -120,7 +128,8 @@ class CommandFilter(MessageFilter):
 
         event = cast(NewMessageEvent, event)
         return super().filter(event) and any(
-            event.payload.text and event.payload.text.strip().startswith(p) for p in self.COMMAND_PREFIXES
+            event.payload.text and event.payload.text.strip().startswith(p)
+            for p in self.COMMAND_PREFIXES
         )
 
 
@@ -152,7 +161,9 @@ class RegexpFilter(MessageFilter):
     def filter(self, event: Event) -> bool:
         if not isinstance(event, NewMessageEvent):
             return False
-        return super().filter(event) and bool(self.pattern.search(event.payload.text or ""))
+        return super().filter(event) and bool(
+            self.pattern.search(event.payload.text or "")
+        )
 
 
 class FileFilter(MessageFilter):
@@ -161,8 +172,8 @@ class FileFilter(MessageFilter):
     def filter(self, event: Event) -> bool:
         return (
             super().filter(event)
-            and 'parts' in event.data
-            and any(p['type'] == Parts.FILE.value for p in event.data['parts'])
+            and "parts" in event.data
+            and any(p["type"] == Parts.FILE.value for p in event.data["parts"])
         )
 
 
@@ -171,7 +182,9 @@ class ImageFilter(FileFilter):
 
     def filter(self, event: Event) -> bool:
         return super().filter(event) and any(
-            p['payload']['type'] == PayLoadFileType.IMAGE.value for p in event.data['parts'] if 'type' in p['payload']
+            p["payload"]["type"] == PayLoadFileType.IMAGE.value
+            for p in event.data["parts"]
+            if "type" in p["payload"]
         )
 
 
@@ -180,7 +193,9 @@ class VideoFilter(FileFilter):
 
     def filter(self, event: Event) -> bool:
         return super().filter(event) and any(
-            p['payload']['type'] == PayLoadFileType.VIDEO.value for p in event.data['parts'] if 'type' in p['payload']
+            p["payload"]["type"] == PayLoadFileType.VIDEO.value
+            for p in event.data["parts"]
+            if "type" in p["payload"]
         )
 
 
@@ -189,7 +204,9 @@ class AudioFilter(FileFilter):
 
     def filter(self, event: Event) -> bool:
         return super().filter(event) and any(
-            p['payload']['type'] == PayLoadFileType.AUDIO.value for p in event.data['parts'] if 'type' in p['payload']
+            p["payload"]["type"] == PayLoadFileType.AUDIO.value
+            for p in event.data["parts"]
+            if "type" in p["payload"]
         )
 
 
@@ -199,8 +216,8 @@ class StickerFilter(MessageFilter):
     def filter(self, event: Event) -> bool:
         return (
             super().filter(event)
-            and 'parts' in event.data
-            and any(p['type'] == Parts.STICKER.value for p in event.data['parts'])
+            and "parts" in event.data
+            and any(p["type"] == Parts.STICKER.value for p in event.data["parts"])
         )
 
 
@@ -217,10 +234,11 @@ class MentionFilter(MessageFilter):
     def filter(self, event: Event) -> bool:
         return (
             super().filter(event)
-            and 'parts' in event.data
+            and "parts" in event.data
             and any(
-                p['type'] == Parts.MENTION.value and (p['payload']['userId'] == self.user_id if self.user_id else True)
-                for p in event.data['parts']
+                p["type"] == Parts.MENTION.value
+                and (p["payload"]["userId"] == self.user_id if self.user_id else True)
+                for p in event.data["parts"]
             )
         )
 
@@ -229,7 +247,9 @@ class ForwardFilter(MessageFilter):
     """ForwardFilter."""
 
     def filter(self, event: Event) -> bool:
-        return 'parts' in event.data and any(p['type'] == Parts.FORWARD.value for p in event.data['parts'])
+        return "parts" in event.data and any(
+            p["type"] == Parts.FORWARD.value for p in event.data["parts"]
+        )
 
 
 class ReplyFilter(MessageFilter):
@@ -238,17 +258,19 @@ class ReplyFilter(MessageFilter):
     def filter(self, event: Event) -> bool:
         return (
             super().filter(event)
-            and 'parts' in event.data
-            and any(p['type'] == Parts.REPLY.value for p in event.data['parts'])
+            and "parts" in event.data
+            and any(p["type"] == Parts.REPLY.value for p in event.data["parts"])
         )
 
 
 class URLFilter(RegexpFilter):
     """URLFilter."""
 
-    REGEXP = re.compile(r'^\s*https?://\S+\s*$', re.IGNORECASE)
+    REGEXP = re.compile(r"^\s*https?://\S+\s*$", re.IGNORECASE)
 
-    __FILTER = InvertFilter(FileFilter())  # Files are also URLs, but we need to skip it.
+    __FILTER = InvertFilter(
+        FileFilter()
+    )  # Files are also URLs, but we need to skip it.
 
     def __init__(self) -> None:
         super().__init__(self.REGEXP)
@@ -266,7 +288,10 @@ class CallbackDataFilter(FilterBase):
         self.callback_data = callback_data
 
     def filter(self, event: Event) -> bool:
-        return 'callbackData' in event.data and event.data['callbackData'] == self.callback_data
+        return (
+            "callbackData" in event.data
+            and event.data["callbackData"] == self.callback_data
+        )
 
 
 class CallbackDataRegexpFilter(FilterBase):
@@ -278,7 +303,9 @@ class CallbackDataRegexpFilter(FilterBase):
         self.pattern = re.compile(pattern)
 
     def filter(self, event: Event) -> bool:
-        return 'callbackData' in event.data and self.pattern.search(event.data['callbackData'])
+        return "callbackData" in event.data and self.pattern.search(
+            event.data["callbackData"]
+        )
 
 
 class Filter:

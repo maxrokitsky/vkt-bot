@@ -11,20 +11,23 @@ from bot_framework.db.base import AutoincrementMixin, Model
 if TYPE_CHECKING:
     from .user import ChatUser
 
+
 class Chat(Model):
     """Chat."""
 
-    __tablename__ = 'chats'
+    __tablename__ = "chats"
 
     id: orm.Mapped[str] = orm.mapped_column(primary_key=True, index=True, unique=True)
     type: orm.Mapped[ChatType] = orm.mapped_column(sa.Enum(ChatType, native_enum=False))
-    memberships: orm.Mapped[list[ChatMembership]] = orm.relationship(back_populates="chat")
+    memberships: orm.Mapped[list[ChatMembership]] = orm.relationship(
+        back_populates="chat"
+    )
 
 
 class ChatMembership(AutoincrementMixin, Model):
     """ChatMembership."""
 
-    __tablename__ = 'chat_memberships'
+    __tablename__ = "chat_memberships"
 
     chat_id: orm.Mapped[str] = orm.mapped_column(sa.ForeignKey("chats.id"))
     chat: orm.Mapped[Chat] = orm.relationship(back_populates="memberships")

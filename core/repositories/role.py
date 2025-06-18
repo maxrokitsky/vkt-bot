@@ -20,9 +20,12 @@ class RoleRepository(AsyncRepository[Role, UUID, CreateRoleSchema, Any]):
 
     async def get_by_name(self, name: str) -> Role:
         """Get Role by name."""
-        if obj := await self.session.scalar(sa.select(Role).where(sa.func.lower(Role.name) == name.lower())):
+        if obj := await self.session.scalar(
+            sa.select(Role).where(sa.func.lower(Role.name) == name.lower())
+        ):
             return obj
         raise NotFoundError
+
 
 class CreateRoleAssignmentSchema(BaseModel):
     """CreateRoleSchema."""
@@ -30,6 +33,8 @@ class CreateRoleAssignmentSchema(BaseModel):
     role_id: UUID
     user_id: str
 
-class RoleAssignmentRepository(AsyncRepository[RoleAssignment, int, CreateRoleAssignmentSchema, Any]):
-    """RoleAssignment Repository."""
 
+class RoleAssignmentRepository(
+    AsyncRepository[RoleAssignment, int, CreateRoleAssignmentSchema, Any]
+):
+    """RoleAssignment Repository."""
