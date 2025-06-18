@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     owner_id: str | None = None
     log_file: Path | None = None
     secret_key: str | None = None
+    public_url: str | None = None
     access_token_expire_minutes: int = 60 * 24 * 8
 
     model_config = SettingsConfigDict(

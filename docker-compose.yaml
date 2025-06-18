@@ -18,14 +18,14 @@ services:
     ports:
       - "6432:5432"
 
-  rabbitmq:
-    image: bitnami/rabbitmq:latest
-    container_name: rabbitmq
-    environment:
-      - RABBITMQ_MANAGEMENT_ALLOW_WEB_ACCESS=true
-    volumes:
-      - rabbitmq-data:/bitnami/rabbitmq/mnesia
-    env_file: .env
-    ports:
-      - "15672:15672"
-      - "5672:5672"
+  # rabbitmq:
+  #   image: bitnami/rabbitmq:latest
+  #   container_name: rabbitmq
+  #   environment:
+  #     - RABBITMQ_MANAGEMENT_ALLOW_WEB_ACCESS=true
+  #   volumes:
+  #     - rabbitmq-data:/bitnami/rabbitmq/mnesia
+  #   env_file: .env
+  #   ports:
+  #     - "15672:15672"
+  #     - "5672:5672"

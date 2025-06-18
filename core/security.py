@@ -1,4 +1,6 @@
 from datetime import UTC, datetime, timedelta
+import random
+import string
 from typing import Any
 
 import jwt
@@ -24,3 +26,9 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
+
+
+def get_random_string(length: int = 32) -> str:
+    allowed_chars = ''.join((string.ascii_letters, string.digits))
+    return ''.join(random.choice(allowed_chars) for _ in range(length))
+    

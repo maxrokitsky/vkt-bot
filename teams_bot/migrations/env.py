@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from bot_framework.db.base import Model
 from core import models
+from gitlab_plugin import models as models2
 from teams_bot.config import settings
 
 # this is the Alembic Config object, which provides
