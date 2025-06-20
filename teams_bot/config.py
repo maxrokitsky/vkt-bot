@@ -1,7 +1,8 @@
 from pathlib import Path
+import sys
 from typing import Literal
 
-from pydantic import PostgresDsn
+from pydantic import PostgresDsn, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,4 +25,8 @@ class Settings(BaseSettings):
     )
 
 
-settings = Settings()  # type: ignore [reportCallIssue]
+try:
+    settings = Settings()
+except ValidationError as e:
+    print(e, file=sys.stderr)
+    sys.exit(1)

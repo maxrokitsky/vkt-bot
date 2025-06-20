@@ -49,7 +49,8 @@ class CreateGlWebhook(AdminRequiredMixin, CommandHandler):
                     chat_id=chat_id,
                     created_by_id=user_id,
                     hashed_secret=get_password_hash(secret),
-                )
+                ),
+                commit=True,
             )
         await bot.send_text(
             chat_id,
