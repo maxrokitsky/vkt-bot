@@ -1,31 +1,21 @@
-FROM python:3.13
-
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    POETRY_VIRTUALENVS_CREATE=false
-
-ENV POETRY_HOME=/opt/poetry
-ENV VENV_HOME=/opt/venv
-
-RUN apt-get update && apt-get install --no-install-recommends -y \
-    # deps for installing poetry
-    curl \
-    # deps for building python deps
-    build-essential
-
-RUN python3 -m venv $VENV_HOME
-
-RUN $VENV_HOME/bin/python3 -m venv $POETRY_HOME
-RUN $POETRY_HOME/bin/pip install poetry
-ENV PATH=$VENV_HOME/bin:$POETRY_HOME/bin:$PATH
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
 
 WORKDIR /app
 
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_NO_SYNC=1
+
+COPY pyproject.toml /app/pyproject.toml
+COPY uv.lock /app/uv.lock
+
+RUN uv sync --locked --no-install-project --no-dev
+
 COPY . /app
 
-RUN which python
-RUN poetry install --without dev --sync
+ENV PATH="/app/.venv/bin:$PATH"
 
-ENTRYPOINT ["poetry", "run"]
+ENTRYPOINT []
 
-CMD ["python", "/app/teams_bot/main.py"]
+CMD ["uv", "run", "-m", "teams_bot.main"]
