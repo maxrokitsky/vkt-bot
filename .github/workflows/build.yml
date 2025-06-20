@@ -2,7 +2,7 @@ name: Build Docker Image
 
 on:
   push:
-    branches: [master]
+    branches: ['master']
     tags: ['v*']
 
 env:
@@ -36,10 +36,11 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
       - name: Build and push Docker image
+        id: push
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
