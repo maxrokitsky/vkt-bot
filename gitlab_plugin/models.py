@@ -11,6 +11,7 @@ class GlWebhook(UUIDMixin, Model):
 
     __tablename__ = "gl_webhooks"
 
+    name: orm.Mapped[str] = orm.mapped_column(default="", server_default="")
     hashed_secret: orm.Mapped[str]
     chat_id: orm.Mapped[str] = orm.mapped_column(sa.ForeignKey("chats.id"))
     chat: orm.Mapped[Chat] = orm.relationship()

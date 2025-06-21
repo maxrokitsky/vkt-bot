@@ -17,3 +17,10 @@ class GlWebhookById(GlWebhookQuery):
 
     def apply(self, statement: Statement) -> Statement:
         return statement.where(GlWebhook.id == self.id)
+
+
+class GlWebhookByChatId(GlWebhookQuery):
+    chat_id: str
+    
+    def apply(self, statement: Statement) -> Statement:
+        return statement.where(GlWebhook.chat_id == self.chat_id)

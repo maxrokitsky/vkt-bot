@@ -1,3 +1,4 @@
+import datetime
 import json
 from typing import Annotated, Any
 import uuid
@@ -68,6 +69,11 @@ async def trigger_webhook(
         ],
         ensure_ascii=False,
     )
+
+    webhook.last_used_at = datetime.datetime.now(datetime.timezone.utc)
+    session.add(webhook)
+    await session.commit()
+
     await bot.send_text(
         webhook.chat_id,
         construct_messsage(data),

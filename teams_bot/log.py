@@ -109,6 +109,7 @@ def init_logging() -> None:
         "db_url": mask_url,
         "broker_url": mask_url,
         "secret_key": mask_string,
+        "sentry_dsn": mask_string,
     }
 
     def format_setting(k: str, v: Any):
@@ -118,3 +119,7 @@ def init_logging() -> None:
 
     msg = [f"   * {format_setting(k, v)}" for k, v in settings.model_dump().items()]
     logger.info("settings: \n%s\n", "\n".join(msg))
+
+    if settings.sentry_dsn:
+        import sentry_sdk
+        sentry_sdk.init(settings.sentry_dsn)

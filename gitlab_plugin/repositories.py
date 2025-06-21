@@ -10,6 +10,7 @@ class CreateGlWebhookSchema(BaseModel):
     """CreateGlWebhookSchema."""
 
     id: str | uuid.UUID | None = None
+    name: str = ""
     hashed_secret: str
     chat_id: str
     created_by_id: str
