@@ -1,6 +1,6 @@
 [project]
 name = "vkt-bot"
-version = "0.1.0"
+version = "0.0.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -28,3 +28,12 @@ dev = [
     "pytest>=8.4.1",
     "ruff>=0.12.0",
 ]
+
+[project.scripts]
+bot = 'vkt_bot.main:start_bot'
+server = 'vkt_bot.main:start_server'
+shell = 'teams_bot.main:shell'
+
+[build-system]
+requires = ["uv_build>=0.7.13,<0.8.0"]
+build-backend = "uv_build"
