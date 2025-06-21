@@ -4,7 +4,11 @@ from fastapi import APIRouter, HTTPException
 
 from vkt_bot.bot_framework.exceptions import NotFoundError
 from vkt_bot.core.queries.user import UserByUsernameOrEmail
-from vkt_bot.core.repositories.user import CreateUserSchema, UpdateUserSchema, UserRepository
+from vkt_bot.core.repositories.user import (
+    CreateUserSchema,
+    UpdateUserSchema,
+    UserRepository,
+)
 from vkt_bot.core.security import get_password_hash
 from vkt_bot.webapp.db import DB
 from vkt_bot.webapp.dependencies import CurrentUser

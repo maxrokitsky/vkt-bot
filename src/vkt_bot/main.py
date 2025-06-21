@@ -10,6 +10,7 @@ from vkt_bot.bot_framework.db.session import async_session
 from vkt_bot.teams_bot.app import dispatcher
 from vkt_bot.webapp.app import app as webapp
 from vkt_bot.utils.log import init_logging
+
 import_module("vkt_bot.teams_bot.handlers")
 
 logger = logging.getLogger("teams_bot")

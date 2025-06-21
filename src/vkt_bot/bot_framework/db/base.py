@@ -21,5 +21,5 @@ class UUIDMixin:
     )
 
 
-from vkt_bot.gitlab_plugin import models
-from vkt_bot.core import models
+from vkt_bot.gitlab_plugin import models  # noqa: E402
+from vkt_bot.core import models  # noqa: E402, F401, F811

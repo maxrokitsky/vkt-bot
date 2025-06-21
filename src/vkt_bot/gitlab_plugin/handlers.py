@@ -14,7 +14,10 @@ from vkt_bot.bot_framework.handlers import (
     CommandHandler,
 )
 from vkt_bot.core.security import get_password_hash, get_random_string
-from vkt_bot.gitlab_plugin.repositories import CreateGlWebhookSchema, GlWebhookRepository
+from vkt_bot.gitlab_plugin.repositories import (
+    CreateGlWebhookSchema,
+    GlWebhookRepository,
+)
 from vkt_bot.teams_bot.app import dispatcher
 from vkt_bot.teams_bot.handlers.mixins import AdminRequiredMixin
 from vkt_bot.utils.message import mention

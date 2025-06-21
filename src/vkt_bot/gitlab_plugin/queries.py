@@ -21,6 +21,6 @@ class GlWebhookById(GlWebhookQuery):
 
 class GlWebhookByChatId(GlWebhookQuery):
     chat_id: str
-    
+
     def apply(self, statement: Statement) -> Statement:
         return statement.where(GlWebhook.chat_id == self.chat_id)
