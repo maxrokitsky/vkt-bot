@@ -3,7 +3,7 @@ from typing import Any
 import sqlalchemy as sa
 from pydantic import BaseModel, EmailStr
 
-from vkt_bot.bot_framework.repository import AsyncRepository
+from vkt_bot.db.repository import AsyncRepository
 from vkt_bot.core.models import ChatUser
 from vkt_bot.core.models.role import Role, RoleAssignment
 from vkt_bot.core.models.user import User

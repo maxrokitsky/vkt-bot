@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING
 import sqlalchemy as sa
 from sqlalchemy import orm
 
-from vkt_bot.bot_framework.bot.enums import ChatType
-from vkt_bot.bot_framework.db.base import AutoincrementMixin, Model
+from vkteams_client.enums import ChatType
+from vkt_bot.db.base import AutoincrementMixin, Model
 
 if TYPE_CHECKING:
     from .user import ChatUser

@@ -2,7 +2,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
-from vkt_bot.bot_framework.exceptions import NotFoundError
+from vkt_bot.db.exceptions import NotFoundError
 from vkt_bot.core.queries.user import UserByUsernameOrEmail
 from vkt_bot.core.repositories.user import (
     CreateUserSchema,

@@ -3,6 +3,8 @@ disable_existing_loggers: false
 formatters:
   standard:
     format: '[%(levelname)s %(asctime)s]: %(filename)s:%(lineno)s %(message)s'
+  compact:
+    format: '[%(levelname)s]: %(message)s'
   json:
     '()': 'vkt_bot.utils.formatters.JsonFormatter'
     fmt_keys:
@@ -17,14 +19,19 @@ formatters:
 
 root:
   level: WARNING
-  handlers: [stderr]
+  handlers: [stderr, stdout]
 
 handlers:
   stderr:
     class: logging.StreamHandler
-    level: INFO
+    level: ERROR
     formatter: standard
     stream: ext://sys.stderr
+  stdout:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: compact
+    stream: ext://sys.stdout
   file:
     class: logging.handlers.RotatingFileHandler
     level: DEBUG
@@ -34,7 +41,11 @@ handlers:
     backupCount: 3
 
 loggers:
-  teams_bot:
-    level: INFO # TODO: fix
+  vkt_bot:
+    level: INFO
+  vkteams_client:
+    level: INFO
+  vkt_dispatcher:
+    level: INFO
   passlib:
     level: ERROR

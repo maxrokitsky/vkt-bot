@@ -3,7 +3,7 @@ import datetime
 import sqlalchemy as sa
 from sqlalchemy import orm
 
-from vkt_bot.bot_framework.db.base import Model
+from vkt_bot.db.base import Model
 from vkt_bot.core.models.chat import ChatMembership
 
 from .role import RoleAssignment

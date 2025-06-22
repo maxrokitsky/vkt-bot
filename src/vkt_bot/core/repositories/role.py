@@ -4,7 +4,7 @@ from uuid import UUID
 import sqlalchemy as sa
 from pydantic import BaseModel
 
-from vkt_bot.bot_framework.repository import AsyncRepository, NotFoundError
+from vkt_bot.db.repository import AsyncRepository, NotFoundError
 from vkt_bot.core.models import Role
 from vkt_bot.core.models.role import RoleAssignment
 

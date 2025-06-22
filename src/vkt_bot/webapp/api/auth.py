@@ -8,7 +8,7 @@ from vkt_bot.core.repositories.user import UserRepository
 from vkt_bot.core.security import create_access_token
 from vkt_bot.webapp.db import DB
 from vkt_bot.webapp.schemas.auth import Token
-from vkt_bot.teams_bot.config import settings
+from vkt_bot.config import settings
 
 auth_router = APIRouter(tags=["login"])
 

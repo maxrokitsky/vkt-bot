@@ -3,7 +3,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
-from vkt_bot.bot_framework.exceptions import NotFoundError
+from vkt_bot.db.exceptions import NotFoundError
 from vkt_bot.core.repositories.role import CreateRoleSchema, RoleRepository
 from vkt_bot.webapp.db import DB
 from vkt_bot.webapp.dependencies import CurrentUser

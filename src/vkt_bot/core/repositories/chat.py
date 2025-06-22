@@ -2,8 +2,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from vkt_bot.bot_framework.bot.enums import ChatType
-from vkt_bot.bot_framework.repository import AsyncRepository
+from vkteams_client.enums import ChatType
+from vkt_bot.db.repository import AsyncRepository
 from vkt_bot.core.models import Chat
 
 

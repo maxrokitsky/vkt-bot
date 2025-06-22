@@ -6,7 +6,7 @@ from typing import Any
 import jwt
 from passlib.context import CryptContext
 
-from vkt_bot.teams_bot.config import settings
+from vkt_bot.config import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

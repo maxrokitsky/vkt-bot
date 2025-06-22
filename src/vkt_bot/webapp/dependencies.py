@@ -9,7 +9,7 @@ from vkt_bot.core.models.user import User
 from vkt_bot.core.repositories.user import UserRepository
 from vkt_bot.webapp.db import DB
 from vkt_bot.webapp.schemas.auth import TokenPayload
-from vkt_bot.teams_bot.config import settings
+from vkt_bot.config import settings
 
 reusable_oauth2 = OAuth2PasswordBearer(tokenUrl="login/access-token")
 

@@ -2,7 +2,7 @@ from typing import Any
 
 import sqlalchemy as sa
 
-from vkt_bot.bot_framework.query import Query
+from vkt_bot.db.query import Query
 from vkt_bot.core.models.chat import Chat
 
 type Statement = sa.Select[Any]

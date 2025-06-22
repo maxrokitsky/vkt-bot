@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from vkt_bot.bot_framework.bot.enums import ChatType
+from vkteams_client.enums import ChatType
 
 
 class DetailChatAPIModel(BaseModel):

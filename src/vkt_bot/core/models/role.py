@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import sqlalchemy as sa
 from sqlalchemy import orm
 
-from vkt_bot.bot_framework.db.base import AutoincrementMixin, Model, UUIDMixin
+from vkt_bot.db.base import AutoincrementMixin, Model, UUIDMixin
 
 if TYPE_CHECKING:
     from .user import ChatUser

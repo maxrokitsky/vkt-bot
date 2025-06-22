@@ -1,45 +1,36 @@
 import asyncio
-import logging
 import sys
-from importlib import import_module
 
 import IPython
 import uvicorn
 
-from vkt_bot.bot_framework.db.session import async_session
-from vkt_bot.teams_bot.app import dispatcher
+from vkt_bot.db.session import async_session
+from vkt_bot.app import dispatcher
 from vkt_bot.webapp.app import app as webapp
-from vkt_bot.utils.log import init_logging, setup_sentry
-
-import_module("vkt_bot.teams_bot.handlers")
-
-logger = logging.getLogger("teams_bot")
+from .loggers import main_logger
+from . import setup
 
 
 async def main() -> None:
-    # await broker.connect()
     try:
-        await asyncio.gather(
-            dispatcher.run(),
-            # broker.execute(),
-        )
+        await dispatcher.run()
     except asyncio.CancelledError:
         sys.stdout.write("\r")
-        # await broker.close()
-        logger.info("Shutting down...")
+        main_logger.info("Завершение работы")
 
 
 def start_bot() -> None:
-    init_logging()
+    setup()
     asyncio.run(main())
 
 
 def start_server() -> None:
-    setup_sentry()
+    setup()
     uvicorn.run(webapp, host="0.0.0.0")
 
 
 def shell() -> None:
+    setup()
     session = async_session()
     try:
         IPython.start_ipython(

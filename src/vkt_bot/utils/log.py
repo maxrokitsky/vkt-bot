@@ -6,7 +6,7 @@ from pydantic_core import MultiHostHost, MultiHostUrl
 import yaml
 
 import vkt_bot
-from vkt_bot.teams_bot.config import settings
+from vkt_bot.config import settings
 
 
 def mask_string(url: str) -> str:
@@ -60,7 +60,7 @@ def init_logging() -> None:
         logging_config["root"]["handlers"].append("file")
 
     logging.config.dictConfig(logging_config)
-    logger = logging.getLogger("teams_bot.settings")
+    logger = logging.getLogger("vkt_bot.settings")
     mask_settings = {
         "bot_token": mask_string,
         "db_url": mask_url,
@@ -75,8 +75,8 @@ def init_logging() -> None:
         return f"{k}: {v}"
 
     logger.info("version: %s", vkt_bot.__version__)
-    msg = [f"   * {format_setting(k, v)}" for k, v in settings.model_dump().items()]
-    logger.info("settings: \n%s\n", "\n".join(msg))
+    for k, v in settings.model_dump().items():
+        logger.info("settings.%s: %s", k, format_setting(k, v))
 
 
 def setup_sentry() -> None:

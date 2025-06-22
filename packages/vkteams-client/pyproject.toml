@@ -1,0 +1,17 @@
+[project]
+name = "vkteams_client"
+version = "0.1.0"
+description = "Асинхронный клиент для VK Teams Bot API"
+readme = "README.md"
+authors = [
+    { name = "Max Rokitsky", email = "max@rokitsky.ru" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "aiohttp>=3.12.13",
+    "pydantic>=2.11.7",
+]
+
+[build-system]
+requires = ["uv_build>=0.7.13,<0.8.0"]
+build-backend = "uv_build"

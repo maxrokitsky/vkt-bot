@@ -2,6 +2,14 @@ version = 1
 revision = 2
 requires-python = ">=3.13"
 
+[manifest]
+members = [
+    "vkt-bot",
+    "vkt-dispatcher",
+    "vkt-gitlab",
+    "vkteams-client",
+]
+
 [[package]]
 name = "aio-pika"
 version = "9.5.5"
@@ -1151,7 +1159,6 @@ version = "0.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "aio-pika" },
-    { name = "aiohttp" },
     { name = "alembic" },
     { name = "arrow" },
     { name = "fastapi" },
@@ -1166,6 +1173,7 @@ dependencies = [
     { name = "sentry-sdk" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "uvicorn" },
+    { name = "vkt-dispatcher" },
 ]
 
 [package.dev-dependencies]
@@ -1177,7 +1185,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aio-pika", specifier = ">=9.5.5" },
-    { name = "aiohttp", specifier = ">=3.12.13" },
     { name = "alembic", specifier = ">=1.16.2" },
     { name = "arrow", specifier = ">=1.3.0" },
     { name = "fastapi", specifier = ">=0.115.13" },
@@ -1192,12 +1199,44 @@ requires-dist = [
     { name = "sentry-sdk", specifier = ">=2.30.0" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.41" },
     { name = "uvicorn", specifier = ">=0.34.3" },
+    { name = "vkt-dispatcher", editable = "packages/vkt-dispatcher" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "pytest", specifier = ">=8.4.1" },
     { name = "ruff", specifier = ">=0.12.0" },
+]
+
+[[package]]
+name = "vkt-dispatcher"
+version = "0.1.0"
+source = { editable = "packages/vkt-dispatcher" }
+dependencies = [
+    { name = "vkteams-client" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "vkteams-client", editable = "packages/vkteams-client" }]
+
+[[package]]
+name = "vkt-gitlab"
+version = "0.1.0"
+source = { editable = "plugins/vkt_gitlab" }
+
+[[package]]
+name = "vkteams-client"
+version = "0.1.0"
+source = { editable = "packages/vkteams-client" }
+dependencies = [
+    { name = "aiohttp" },
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aiohttp", specifier = ">=3.12.13" },
+    { name = "pydantic", specifier = ">=2.11.7" },
 ]
 
 [[package]]
