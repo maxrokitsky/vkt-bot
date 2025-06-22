@@ -9,7 +9,7 @@ import uvicorn
 from vkt_bot.bot_framework.db.session import async_session
 from vkt_bot.teams_bot.app import dispatcher
 from vkt_bot.webapp.app import app as webapp
-from vkt_bot.utils.log import init_logging
+from vkt_bot.utils.log import init_logging, setup_sentry
 
 import_module("vkt_bot.teams_bot.handlers")
 
@@ -35,7 +35,8 @@ def start_bot() -> None:
 
 
 def start_server() -> None:
-    uvicorn.run(webapp)
+    setup_sentry()
+    uvicorn.run(webapp, host="0.0.0.0")
 
 
 def shell() -> None:

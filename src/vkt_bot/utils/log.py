@@ -78,6 +78,8 @@ def init_logging() -> None:
     msg = [f"   * {format_setting(k, v)}" for k, v in settings.model_dump().items()]
     logger.info("settings: \n%s\n", "\n".join(msg))
 
+
+def setup_sentry() -> None:
     if settings.sentry_dsn:
         import sentry_sdk
 
