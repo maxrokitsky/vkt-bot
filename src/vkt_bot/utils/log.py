@@ -5,6 +5,7 @@ from typing import Any
 from pydantic_core import MultiHostHost, MultiHostUrl
 import yaml
 
+import vkt_bot
 from vkt_bot.teams_bot.config import settings
 
 
@@ -73,6 +74,7 @@ def init_logging() -> None:
             v = mask_settings[k](v) if v else "<NOT_SET>"
         return f"{k}: {v}"
 
+    logger.info("version: %s", vkt_bot.__version__)
     msg = [f"   * {format_setting(k, v)}" for k, v in settings.model_dump().items()]
     logger.info("settings: \n%s\n", "\n".join(msg))
 
