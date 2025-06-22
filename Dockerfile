@@ -14,6 +14,8 @@ RUN uv sync --locked --no-install-project --no-dev
 
 COPY . /app
 
+RUN uv sync --locked --no-dev
+
 ENV PATH="/app/.venv/bin:$PATH"
 
 ENTRYPOINT []
