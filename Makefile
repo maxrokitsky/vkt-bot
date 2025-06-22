@@ -3,3 +3,6 @@ migrate:
 
 bot:
 	uv run bot
+
+server:
+	uv run server

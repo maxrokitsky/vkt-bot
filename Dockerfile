@@ -18,4 +18,4 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 ENTRYPOINT []
 
-CMD ["uv", "run", "-m", "teams_bot.main"]
+CMD ["uv", "run", "bot"]
