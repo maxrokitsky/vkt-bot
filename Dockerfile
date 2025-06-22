@@ -10,14 +10,9 @@ ENV UV_NO_SYNC=1
 RUN apt-get update && apt-get upgrade -y
 RUN apt-get install make nano
 
-COPY pyproject.toml /app/pyproject.toml
-COPY uv.lock /app/uv.lock
-
-RUN uv sync --locked --no-install-project --no-dev
-
 COPY . /app
 
-RUN uv sync --locked --no-dev
+RUN uv sync --locked --no-dev --all-packages
 
 ENV PATH="/app/.venv/bin:$PATH"
 
