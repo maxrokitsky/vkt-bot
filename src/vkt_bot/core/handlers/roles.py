@@ -39,8 +39,6 @@ class CreateRoleHandler(AdminRequiredMixin, CommandHandler):
     commands: ClassVar[list[str]] = ["createrole"]
 
     async def callback(self, bot: VKTeams, event: NewMessageEvent) -> None:
-        if event.payload.text:
-            return
         args = event.payload.text.split(" ")[1:]
         role_name = args[0]
 
@@ -71,8 +69,6 @@ class DeleteRoleHandler(AdminRequiredMixin, CommandHandler):
     commands: ClassVar[list[str]] = ["deleterole"]
 
     async def callback(self, bot: VKTeams, event: NewMessageEvent) -> None:
-        if event.payload.text:
-            return
         args = event.payload.text.split(" ")[1:]
         role_name = args[0]
         if role_name.lower() in ["admin", "botowner"]:
@@ -138,8 +134,6 @@ class AssignRoleHandler(AdminRequiredMixin, CommandHandler):
     commands: ClassVar[list[str]] = ["assignrole"]
 
     async def callback(self, bot: VKTeams, event: NewMessageEvent) -> None:
-        if event.payload.text:
-            return
         args = event.payload.text.split(" ")[1:]
         user_id = args[0]
         role_name = args[1]
@@ -206,8 +200,6 @@ class RevokeRoleHandler(AdminRequiredMixin, CommandHandler):
     description = "/revokerole id_пользователя роль - Отзывает роль у пользователя"
 
     async def callback(self, bot: VKTeams, event: NewMessageEvent) -> None:
-        if event.payload.text:
-            return
         args = event.payload.text.split(" ")[1:]
         user_id = args[0]
         role_name = args[1]
@@ -268,8 +260,6 @@ class ListRolesHandler(CommandHandler):
     commands: ClassVar[list[str]] = ["listroles"]
 
     async def callback(self, bot: VKTeams, event: NewMessageEvent) -> None:
-        if event.payload.text:
-            return
         words = event.payload.text.split(" ")[1:]
         async with async_session() as session:
             role_repository = RoleRepository(session)
@@ -310,8 +300,6 @@ class ListRoleMembersHandler(CommandHandler):
     commands: ClassVar[list[str]] = ["listrolemembers"]
 
     async def callback(self, bot: VKTeams, event: NewMessageEvent) -> None:
-        if event.payload.text:
-            return
         words = event.payload.text.split(" ")[1:]
         async with async_session() as session:
             chat_user_repository = ChatUserRepository(session)
@@ -358,8 +346,6 @@ class NotifyRoleIsTaggedHandler(MessageHandler):
     filters = RegexpFilter(pattern)
 
     async def callback(self, bot: VKTeams, event: NewMessageEvent) -> None:
-        if event.payload.text:
-            return
         hashtags = self.pattern.findall(event.payload.text)
         if not hashtags:
             return
