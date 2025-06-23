@@ -38,7 +38,7 @@ class CreateRoleHandler(AdminRequiredMixin, CommandHandler):
 
     commands: ClassVar[list[str]] = ["createrole"]
 
-    async def handle(self, bot: VKTeams, event: NewMessageEvent) -> None:
+    async def callback(self, bot: VKTeams, event: NewMessageEvent) -> None:
         if event.payload.text:
             return
         args = event.payload.text.split(" ")[1:]
@@ -70,7 +70,7 @@ class DeleteRoleHandler(AdminRequiredMixin, CommandHandler):
 
     commands: ClassVar[list[str]] = ["deleterole"]
 
-    async def handle(self, bot: VKTeams, event: NewMessageEvent) -> None:
+    async def callback(self, bot: VKTeams, event: NewMessageEvent) -> None:
         if event.payload.text:
             return
         args = event.payload.text.split(" ")[1:]
@@ -137,7 +137,7 @@ class AssignRoleHandler(AdminRequiredMixin, CommandHandler):
 
     commands: ClassVar[list[str]] = ["assignrole"]
 
-    async def handle(self, bot: VKTeams, event: NewMessageEvent) -> None:
+    async def callback(self, bot: VKTeams, event: NewMessageEvent) -> None:
         if event.payload.text:
             return
         args = event.payload.text.split(" ")[1:]
@@ -205,7 +205,7 @@ class RevokeRoleHandler(AdminRequiredMixin, CommandHandler):
     commands: ClassVar[list[str]] = ["revokerole"]
     description = "/revokerole id_пользователя роль - Отзывает роль у пользователя"
 
-    async def handle(self, bot: VKTeams, event: NewMessageEvent) -> None:
+    async def callback(self, bot: VKTeams, event: NewMessageEvent) -> None:
         if event.payload.text:
             return
         args = event.payload.text.split(" ")[1:]
@@ -267,7 +267,7 @@ class ListRolesHandler(CommandHandler):
 
     commands: ClassVar[list[str]] = ["listroles"]
 
-    async def handle(self, bot: VKTeams, event: NewMessageEvent) -> None:
+    async def callback(self, bot: VKTeams, event: NewMessageEvent) -> None:
         if event.payload.text:
             return
         words = event.payload.text.split(" ")[1:]
@@ -309,7 +309,7 @@ class ListRoleMembersHandler(CommandHandler):
 
     commands: ClassVar[list[str]] = ["listrolemembers"]
 
-    async def handle(self, bot: VKTeams, event: NewMessageEvent) -> None:
+    async def callback(self, bot: VKTeams, event: NewMessageEvent) -> None:
         if event.payload.text:
             return
         words = event.payload.text.split(" ")[1:]
@@ -357,7 +357,7 @@ class NotifyRoleIsTaggedHandler(MessageHandler):
     pattern = re.compile(r"(?:\W|^)\#([\w]+)")
     filters = RegexpFilter(pattern)
 
-    async def handle(self, bot: VKTeams, event: NewMessageEvent) -> None:
+    async def callback(self, bot: VKTeams, event: NewMessageEvent) -> None:
         if event.payload.text:
             return
         hashtags = self.pattern.findall(event.payload.text)
