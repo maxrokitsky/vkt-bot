@@ -73,6 +73,9 @@ async def trigger_webhook(
     webhook.last_used_at = datetime.datetime.now(datetime.timezone.utc)
     session.add(webhook)
     await session.commit()
+    
+    if data["object_attributes"]["status"] not in ["failed", "success"]:
+        return
 
     await bot.send_text(
         webhook.chat_id,

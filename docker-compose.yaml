@@ -10,8 +10,6 @@ services:
       - vk-bot-pg:/bitnami/postgresql
     environment:
       - POSTGRES_HOST_AUTH_METHOD=trust
-      - POSTGRES_USER=vkbot
-      - POSTGRES_DB=vkbot
     env_file: .env
     # expose:
     #   - "5432"
