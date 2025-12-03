@@ -30,6 +30,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Plus, Trash2, Edit } from 'lucide-vue-next'
 
 const queryClient = useQueryClient()
@@ -38,6 +48,8 @@ const size = ref(10)
 const showCreateDialog = ref(false)
 const showEditDialog = ref(false)
 const selectedUser = ref<UserResponse | null>(null)
+const showDeleteDialog = ref(false)
+const userToDelete = ref<string | null>(null)
 
 const newUser = ref<UserCreate>({
   username: '',
@@ -109,8 +121,15 @@ const handleCreate = () => {
 }
 
 const handleDelete = (username: string) => {
-  if (confirm('Вы уверены, что хотите удалить этого пользователя?')) {
-    deleteMutation.mutate(username)
+  userToDelete.value = username
+  showDeleteDialog.value = true
+}
+
+const confirmDelete = () => {
+  if (userToDelete.value) {
+    deleteMutation.mutate(userToDelete.value)
+    showDeleteDialog.value = false
+    userToDelete.value = null
   }
 }
 
@@ -286,5 +305,24 @@ const handleUpdate = () => {
         </form>
       </DialogContent>
     </Dialog>
+
+    <!-- Диалог подтверждения удаления пользователя -->
+    <AlertDialog v-model:open="showDeleteDialog">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Удаление пользователя</AlertDialogTitle>
+          <AlertDialogDescription>
+            Вы уверены, что хотите удалить пользователя "{{ userToDelete }}"?
+            Это действие нельзя отменить.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Отмена</AlertDialogCancel>
+          <AlertDialogAction @click="confirmDelete">
+            Удалить
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </div>
 </template>

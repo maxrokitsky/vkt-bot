@@ -12,6 +12,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -48,6 +58,8 @@ const queryClient = useQueryClient()
 const userId = computed(() => route.params.id as string)
 const showAddRoleDialog = ref(false)
 const selectedRoleId = ref<string>('')
+const showDeleteRoleDialog = ref(false)
+const roleToDelete = ref<{ id: string; name: string } | null>(null)
 
 const getToken = () => localStorage.getItem('token')
 
@@ -145,8 +157,15 @@ const handleAssignRole = () => {
 }
 
 const handleRemoveRole = (roleId: string, roleName: string) => {
-  if (confirm(`Вы уверены, что хотите удалить роль "${roleName}"?`)) {
-    removeRoleMutation.mutate(roleId)
+  roleToDelete.value = { id: roleId, name: roleName }
+  showDeleteRoleDialog.value = true
+}
+
+const confirmRemoveRole = () => {
+  if (roleToDelete.value) {
+    removeRoleMutation.mutate(roleToDelete.value.id)
+    showDeleteRoleDialog.value = false
+    roleToDelete.value = null
   }
 }
 
@@ -260,5 +279,24 @@ const availableRoles = computed(() => {
       </div>
     </div>
     <div v-else class="py-8 text-center">Загрузка...</div>
+
+    <!-- Диалог подтверждения удаления роли -->
+    <AlertDialog v-model:open="showDeleteRoleDialog">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Удаление роли</AlertDialogTitle>
+          <AlertDialogDescription>
+            Вы уверены, что хотите удалить роль "{{ roleToDelete?.name }}"?
+            Это действие нельзя отменить.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Отмена</AlertDialogCancel>
+          <AlertDialogAction @click="confirmRemoveRole">
+            Удалить
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </div>
 </template>

@@ -341,6 +341,38 @@ export type RoleUpdate = {
 };
 
 /**
+ * SendMessageRequest
+ */
+export type SendMessageRequest = {
+    /**
+     * Text
+     *
+     * Message text to send
+     */
+    text: string;
+    /**
+     * Parse Mode
+     *
+     * Parse mode for message formatting
+     */
+    parse_mode?: 'MarkdownV2' | 'HTML' | null;
+};
+
+/**
+ * SendMessageResponse
+ */
+export type SendMessageResponse = {
+    /**
+     * Success
+     */
+    success: boolean;
+    /**
+     * Message
+     */
+    message: string;
+};
+
+/**
  * Token
  */
 export type Token = {
@@ -691,6 +723,36 @@ export type GetChatApiChatsChatIdGetResponses = {
 };
 
 export type GetChatApiChatsChatIdGetResponse = GetChatApiChatsChatIdGetResponses[keyof GetChatApiChatsChatIdGetResponses];
+
+export type SendMessageApiChatsChatIdSendMessagePostData = {
+    body: SendMessageRequest;
+    path: {
+        /**
+         * Chat Id
+         */
+        chat_id: string;
+    };
+    query?: never;
+    url: '/api/chats/{chat_id}/send-message';
+};
+
+export type SendMessageApiChatsChatIdSendMessagePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SendMessageApiChatsChatIdSendMessagePostError = SendMessageApiChatsChatIdSendMessagePostErrors[keyof SendMessageApiChatsChatIdSendMessagePostErrors];
+
+export type SendMessageApiChatsChatIdSendMessagePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: SendMessageResponse;
+};
+
+export type SendMessageApiChatsChatIdSendMessagePostResponse = SendMessageApiChatsChatIdSendMessagePostResponses[keyof SendMessageApiChatsChatIdSendMessagePostResponses];
 
 export type ListRolesApiRolesGetData = {
     body?: never;

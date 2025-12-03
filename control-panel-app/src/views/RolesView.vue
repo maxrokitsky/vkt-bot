@@ -29,6 +29,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Plus, Trash2, Edit } from 'lucide-vue-next'
 
 const queryClient = useQueryClient()
@@ -37,6 +47,8 @@ const size = ref(10)
 const showCreateDialog = ref(false)
 const showEditDialog = ref(false)
 const selectedRole = ref<RoleResponse | null>(null)
+const showDeleteDialog = ref(false)
+const roleToDelete = ref<string | null>(null)
 
 const newRole = ref<RoleCreate>({
   name: '',
@@ -97,8 +109,15 @@ const handleCreate = () => {
 }
 
 const handleDelete = (roleId: string) => {
-  if (confirm('Вы уверены, что хотите удалить эту роль?')) {
-    deleteMutation.mutate(roleId)
+  roleToDelete.value = roleId
+  showDeleteDialog.value = true
+}
+
+const confirmDelete = () => {
+  if (roleToDelete.value) {
+    deleteMutation.mutate(roleToDelete.value)
+    showDeleteDialog.value = false
+    roleToDelete.value = null
   }
 }
 
@@ -213,5 +232,24 @@ const handleUpdate = () => {
         </form>
       </DialogContent>
     </Dialog>
+
+    <!-- Диалог подтверждения удаления роли -->
+    <AlertDialog v-model:open="showDeleteDialog">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Удаление роли</AlertDialogTitle>
+          <AlertDialogDescription>
+            Вы уверены, что хотите удалить эту роль?
+            Это действие нельзя отменить.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Отмена</AlertDialogCancel>
+          <AlertDialogAction @click="confirmDelete">
+            Удалить
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </div>
 </template>
