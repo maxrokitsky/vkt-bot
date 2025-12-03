@@ -25,12 +25,12 @@ const { data: chatsData, isLoading } = useQuery({
 
 <template>
   <div class="space-y-6">
-    <div class="flex items-center justify-between">
+    <!-- <div class="flex items-center justify-between">
       <h1 class="text-3xl font-bold">Чаты</h1>
-    </div>
+    </div> -->
 
-    <Card>
-      <CardContent class="pt-6">
+    <!-- <Card>
+      <CardContent class="pt-6"> -->
         <div class="mb-4">
           <div class="relative">
             <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -62,8 +62,8 @@ const { data: chatsData, isLoading } = useQuery({
           </TableBody>
         </Table>
         <div v-else class="py-8 text-center">Загрузка...</div>
-      </CardContent>
-    </Card>
+      <!-- </CardContent>
+    </Card> -->
 
     <div v-if="chatsData" class="flex items-center justify-between">
       <div class="text-sm text-muted-foreground">

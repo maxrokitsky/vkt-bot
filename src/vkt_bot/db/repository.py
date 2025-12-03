@@ -93,7 +93,8 @@ class AsyncRepository[
 
     async def delete(self, pk: T_PK, *, commit: bool = False) -> None:
         """Save."""
-        stmt = sa.delete(self.model).where(self.model.id == pk)
+        pk_column = sa.inspect(self.model).primary_key[0]
+        stmt = sa.delete(self.model).where(pk_column == pk)
         res = await self.session.execute(stmt)
         if not res.rowcount:
             raise NotFoundError

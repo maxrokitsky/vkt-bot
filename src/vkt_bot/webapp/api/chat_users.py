@@ -5,7 +5,7 @@ import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy.orm import selectinload
 
-from vkt_bot.core.models import ChatUser, RoleAssignment
+from vkt_bot.core.models import ChatMembership, ChatUser, RoleAssignment
 from vkt_bot.core.repositories.role import (
     CreateRoleAssignmentSchema,
     RoleAssignmentRepository,
@@ -65,9 +65,7 @@ async def get_chat_user(
         .where(ChatUser.id == user_id)
         .options(
             selectinload(ChatUser.role_assignments).selectinload(RoleAssignment.role),
-            selectinload(ChatUser.chat_memberships).selectinload(
-                lambda membership: membership.chat
-            ),
+            selectinload(ChatUser.chat_memberships).selectinload(ChatMembership.chat),
         )
     )
     result = await session.scalar(stmt)

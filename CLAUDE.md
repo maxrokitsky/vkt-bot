@@ -32,6 +32,12 @@ This is a **uv workspace** with three main components:
   - Uses entry points (`vkt_bot.plugins` group) for auto-discovery
   - Install method called during bot startup
 
+### Frontend Application: `control-panel-app/`
+- Vue 3 + TypeScript SPA for bot management
+- Tech stack: Vue Router, Pinia, TanStack Query, Tailwind CSS v4, shadcn-vue
+- API client auto-generated from OpenAPI spec via Hey API
+- Located in separate directory with own package.json
+
 ## Development Commands
 
 ### Running the Bot
@@ -40,10 +46,19 @@ uv run bot           # Start the bot polling for events
 make bot             # Alternative using Makefile
 ```
 
-### Running the Web Server
+### Running the Web Server (Backend API)
 ```bash
 uv run server        # Start FastAPI web server on 0.0.0.0:8000
 make server          # Alternative using Makefile
+```
+
+### Running the Frontend Control Panel
+```bash
+cd control-panel-app
+pnpm install         # Install dependencies (first time)
+pnpm dev             # Start dev server (default: http://localhost:5173)
+pnpm build           # Build for production
+pnpm openapi-ts      # Regenerate API client from OpenAPI spec
 ```
 
 ### Interactive Shell
@@ -74,7 +89,13 @@ uv add --dev <package>  # Add dev dependency
 
 ### Docker
 ```bash
-docker-compose up postgres-db  # Start PostgreSQL database
+docker-compose up postgres-db  # Start PostgreSQL database (port 16432:5432)
+```
+
+### Admin User Management
+```bash
+uv run python -m vkt_bot.scripts.create_admin <username> <password> <email>
+make createsuperuser  # Interactive prompt version
 ```
 
 ## Architecture
@@ -158,10 +179,10 @@ Plugins use Python entry points for auto-discovery:
   - `auth.py`: JWT authentication (login, get current user)
   - `users.py`: User management CRUD (admin only)
   - `chats.py`: Chat viewing (admin only)
+  - `chat_users.py`: Chat user management (admin only)
   - `roles.py`: Role management CRUD and members (admin only)
 - `schemas/`: Pydantic schemas for request/response validation
 - `dependencies.py`: Dependency injection (session, auth, admin check)
-- `client/vkt-bot-dashboard/`: Frontend dashboard (separate directory)
 
 **Authentication:**
 - JWT-based with Bearer token
@@ -235,10 +256,17 @@ Structured logging with multiple loggers:
    - Create schemas in `src/vkt_bot/webapp/schemas/`
    - Include router in `webapp/app.py`
    - Use `CurrentAdminUser` dependency for admin-only endpoints
-   - Full documentation in [webapp/README.md](src/vkt_bot/webapp/README.md)
+   - OpenAPI docs available at `/docs` and `/redoc` when server is running
 
-5. **Creating admin user:**
+5. **Frontend changes:**
+   - Frontend in `control-panel-app/` directory
+   - Regenerate API client after OpenAPI changes: `cd control-panel-app && pnpm openapi-ts`
+   - Configure API base URL in `src/hey-api.ts` (default: `http://localhost:8000`)
+   - Uses JWT token from localStorage for authentication
+
+6. **Creating admin user:**
    - Use script: `uv run python -m vkt_bot.scripts.create_admin <username> <password> <email>`
+   - Or interactive: `make createsuperuser`
    - First admin needed before using web API
 
 ## Testing
@@ -248,5 +276,6 @@ Test framework not currently configured (pytest in dev dependencies but no tests
 ## Deployment
 
 - **Docker:** `Dockerfile` and `docker-compose.yaml` provided
-- **Services:** PostgreSQL database (RabbitMQ config commented out)
+- **Services:** PostgreSQL database on port 16432→5432 (RabbitMQ config commented out)
 - Build uses uv with `--all-packages` flag for monorepo support
+- Frontend builds to static files via `pnpm build` in control-panel-app/

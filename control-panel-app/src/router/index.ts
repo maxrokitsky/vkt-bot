@@ -5,7 +5,8 @@ import DashboardView from '@/views/DashboardView.vue'
 import UsersView from '@/views/UsersView.vue'
 import ChatsView from '@/views/ChatsView.vue'
 import RolesView from '@/views/RolesView.vue'
-import RoleMembersView from '@/views/RoleMembersView.vue'
+import ChatUsersView from '@/views/ChatUsersView.vue'
+import ChatUserDetailView from '@/views/ChatUserDetailView.vue'
 import MainLayout from '@/layouts/MainLayout.vue'
 
 const router = createRouter({
@@ -15,7 +16,7 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: LoginView,
-      meta: { requiresAuth: false },
+      meta: { title: "Вход", requiresAuth: false },
     },
     {
       path: '/',
@@ -26,31 +27,37 @@ const router = createRouter({
           path: '',
           name: 'dashboard',
           component: DashboardView,
-          meta: { requiresAuth: true },
+          meta: { title: "Главная", requiresAuth: true },
         },
         {
           path: 'users',
           name: 'users',
           component: UsersView,
-          meta: { requiresAuth: true, requiresAdmin: true },
+          meta: { title: "Пользователи", requiresAuth: true, requiresAdmin: true },
         },
         {
           path: 'chats',
           name: 'chats',
           component: ChatsView,
-          meta: { requiresAuth: true },
+          meta: { title: "Чаты", requiresAuth: true },
         },
         {
           path: 'roles',
           name: 'roles',
           component: RolesView,
-          meta: { requiresAuth: true },
+          meta: { title: "Роли", requiresAuth: true },
         },
         {
-          path: 'roles/:id/members',
-          name: 'role-members',
-          component: RoleMembersView,
-          meta: { requiresAuth: true },
+          path: 'chat-users',
+          name: 'chat-users',
+          component: ChatUsersView,
+          meta: { title: "Пользователи чатов", requiresAuth: true },
+        },
+        {
+          path: 'chat-users/:id',
+          name: 'chat-user-detail',
+          component: ChatUserDetailView,
+          meta: { title: "Детали пользователя", requiresAuth: true },
         },
       ],
     },

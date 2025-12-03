@@ -3,26 +3,19 @@ from uuid import UUID
 
 import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, status
-from sqlalchemy.orm import selectinload
 
-from vkt_bot.core.models.role import Role, RoleAssignment
+from vkt_bot.core.models.role import Role
 from vkt_bot.core.repositories.role import (
-    CreateRoleAssignmentSchema,
     CreateRoleSchema,
-    RoleAssignmentRepository,
     RoleRepository,
 )
-from vkt_bot.core.repositories.user import ChatUserRepository
 from vkt_bot.db.exceptions import NotFoundError
 from vkt_bot.webapp.dependencies import CurrentAdminUser, SessionDep
 from vkt_bot.webapp.schemas.role import (
-    AddRoleMemberRequest,
     PaginatedRolesResponse,
     RoleCreate,
-    RoleMemberResponse,
     RoleResponse,
     RoleUpdate,
-    RoleWithMembersResponse,
 )
 
 router = APIRouter(prefix="/api/roles", tags=["roles"])
@@ -51,41 +44,6 @@ async def list_roles(
         page=page,
         size=size,
         pages=math.ceil(total / size) if total > 0 else 0,
-    )
-
-
-@router.get("/{role_id}", response_model=RoleWithMembersResponse)
-async def get_role(
-    role_id: UUID,
-    session: SessionDep,
-    _: CurrentAdminUser,
-) -> RoleWithMembersResponse:
-    """Get role by ID with its members. Admin only."""
-    # Load role with assignments
-    stmt = (
-        sa.select(Role)
-        .where(Role.id == role_id)
-        .options(selectinload(Role.assignments))
-    )
-    result = await session.scalar(stmt)
-
-    if not result:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Role not found",
-        )
-
-    # Convert to response
-    role_data = RoleResponse.model_validate(result)
-    members = [
-        RoleMemberResponse(user_id=assignment.user_id)
-        for assignment in result.assignments
-    ]
-
-    return RoleWithMembersResponse(
-        id=role_data.id,
-        name=role_data.name,
-        members=members,
     )
 
 
@@ -173,111 +131,3 @@ async def delete_role(
         )
 
     await role_repo.delete(role_id, commit=True)
-
-
-# Role members endpoints
-
-
-@router.get("/{role_id}/members", response_model=list[RoleMemberResponse])
-async def list_role_members(
-    role_id: UUID,
-    session: SessionDep,
-    _: CurrentAdminUser,
-) -> list[RoleMemberResponse]:
-    """List all members of a role. Admin only."""
-    role_repo = RoleRepository(session)
-
-    # Check if role exists
-    role = await role_repo.get_or_none(role_id)
-    if not role:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Role not found",
-        )
-
-    # Get assignments
-    stmt = sa.select(RoleAssignment).where(RoleAssignment.role_id == role_id)
-    result = await session.scalars(stmt)
-    assignments = result.all()
-
-    return [RoleMemberResponse(user_id=a.user_id) for a in assignments]
-
-
-@router.post(
-    "/{role_id}/members",
-    response_model=RoleMemberResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-async def add_role_member(
-    role_id: UUID,
-    member_data: AddRoleMemberRequest,
-    session: SessionDep,
-    _: CurrentAdminUser,
-) -> RoleMemberResponse:
-    """Add member to role. Admin only."""
-    role_repo = RoleRepository(session)
-    user_repo = ChatUserRepository(session)
-    assignment_repo = RoleAssignmentRepository(session)
-
-    # Check if role exists
-    role = await role_repo.get_or_none(role_id)
-    if not role:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Role not found",
-        )
-
-    # Check if user exists
-    user = await user_repo.get_or_none(member_data.user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-
-    # Check if assignment already exists
-    stmt = sa.select(RoleAssignment).where(
-        RoleAssignment.role_id == role_id,
-        RoleAssignment.user_id == member_data.user_id,
-    )
-    existing = await session.scalar(stmt)
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User already has this role",
-        )
-
-    # Create assignment
-    create_schema = CreateRoleAssignmentSchema(
-        role_id=role_id,
-        user_id=member_data.user_id,
-    )
-    await assignment_repo.create(create_schema, commit=True)
-
-    return RoleMemberResponse(user_id=member_data.user_id)
-
-
-@router.delete("/{role_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def remove_role_member(
-    role_id: UUID,
-    user_id: str,
-    session: SessionDep,
-    _: CurrentAdminUser,
-) -> None:
-    """Remove member from role. Admin only."""
-    # Find assignment
-    stmt = sa.select(RoleAssignment).where(
-        RoleAssignment.role_id == role_id,
-        RoleAssignment.user_id == user_id,
-    )
-    assignment = await session.scalar(stmt)
-
-    if not assignment:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User is not assigned to this role",
-        )
-
-    # Delete assignment
-    await session.delete(assignment)
-    await session.commit()

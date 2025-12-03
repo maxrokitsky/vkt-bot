@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
-import { useRouter } from 'vue-router'
 import {
   listRolesApiRolesGet,
   createRoleApiRolesPost,
@@ -30,9 +29,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Plus, Trash2, Edit, Users } from 'lucide-vue-next'
+import { Plus, Trash2, Edit } from 'lucide-vue-next'
 
-const router = useRouter()
 const queryClient = useQueryClient()
 const page = ref(1)
 const size = ref(10)
@@ -118,16 +116,12 @@ const handleUpdate = () => {
     })
   }
 }
-
-const goToMembers = (roleId: string) => {
-  router.push(`/roles/${roleId}/members`)
-}
 </script>
 
 <template>
   <div class="space-y-6">
-    <div class="flex items-center justify-between">
-      <h1 class="text-3xl font-bold">Роли</h1>
+    <div class="flex items-center justify-end">
+      <!-- <h1 class="text-3xl font-bold">Роли</h1> -->
       <Dialog v-model:open="showCreateDialog">
         <DialogTrigger as-child>
           <Button>
@@ -152,8 +146,8 @@ const goToMembers = (roleId: string) => {
       </Dialog>
     </div>
 
-    <Card>
-      <CardContent class="pt-6">
+    <!-- <Card>
+      <CardContent class="pt-6"> -->
         <Table v-if="!isLoading && rolesData">
           <TableHeader>
             <TableRow>
@@ -168,13 +162,6 @@ const goToMembers = (roleId: string) => {
               <TableCell class="font-mono text-sm">{{ role.id }}</TableCell>
               <TableCell class="text-right">
                 <div class="flex justify-end gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    @click="goToMembers(role.id)"
-                  >
-                    <Users class="h-4 w-4" />
-                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
@@ -195,8 +182,8 @@ const goToMembers = (roleId: string) => {
           </TableBody>
         </Table>
         <div v-else class="py-8 text-center">Загрузка...</div>
-      </CardContent>
-    </Card>
+      <!-- </CardContent>
+    </Card> -->
 
     <div v-if="rolesData" class="flex items-center justify-between">
       <div class="text-sm text-muted-foreground">

@@ -137,8 +137,8 @@ const handleUpdate = () => {
 
 <template>
   <div class="space-y-6">
-    <div class="flex items-center justify-between">
-      <h1 class="text-3xl font-bold">Пользователи</h1>
+    <div class="flex items-center justify-end">
+      <!-- <h1 class="text-3xl font-bold">Пользователи</h1> -->
       <Dialog v-model:open="showCreateDialog">
         <DialogTrigger as-child>
           <Button>
@@ -185,8 +185,8 @@ const handleUpdate = () => {
       </Dialog>
     </div>
 
-    <Card>
-      <CardContent class="pt-6">
+    <!-- <Card>
+      <CardContent class="pt-6"> -->
         <Table v-if="!isLoading && usersData">
           <TableHeader>
             <TableRow>
@@ -233,8 +233,8 @@ const handleUpdate = () => {
           </TableBody>
         </Table>
         <div v-else class="py-8 text-center">Загрузка...</div>
-      </CardContent>
-    </Card>
+      <!-- </CardContent>
+    </Card> -->
 
     <div v-if="usersData" class="flex items-center justify-between">
       <div class="text-sm text-muted-foreground">

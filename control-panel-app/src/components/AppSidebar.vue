@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { IconHome, IconUsers, IconMessageCircle, IconShield } from "@tabler/icons-vue"
+import { IconHome, IconUsers, IconMessageCircle, IconShield, IconUsersGroup } from "@tabler/icons-vue"
 import { useAuthStore } from '@/stores/auth'
 
 import NavMain from '@/components/NavMain.vue'
@@ -10,9 +10,9 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
+  // SidebarMenu,
+  // SidebarMenuButton,
+  // SidebarMenuItem,
 } from '@/components/ui/sidebar'
 
 const authStore = useAuthStore()
@@ -40,6 +40,11 @@ const navMain = computed(() => [
     title: "Чаты",
     url: "/chats",
     icon: IconMessageCircle,
+  },
+  {
+    title: "Пользователи чатов",
+    url: "/chat-users",
+    icon: IconUsersGroup,
   },
   {
     title: "Роли",

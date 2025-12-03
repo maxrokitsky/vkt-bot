@@ -2,6 +2,9 @@
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
+import { useRoute } from 'vue-router'
+
+const route = useRoute()
 </script>
 
 <template>
@@ -13,9 +16,9 @@ import { SidebarTrigger } from '@/components/ui/sidebar'
         class="mx-2 data-[orientation=vertical]:h-4"
       />
       <h1 class="text-base font-medium">
-        Documents
+        {{ route.meta.title || "Панель управления" }}
       </h1>
-      <div class="ml-auto flex items-center gap-2">
+      <!-- <div class="ml-auto flex items-center gap-2">
         <Button variant="ghost" as-child size="sm" class="hidden sm:flex">
           <a
             href="https://github.com/shadcn-ui/ui/tree/main/apps/v4/app/(examples)/dashboard"
@@ -26,7 +29,7 @@ import { SidebarTrigger } from '@/components/ui/sidebar'
             GitHub
           </a>
         </Button>
-      </div>
+      </div> -->
     </div>
   </header>
 </template>
