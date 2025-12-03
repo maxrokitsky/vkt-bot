@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import sys
 
 import IPython
@@ -9,6 +10,8 @@ from vkt_bot.app import dispatcher
 from vkt_bot.webapp.app import app as webapp
 from .loggers import main_logger
 from . import setup
+
+logging.getLogger('passlib').setLevel(logging.ERROR)
 
 
 async def main() -> None:
