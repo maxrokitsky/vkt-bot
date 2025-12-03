@@ -26,7 +26,7 @@ def start_bot() -> None:
 
 def start_server() -> None:
     setup()
-    uvicorn.run(webapp, host="0.0.0.0")
+    uvicorn.run(webapp)
 
 
 def shell() -> None:

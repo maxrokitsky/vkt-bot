@@ -9,7 +9,7 @@ from vkt_bot.app import bot
 from vkt_bot.db.exceptions import NotFoundError
 from vkt_bot.core.security import verify_password
 from vkt_gitlab.repositories import GlWebhookRepository
-from vkt_bot.webapp.db import DB
+
 
 gl_router = APIRouter(prefix="/gl", tags=["gitlab"])
 
@@ -41,45 +41,45 @@ def construct_messsage(data: dict[str, Any]) -> str:
     )
 
 
-@gl_router.post("/webhooks/{webhook_id}", response_model=None)
-async def trigger_webhook(
-    session: DB,
-    webhook_id: uuid.UUID,
-    x_gitlab_token: Annotated[str, Header()],
-    x_gitlab_event: Annotated[str, Header()],
-    data: dict[str, Any],
-) -> Any:
-    """Вебхук."""
-    if x_gitlab_event not in ("Pipeline Hook",):
-        return None
+# @gl_router.post("/webhooks/{webhook_id}", response_model=None)
+# async def trigger_webhook(
+#     session: DB,
+#     webhook_id: uuid.UUID,
+#     x_gitlab_token: Annotated[str, Header()],
+#     x_gitlab_event: Annotated[str, Header()],
+#     data: dict[str, Any],
+# ) -> Any:
+#     """Вебхук."""
+#     if x_gitlab_event not in ("Pipeline Hook",):
+#         return None
 
-    repository = GlWebhookRepository(session)
-    try:
-        webhook = await repository.get(webhook_id)
-    except NotFoundError as err:
-        raise HTTPException(status_code=404, detail="Вебхук не найден") from err
+#     repository = GlWebhookRepository(session)
+#     try:
+#         webhook = await repository.get(webhook_id)
+#     except NotFoundError as err:
+#         raise HTTPException(status_code=404, detail="Вебхук не найден") from err
 
-    if not verify_password(x_gitlab_token, webhook.hashed_secret):
-        return None
-    kb = json.dumps(
-        [
-            [
-                {"text": "Открыть", "url": data["object_attributes"]["url"]},
-            ]
-        ],
-        ensure_ascii=False,
-    )
+#     if not verify_password(x_gitlab_token, webhook.hashed_secret):
+#         return None
+#     kb = json.dumps(
+#         [
+#             [
+#                 {"text": "Открыть", "url": data["object_attributes"]["url"]},
+#             ]
+#         ],
+#         ensure_ascii=False,
+#     )
 
-    webhook.last_used_at = datetime.datetime.now(datetime.timezone.utc)
-    session.add(webhook)
-    await session.commit()
+#     webhook.last_used_at = datetime.datetime.now(datetime.timezone.utc)
+#     session.add(webhook)
+#     await session.commit()
 
-    if data["object_attributes"]["status"] not in ["failed", "success"]:
-        return
+#     if data["object_attributes"]["status"] not in ["failed", "success"]:
+#         return
 
-    await bot.send_text(
-        webhook.chat_id,
-        construct_messsage(data),
-        parse_mode="MarkdownV2",
-        inline_keyboard_markup=kb,
-    )
+#     await bot.send_text(
+#         webhook.chat_id,
+#         construct_messsage(data),
+#         parse_mode="MarkdownV2",
+#         inline_keyboard_markup=kb,
+#     )
