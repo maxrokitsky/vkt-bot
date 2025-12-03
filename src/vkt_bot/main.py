@@ -29,7 +29,7 @@ def start_bot() -> None:
 
 def start_server() -> None:
     setup()
-    uvicorn.run(webapp)
+    uvicorn.run('vkt_bot.webapp.app:app', reload=True)
 
 
 def shell() -> None:

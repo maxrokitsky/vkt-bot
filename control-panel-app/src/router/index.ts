@@ -7,6 +7,7 @@ import ChatsView from '@/views/ChatsView.vue'
 import RolesView from '@/views/RolesView.vue'
 import ChatUsersView from '@/views/ChatUsersView.vue'
 import ChatUserDetailView from '@/views/ChatUserDetailView.vue'
+import GitLabWebhooksView from '@/views/GitLabWebhooksView.vue'
 import MainLayout from '@/layouts/MainLayout.vue'
 
 const router = createRouter({
@@ -58,6 +59,12 @@ const router = createRouter({
           name: 'chat-user-detail',
           component: ChatUserDetailView,
           meta: { title: "Детали пользователя", requiresAuth: true },
+        },
+        {
+          path: 'gitlab/webhooks',
+          name: 'gitlab-webhooks',
+          component: GitLabWebhooksView,
+          meta: { title: "GitLab Webhooks", requiresAuth: true, requiresAdmin: true },
         },
       ],
     },

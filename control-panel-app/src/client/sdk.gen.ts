@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddRoleMemberApiRolesRoleIdMembersPostData, AddRoleMemberApiRolesRoleIdMembersPostErrors, AddRoleMemberApiRolesRoleIdMembersPostResponses, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostData, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostErrors, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostResponses, CreateRoleApiRolesPostData, CreateRoleApiRolesPostErrors, CreateRoleApiRolesPostResponses, CreateUserApiUsersPostData, CreateUserApiUsersPostErrors, CreateUserApiUsersPostResponses, DeleteRoleApiRolesRoleIdDeleteData, DeleteRoleApiRolesRoleIdDeleteErrors, DeleteRoleApiRolesRoleIdDeleteResponses, DeleteUserApiUsersUsernameDeleteData, DeleteUserApiUsersUsernameDeleteErrors, DeleteUserApiUsersUsernameDeleteResponses, GetChatApiChatsChatIdGetData, GetChatApiChatsChatIdGetErrors, GetChatApiChatsChatIdGetResponses, GetChatUserApiChatUsersUserIdGetData, GetChatUserApiChatUsersUserIdGetErrors, GetChatUserApiChatUsersUserIdGetResponses, GetCurrentUserInfoApiAuthMeGetData, GetCurrentUserInfoApiAuthMeGetResponses, GetRoleApiRolesRoleIdGetData, GetRoleApiRolesRoleIdGetErrors, GetRoleApiRolesRoleIdGetResponses, GetUserApiUsersUsernameGetData, GetUserApiUsersUsernameGetErrors, GetUserApiUsersUsernameGetResponses, HealthHealthGetData, HealthHealthGetResponses, ListChatsApiChatsGetData, ListChatsApiChatsGetErrors, ListChatsApiChatsGetResponses, ListChatUsersApiChatUsersGetData, ListChatUsersApiChatUsersGetErrors, ListChatUsersApiChatUsersGetResponses, ListRoleMembersApiRolesRoleIdMembersGetData, ListRoleMembersApiRolesRoleIdMembersGetErrors, ListRoleMembersApiRolesRoleIdMembersGetResponses, ListRolesApiRolesGetData, ListRolesApiRolesGetErrors, ListRolesApiRolesGetResponses, ListUsersApiUsersGetData, ListUsersApiUsersGetErrors, ListUsersApiUsersGetResponses, LoginApiAuthLoginPostData, LoginApiAuthLoginPostErrors, LoginApiAuthLoginPostResponses, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteData, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteErrors, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteResponses, RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteData, RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteErrors, RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteResponses, RootGetData, RootGetResponses, UpdateRoleApiRolesRoleIdPatchData, UpdateRoleApiRolesRoleIdPatchErrors, UpdateRoleApiRolesRoleIdPatchResponses, UpdateUserApiUsersUsernamePatchData, UpdateUserApiUsersUsernamePatchErrors, UpdateUserApiUsersUsernamePatchResponses } from './types.gen';
+import type { AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostData, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostErrors, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostResponses, CreateRoleApiRolesPostData, CreateRoleApiRolesPostErrors, CreateRoleApiRolesPostResponses, CreateUserApiUsersPostData, CreateUserApiUsersPostErrors, CreateUserApiUsersPostResponses, CreateWebhookGlWebhooksPostData, CreateWebhookGlWebhooksPostErrors, CreateWebhookGlWebhooksPostResponses, DeleteRoleApiRolesRoleIdDeleteData, DeleteRoleApiRolesRoleIdDeleteErrors, DeleteRoleApiRolesRoleIdDeleteResponses, DeleteUserApiUsersUsernameDeleteData, DeleteUserApiUsersUsernameDeleteErrors, DeleteUserApiUsersUsernameDeleteResponses, DeleteWebhookGlWebhooksWebhookIdDeleteData, DeleteWebhookGlWebhooksWebhookIdDeleteErrors, DeleteWebhookGlWebhooksWebhookIdDeleteResponses, GetChatApiChatsChatIdGetData, GetChatApiChatsChatIdGetErrors, GetChatApiChatsChatIdGetResponses, GetChatUserApiChatUsersUserIdGetData, GetChatUserApiChatUsersUserIdGetErrors, GetChatUserApiChatUsersUserIdGetResponses, GetCurrentUserInfoApiAuthMeGetData, GetCurrentUserInfoApiAuthMeGetResponses, GetUserApiUsersUsernameGetData, GetUserApiUsersUsernameGetErrors, GetUserApiUsersUsernameGetResponses, GetWebhookGlWebhooksWebhookIdGetData, GetWebhookGlWebhooksWebhookIdGetErrors, GetWebhookGlWebhooksWebhookIdGetResponses, HealthHealthGetData, HealthHealthGetResponses, ListChatsApiChatsGetData, ListChatsApiChatsGetErrors, ListChatsApiChatsGetResponses, ListChatUsersApiChatUsersGetData, ListChatUsersApiChatUsersGetErrors, ListChatUsersApiChatUsersGetResponses, ListRolesApiRolesGetData, ListRolesApiRolesGetErrors, ListRolesApiRolesGetResponses, ListUsersApiUsersGetData, ListUsersApiUsersGetErrors, ListUsersApiUsersGetResponses, ListWebhooksGlWebhooksGetData, ListWebhooksGlWebhooksGetErrors, ListWebhooksGlWebhooksGetResponses, LoginApiAuthLoginPostData, LoginApiAuthLoginPostErrors, LoginApiAuthLoginPostResponses, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteData, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteErrors, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteResponses, RootGetData, RootGetResponses, TriggerWebhookGlWebhooksWebhookIdTriggerPostData, TriggerWebhookGlWebhooksWebhookIdTriggerPostErrors, TriggerWebhookGlWebhooksWebhookIdTriggerPostResponses, UpdateRoleApiRolesRoleIdPatchData, UpdateRoleApiRolesRoleIdPatchErrors, UpdateRoleApiRolesRoleIdPatchResponses, UpdateUserApiUsersUsernamePatchData, UpdateUserApiUsersUsernamePatchErrors, UpdateUserApiUsersUsernamePatchResponses, UpdateWebhookGlWebhooksWebhookIdPatchData, UpdateWebhookGlWebhooksWebhookIdPatchErrors, UpdateWebhookGlWebhooksWebhookIdPatchResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
     /**
@@ -166,17 +166,6 @@ export const deleteRoleApiRolesRoleIdDelete = <ThrowOnError extends boolean = fa
 });
 
 /**
- * Get Role
- *
- * Get role by ID with its members. Admin only.
- */
-export const getRoleApiRolesRoleIdGet = <ThrowOnError extends boolean = false>(options: Options<GetRoleApiRolesRoleIdGetData, ThrowOnError>) => (options.client ?? client).get<GetRoleApiRolesRoleIdGetResponses, GetRoleApiRolesRoleIdGetErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/roles/{role_id}',
-    ...options
-});
-
-/**
  * Update Role
  *
  * Update role. Admin only.
@@ -189,43 +178,6 @@ export const updateRoleApiRolesRoleIdPatch = <ThrowOnError extends boolean = fal
         'Content-Type': 'application/json',
         ...options.headers
     }
-});
-
-/**
- * List Role Members
- *
- * List all members of a role. Admin only.
- */
-export const listRoleMembersApiRolesRoleIdMembersGet = <ThrowOnError extends boolean = false>(options: Options<ListRoleMembersApiRolesRoleIdMembersGetData, ThrowOnError>) => (options.client ?? client).get<ListRoleMembersApiRolesRoleIdMembersGetResponses, ListRoleMembersApiRolesRoleIdMembersGetErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/roles/{role_id}/members',
-    ...options
-});
-
-/**
- * Add Role Member
- *
- * Add member to role. Admin only.
- */
-export const addRoleMemberApiRolesRoleIdMembersPost = <ThrowOnError extends boolean = false>(options: Options<AddRoleMemberApiRolesRoleIdMembersPostData, ThrowOnError>) => (options.client ?? client).post<AddRoleMemberApiRolesRoleIdMembersPostResponses, AddRoleMemberApiRolesRoleIdMembersPostErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/roles/{role_id}/members',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Remove Role Member
- *
- * Remove member from role. Admin only.
- */
-export const removeRoleMemberApiRolesRoleIdMembersUserIdDelete = <ThrowOnError extends boolean = false>(options: Options<RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteData, ThrowOnError>) => (options.client ?? client).delete<RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteResponses, RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/roles/{role_id}/members/{user_id}',
-    ...options
 });
 
 /**
@@ -281,3 +233,80 @@ export const rootGet = <ThrowOnError extends boolean = false>(options?: Options<
  * Health
  */
 export const healthHealthGet = <ThrowOnError extends boolean = false>(options?: Options<HealthHealthGetData, ThrowOnError>) => (options?.client ?? client).get<HealthHealthGetResponses, unknown, ThrowOnError>({ url: '/health', ...options });
+
+/**
+ * List Webhooks
+ *
+ * List all GitLab webhooks with pagination.
+ */
+export const listWebhooksGlWebhooksGet = <ThrowOnError extends boolean = false>(options?: Options<ListWebhooksGlWebhooksGetData, ThrowOnError>) => (options?.client ?? client).get<ListWebhooksGlWebhooksGetResponses, ListWebhooksGlWebhooksGetErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gl/webhooks',
+    ...options
+});
+
+/**
+ * Create Webhook
+ *
+ * Create a new GitLab webhook.
+ */
+export const createWebhookGlWebhooksPost = <ThrowOnError extends boolean = false>(options: Options<CreateWebhookGlWebhooksPostData, ThrowOnError>) => (options.client ?? client).post<CreateWebhookGlWebhooksPostResponses, CreateWebhookGlWebhooksPostErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gl/webhooks',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete Webhook
+ *
+ * Delete a GitLab webhook.
+ */
+export const deleteWebhookGlWebhooksWebhookIdDelete = <ThrowOnError extends boolean = false>(options: Options<DeleteWebhookGlWebhooksWebhookIdDeleteData, ThrowOnError>) => (options.client ?? client).delete<DeleteWebhookGlWebhooksWebhookIdDeleteResponses, DeleteWebhookGlWebhooksWebhookIdDeleteErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gl/webhooks/{webhook_id}',
+    ...options
+});
+
+/**
+ * Get Webhook
+ *
+ * Get a specific GitLab webhook by ID.
+ */
+export const getWebhookGlWebhooksWebhookIdGet = <ThrowOnError extends boolean = false>(options: Options<GetWebhookGlWebhooksWebhookIdGetData, ThrowOnError>) => (options.client ?? client).get<GetWebhookGlWebhooksWebhookIdGetResponses, GetWebhookGlWebhooksWebhookIdGetErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gl/webhooks/{webhook_id}',
+    ...options
+});
+
+/**
+ * Update Webhook
+ *
+ * Update a GitLab webhook.
+ */
+export const updateWebhookGlWebhooksWebhookIdPatch = <ThrowOnError extends boolean = false>(options: Options<UpdateWebhookGlWebhooksWebhookIdPatchData, ThrowOnError>) => (options.client ?? client).patch<UpdateWebhookGlWebhooksWebhookIdPatchResponses, UpdateWebhookGlWebhooksWebhookIdPatchErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gl/webhooks/{webhook_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Trigger Webhook
+ *
+ * GitLab webhook trigger endpoint.
+ */
+export const triggerWebhookGlWebhooksWebhookIdTriggerPost = <ThrowOnError extends boolean = false>(options: Options<TriggerWebhookGlWebhooksWebhookIdTriggerPostData, ThrowOnError>) => (options.client ?? client).post<TriggerWebhookGlWebhooksWebhookIdTriggerPostResponses, TriggerWebhookGlWebhooksWebhookIdTriggerPostErrors, ThrowOnError>({
+    url: '/gl/webhooks/{webhook_id}/trigger',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});

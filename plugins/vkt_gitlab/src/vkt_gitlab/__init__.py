@@ -7,3 +7,4 @@ def install() -> None:
     from . import api
 
     webapp.include_router(api.gl_router)
+    print("gl is installed")

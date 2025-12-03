@@ -5,16 +5,6 @@ export type ClientOptions = {
 };
 
 /**
- * AddRoleMemberRequest
- */
-export type AddRoleMemberRequest = {
-    /**
-     * User Id
-     */
-    user_id: string;
-};
-
-/**
  * ChatResponse
  */
 export type ChatResponse = {
@@ -82,6 +72,110 @@ export type ChatUserRoleResponse = {
      * Name
      */
     name: string;
+};
+
+/**
+ * GlWebhookCreate
+ *
+ * Create GitLab Webhook schema.
+ */
+export type GlWebhookCreate = {
+    /**
+     * Name
+     */
+    name?: string;
+    /**
+     * Secret
+     */
+    secret: string;
+    /**
+     * Chat Id
+     */
+    chat_id: string;
+};
+
+/**
+ * GlWebhookListResponse
+ *
+ * List response for webhooks.
+ */
+export type GlWebhookListResponse = {
+    /**
+     * Items
+     */
+    items: Array<GlWebhookRead>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Size
+     */
+    size: number;
+    /**
+     * Pages
+     */
+    pages: number;
+};
+
+/**
+ * GlWebhookRead
+ *
+ * Read GitLab Webhook schema.
+ */
+export type GlWebhookRead = {
+    /**
+     * Name
+     */
+    name?: string;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Chat Id
+     */
+    chat_id: string;
+    /**
+     * Chat Title
+     */
+    chat_title?: string | null;
+    /**
+     * Created By Id
+     */
+    created_by_id: string;
+    /**
+     * Created By Name
+     */
+    created_by_name?: string | null;
+    /**
+     * Last Used At
+     */
+    last_used_at: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+};
+
+/**
+ * GlWebhookUpdate
+ *
+ * Update GitLab Webhook schema.
+ */
+export type GlWebhookUpdate = {
+    /**
+     * Name
+     */
+    name?: string | null;
 };
 
 /**
@@ -223,16 +317,6 @@ export type RoleCreate = {
 };
 
 /**
- * RoleMemberResponse
- */
-export type RoleMemberResponse = {
-    /**
-     * User Id
-     */
-    user_id: string;
-};
-
-/**
  * RoleResponse
  */
 export type RoleResponse = {
@@ -254,24 +338,6 @@ export type RoleUpdate = {
      * Name
      */
     name?: string | null;
-};
-
-/**
- * RoleWithMembersResponse
- */
-export type RoleWithMembersResponse = {
-    /**
-     * Name
-     */
-    name: string;
-    /**
-     * Id
-     */
-    id: string;
-    /**
-     * Members
-     */
-    members: Array<RoleMemberResponse>;
 };
 
 /**
@@ -715,36 +781,6 @@ export type DeleteRoleApiRolesRoleIdDeleteResponses = {
 
 export type DeleteRoleApiRolesRoleIdDeleteResponse = DeleteRoleApiRolesRoleIdDeleteResponses[keyof DeleteRoleApiRolesRoleIdDeleteResponses];
 
-export type GetRoleApiRolesRoleIdGetData = {
-    body?: never;
-    path: {
-        /**
-         * Role Id
-         */
-        role_id: string;
-    };
-    query?: never;
-    url: '/api/roles/{role_id}';
-};
-
-export type GetRoleApiRolesRoleIdGetErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetRoleApiRolesRoleIdGetError = GetRoleApiRolesRoleIdGetErrors[keyof GetRoleApiRolesRoleIdGetErrors];
-
-export type GetRoleApiRolesRoleIdGetResponses = {
-    /**
-     * Successful Response
-     */
-    200: RoleWithMembersResponse;
-};
-
-export type GetRoleApiRolesRoleIdGetResponse = GetRoleApiRolesRoleIdGetResponses[keyof GetRoleApiRolesRoleIdGetResponses];
-
 export type UpdateRoleApiRolesRoleIdPatchData = {
     body: RoleUpdate;
     path: {
@@ -774,102 +810,6 @@ export type UpdateRoleApiRolesRoleIdPatchResponses = {
 };
 
 export type UpdateRoleApiRolesRoleIdPatchResponse = UpdateRoleApiRolesRoleIdPatchResponses[keyof UpdateRoleApiRolesRoleIdPatchResponses];
-
-export type ListRoleMembersApiRolesRoleIdMembersGetData = {
-    body?: never;
-    path: {
-        /**
-         * Role Id
-         */
-        role_id: string;
-    };
-    query?: never;
-    url: '/api/roles/{role_id}/members';
-};
-
-export type ListRoleMembersApiRolesRoleIdMembersGetErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type ListRoleMembersApiRolesRoleIdMembersGetError = ListRoleMembersApiRolesRoleIdMembersGetErrors[keyof ListRoleMembersApiRolesRoleIdMembersGetErrors];
-
-export type ListRoleMembersApiRolesRoleIdMembersGetResponses = {
-    /**
-     * Response List Role Members Api Roles  Role Id  Members Get
-     *
-     * Successful Response
-     */
-    200: Array<RoleMemberResponse>;
-};
-
-export type ListRoleMembersApiRolesRoleIdMembersGetResponse = ListRoleMembersApiRolesRoleIdMembersGetResponses[keyof ListRoleMembersApiRolesRoleIdMembersGetResponses];
-
-export type AddRoleMemberApiRolesRoleIdMembersPostData = {
-    body: AddRoleMemberRequest;
-    path: {
-        /**
-         * Role Id
-         */
-        role_id: string;
-    };
-    query?: never;
-    url: '/api/roles/{role_id}/members';
-};
-
-export type AddRoleMemberApiRolesRoleIdMembersPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type AddRoleMemberApiRolesRoleIdMembersPostError = AddRoleMemberApiRolesRoleIdMembersPostErrors[keyof AddRoleMemberApiRolesRoleIdMembersPostErrors];
-
-export type AddRoleMemberApiRolesRoleIdMembersPostResponses = {
-    /**
-     * Successful Response
-     */
-    201: RoleMemberResponse;
-};
-
-export type AddRoleMemberApiRolesRoleIdMembersPostResponse = AddRoleMemberApiRolesRoleIdMembersPostResponses[keyof AddRoleMemberApiRolesRoleIdMembersPostResponses];
-
-export type RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteData = {
-    body?: never;
-    path: {
-        /**
-         * Role Id
-         */
-        role_id: string;
-        /**
-         * User Id
-         */
-        user_id: string;
-    };
-    query?: never;
-    url: '/api/roles/{role_id}/members/{user_id}';
-};
-
-export type RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteError = RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteErrors[keyof RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteErrors];
-
-export type RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteResponses = {
-    /**
-     * Successful Response
-     */
-    204: void;
-};
-
-export type RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteResponse = RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteResponses[keyof RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteResponses];
 
 export type ListChatUsersApiChatUsersGetData = {
     body?: never;
@@ -1029,6 +969,198 @@ export type HealthHealthGetData = {
 };
 
 export type HealthHealthGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type ListWebhooksGlWebhooksGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Page
+         */
+        page?: number;
+        /**
+         * Size
+         */
+        size?: number;
+    };
+    url: '/gl/webhooks';
+};
+
+export type ListWebhooksGlWebhooksGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListWebhooksGlWebhooksGetError = ListWebhooksGlWebhooksGetErrors[keyof ListWebhooksGlWebhooksGetErrors];
+
+export type ListWebhooksGlWebhooksGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: GlWebhookListResponse;
+};
+
+export type ListWebhooksGlWebhooksGetResponse = ListWebhooksGlWebhooksGetResponses[keyof ListWebhooksGlWebhooksGetResponses];
+
+export type CreateWebhookGlWebhooksPostData = {
+    body: GlWebhookCreate;
+    path?: never;
+    query?: never;
+    url: '/gl/webhooks';
+};
+
+export type CreateWebhookGlWebhooksPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateWebhookGlWebhooksPostError = CreateWebhookGlWebhooksPostErrors[keyof CreateWebhookGlWebhooksPostErrors];
+
+export type CreateWebhookGlWebhooksPostResponses = {
+    /**
+     * Successful Response
+     */
+    201: GlWebhookRead;
+};
+
+export type CreateWebhookGlWebhooksPostResponse = CreateWebhookGlWebhooksPostResponses[keyof CreateWebhookGlWebhooksPostResponses];
+
+export type DeleteWebhookGlWebhooksWebhookIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Webhook Id
+         */
+        webhook_id: string;
+    };
+    query?: never;
+    url: '/gl/webhooks/{webhook_id}';
+};
+
+export type DeleteWebhookGlWebhooksWebhookIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteWebhookGlWebhooksWebhookIdDeleteError = DeleteWebhookGlWebhooksWebhookIdDeleteErrors[keyof DeleteWebhookGlWebhooksWebhookIdDeleteErrors];
+
+export type DeleteWebhookGlWebhooksWebhookIdDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteWebhookGlWebhooksWebhookIdDeleteResponse = DeleteWebhookGlWebhooksWebhookIdDeleteResponses[keyof DeleteWebhookGlWebhooksWebhookIdDeleteResponses];
+
+export type GetWebhookGlWebhooksWebhookIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Webhook Id
+         */
+        webhook_id: string;
+    };
+    query?: never;
+    url: '/gl/webhooks/{webhook_id}';
+};
+
+export type GetWebhookGlWebhooksWebhookIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetWebhookGlWebhooksWebhookIdGetError = GetWebhookGlWebhooksWebhookIdGetErrors[keyof GetWebhookGlWebhooksWebhookIdGetErrors];
+
+export type GetWebhookGlWebhooksWebhookIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: GlWebhookRead;
+};
+
+export type GetWebhookGlWebhooksWebhookIdGetResponse = GetWebhookGlWebhooksWebhookIdGetResponses[keyof GetWebhookGlWebhooksWebhookIdGetResponses];
+
+export type UpdateWebhookGlWebhooksWebhookIdPatchData = {
+    body: GlWebhookUpdate;
+    path: {
+        /**
+         * Webhook Id
+         */
+        webhook_id: string;
+    };
+    query?: never;
+    url: '/gl/webhooks/{webhook_id}';
+};
+
+export type UpdateWebhookGlWebhooksWebhookIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdateWebhookGlWebhooksWebhookIdPatchError = UpdateWebhookGlWebhooksWebhookIdPatchErrors[keyof UpdateWebhookGlWebhooksWebhookIdPatchErrors];
+
+export type UpdateWebhookGlWebhooksWebhookIdPatchResponses = {
+    /**
+     * Successful Response
+     */
+    200: GlWebhookRead;
+};
+
+export type UpdateWebhookGlWebhooksWebhookIdPatchResponse = UpdateWebhookGlWebhooksWebhookIdPatchResponses[keyof UpdateWebhookGlWebhooksWebhookIdPatchResponses];
+
+export type TriggerWebhookGlWebhooksWebhookIdTriggerPostData = {
+    /**
+     * Data
+     */
+    body: {
+        [key: string]: unknown;
+    };
+    headers: {
+        /**
+         * X-Gitlab-Token
+         */
+        'x-gitlab-token': string;
+        /**
+         * X-Gitlab-Event
+         */
+        'x-gitlab-event': string;
+    };
+    path: {
+        /**
+         * Webhook Id
+         */
+        webhook_id: string;
+    };
+    query?: never;
+    url: '/gl/webhooks/{webhook_id}/trigger';
+};
+
+export type TriggerWebhookGlWebhooksWebhookIdTriggerPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TriggerWebhookGlWebhooksWebhookIdTriggerPostError = TriggerWebhookGlWebhooksWebhookIdTriggerPostErrors[keyof TriggerWebhookGlWebhooksWebhookIdTriggerPostErrors];
+
+export type TriggerWebhookGlWebhooksWebhookIdTriggerPostResponses = {
     /**
      * Successful Response
      */

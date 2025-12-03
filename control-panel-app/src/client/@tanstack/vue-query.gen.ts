@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/vue-query';
 
 import { client } from '../client.gen';
-import { addRoleMemberApiRolesRoleIdMembersPost, assignRoleToUserApiChatUsersUserIdRolesRoleIdPost, createRoleApiRolesPost, createUserApiUsersPost, deleteRoleApiRolesRoleIdDelete, deleteUserApiUsersUsernameDelete, getChatApiChatsChatIdGet, getChatUserApiChatUsersUserIdGet, getCurrentUserInfoApiAuthMeGet, getRoleApiRolesRoleIdGet, getUserApiUsersUsernameGet, healthHealthGet, listChatsApiChatsGet, listChatUsersApiChatUsersGet, listRoleMembersApiRolesRoleIdMembersGet, listRolesApiRolesGet, listUsersApiUsersGet, loginApiAuthLoginPost, type Options, removeRoleFromUserApiChatUsersUserIdRolesRoleIdDelete, removeRoleMemberApiRolesRoleIdMembersUserIdDelete, rootGet, updateRoleApiRolesRoleIdPatch, updateUserApiUsersUsernamePatch } from '../sdk.gen';
-import type { AddRoleMemberApiRolesRoleIdMembersPostData, AddRoleMemberApiRolesRoleIdMembersPostError, AddRoleMemberApiRolesRoleIdMembersPostResponse, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostData, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostError, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostResponse, CreateRoleApiRolesPostData, CreateRoleApiRolesPostError, CreateRoleApiRolesPostResponse, CreateUserApiUsersPostData, CreateUserApiUsersPostError, CreateUserApiUsersPostResponse, DeleteRoleApiRolesRoleIdDeleteData, DeleteRoleApiRolesRoleIdDeleteError, DeleteRoleApiRolesRoleIdDeleteResponse, DeleteUserApiUsersUsernameDeleteData, DeleteUserApiUsersUsernameDeleteError, DeleteUserApiUsersUsernameDeleteResponse, GetChatApiChatsChatIdGetData, GetChatApiChatsChatIdGetError, GetChatApiChatsChatIdGetResponse, GetChatUserApiChatUsersUserIdGetData, GetChatUserApiChatUsersUserIdGetError, GetChatUserApiChatUsersUserIdGetResponse, GetCurrentUserInfoApiAuthMeGetData, GetCurrentUserInfoApiAuthMeGetResponse, GetRoleApiRolesRoleIdGetData, GetRoleApiRolesRoleIdGetError, GetRoleApiRolesRoleIdGetResponse, GetUserApiUsersUsernameGetData, GetUserApiUsersUsernameGetError, GetUserApiUsersUsernameGetResponse, HealthHealthGetData, ListChatsApiChatsGetData, ListChatsApiChatsGetError, ListChatsApiChatsGetResponse, ListChatUsersApiChatUsersGetData, ListChatUsersApiChatUsersGetError, ListChatUsersApiChatUsersGetResponse, ListRoleMembersApiRolesRoleIdMembersGetData, ListRoleMembersApiRolesRoleIdMembersGetError, ListRoleMembersApiRolesRoleIdMembersGetResponse, ListRolesApiRolesGetData, ListRolesApiRolesGetError, ListRolesApiRolesGetResponse, ListUsersApiUsersGetData, ListUsersApiUsersGetError, ListUsersApiUsersGetResponse, LoginApiAuthLoginPostData, LoginApiAuthLoginPostError, LoginApiAuthLoginPostResponse, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteData, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteError, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteResponse, RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteData, RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteError, RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteResponse, RootGetData, UpdateRoleApiRolesRoleIdPatchData, UpdateRoleApiRolesRoleIdPatchError, UpdateRoleApiRolesRoleIdPatchResponse, UpdateUserApiUsersUsernamePatchData, UpdateUserApiUsersUsernamePatchError, UpdateUserApiUsersUsernamePatchResponse } from '../types.gen';
+import { assignRoleToUserApiChatUsersUserIdRolesRoleIdPost, createRoleApiRolesPost, createUserApiUsersPost, createWebhookGlWebhooksPost, deleteRoleApiRolesRoleIdDelete, deleteUserApiUsersUsernameDelete, deleteWebhookGlWebhooksWebhookIdDelete, getChatApiChatsChatIdGet, getChatUserApiChatUsersUserIdGet, getCurrentUserInfoApiAuthMeGet, getUserApiUsersUsernameGet, getWebhookGlWebhooksWebhookIdGet, healthHealthGet, listChatsApiChatsGet, listChatUsersApiChatUsersGet, listRolesApiRolesGet, listUsersApiUsersGet, listWebhooksGlWebhooksGet, loginApiAuthLoginPost, type Options, removeRoleFromUserApiChatUsersUserIdRolesRoleIdDelete, rootGet, triggerWebhookGlWebhooksWebhookIdTriggerPost, updateRoleApiRolesRoleIdPatch, updateUserApiUsersUsernamePatch, updateWebhookGlWebhooksWebhookIdPatch } from '../sdk.gen';
+import type { AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostData, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostError, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostResponse, CreateRoleApiRolesPostData, CreateRoleApiRolesPostError, CreateRoleApiRolesPostResponse, CreateUserApiUsersPostData, CreateUserApiUsersPostError, CreateUserApiUsersPostResponse, CreateWebhookGlWebhooksPostData, CreateWebhookGlWebhooksPostError, CreateWebhookGlWebhooksPostResponse, DeleteRoleApiRolesRoleIdDeleteData, DeleteRoleApiRolesRoleIdDeleteError, DeleteRoleApiRolesRoleIdDeleteResponse, DeleteUserApiUsersUsernameDeleteData, DeleteUserApiUsersUsernameDeleteError, DeleteUserApiUsersUsernameDeleteResponse, DeleteWebhookGlWebhooksWebhookIdDeleteData, DeleteWebhookGlWebhooksWebhookIdDeleteError, DeleteWebhookGlWebhooksWebhookIdDeleteResponse, GetChatApiChatsChatIdGetData, GetChatApiChatsChatIdGetError, GetChatApiChatsChatIdGetResponse, GetChatUserApiChatUsersUserIdGetData, GetChatUserApiChatUsersUserIdGetError, GetChatUserApiChatUsersUserIdGetResponse, GetCurrentUserInfoApiAuthMeGetData, GetCurrentUserInfoApiAuthMeGetResponse, GetUserApiUsersUsernameGetData, GetUserApiUsersUsernameGetError, GetUserApiUsersUsernameGetResponse, GetWebhookGlWebhooksWebhookIdGetData, GetWebhookGlWebhooksWebhookIdGetError, GetWebhookGlWebhooksWebhookIdGetResponse, HealthHealthGetData, ListChatsApiChatsGetData, ListChatsApiChatsGetError, ListChatsApiChatsGetResponse, ListChatUsersApiChatUsersGetData, ListChatUsersApiChatUsersGetError, ListChatUsersApiChatUsersGetResponse, ListRolesApiRolesGetData, ListRolesApiRolesGetError, ListRolesApiRolesGetResponse, ListUsersApiUsersGetData, ListUsersApiUsersGetError, ListUsersApiUsersGetResponse, ListWebhooksGlWebhooksGetData, ListWebhooksGlWebhooksGetError, ListWebhooksGlWebhooksGetResponse, LoginApiAuthLoginPostData, LoginApiAuthLoginPostError, LoginApiAuthLoginPostResponse, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteData, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteError, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteResponse, RootGetData, TriggerWebhookGlWebhooksWebhookIdTriggerPostData, TriggerWebhookGlWebhooksWebhookIdTriggerPostError, UpdateRoleApiRolesRoleIdPatchData, UpdateRoleApiRolesRoleIdPatchError, UpdateRoleApiRolesRoleIdPatchResponse, UpdateUserApiUsersUsernamePatchData, UpdateUserApiUsersUsernamePatchError, UpdateUserApiUsersUsernamePatchResponse, UpdateWebhookGlWebhooksWebhookIdPatchData, UpdateWebhookGlWebhooksWebhookIdPatchError, UpdateWebhookGlWebhooksWebhookIdPatchResponse } from '../types.gen';
 
 /**
  * Login
@@ -389,26 +389,6 @@ export const deleteRoleApiRolesRoleIdDeleteMutation = (options?: Partial<Options
     return mutationOptions;
 };
 
-export const getRoleApiRolesRoleIdGetQueryKey = (options: Options<GetRoleApiRolesRoleIdGetData>) => createQueryKey('getRoleApiRolesRoleIdGet', options);
-
-/**
- * Get Role
- *
- * Get role by ID with its members. Admin only.
- */
-export const getRoleApiRolesRoleIdGetOptions = (options: Options<GetRoleApiRolesRoleIdGetData>) => queryOptions<GetRoleApiRolesRoleIdGetResponse, GetRoleApiRolesRoleIdGetError, GetRoleApiRolesRoleIdGetResponse, ReturnType<typeof getRoleApiRolesRoleIdGetQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await getRoleApiRolesRoleIdGet({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: getRoleApiRolesRoleIdGetQueryKey(options)
-});
-
 /**
  * Update Role
  *
@@ -418,64 +398,6 @@ export const updateRoleApiRolesRoleIdPatchMutation = (options?: Partial<Options<
     const mutationOptions: UseMutationOptions<UpdateRoleApiRolesRoleIdPatchResponse, UpdateRoleApiRolesRoleIdPatchError, Options<UpdateRoleApiRolesRoleIdPatchData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await updateRoleApiRolesRoleIdPatch({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-export const listRoleMembersApiRolesRoleIdMembersGetQueryKey = (options: Options<ListRoleMembersApiRolesRoleIdMembersGetData>) => createQueryKey('listRoleMembersApiRolesRoleIdMembersGet', options);
-
-/**
- * List Role Members
- *
- * List all members of a role. Admin only.
- */
-export const listRoleMembersApiRolesRoleIdMembersGetOptions = (options: Options<ListRoleMembersApiRolesRoleIdMembersGetData>) => queryOptions<ListRoleMembersApiRolesRoleIdMembersGetResponse, ListRoleMembersApiRolesRoleIdMembersGetError, ListRoleMembersApiRolesRoleIdMembersGetResponse, ReturnType<typeof listRoleMembersApiRolesRoleIdMembersGetQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await listRoleMembersApiRolesRoleIdMembersGet({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: listRoleMembersApiRolesRoleIdMembersGetQueryKey(options)
-});
-
-/**
- * Add Role Member
- *
- * Add member to role. Admin only.
- */
-export const addRoleMemberApiRolesRoleIdMembersPostMutation = (options?: Partial<Options<AddRoleMemberApiRolesRoleIdMembersPostData>>): UseMutationOptions<AddRoleMemberApiRolesRoleIdMembersPostResponse, AddRoleMemberApiRolesRoleIdMembersPostError, Options<AddRoleMemberApiRolesRoleIdMembersPostData>> => {
-    const mutationOptions: UseMutationOptions<AddRoleMemberApiRolesRoleIdMembersPostResponse, AddRoleMemberApiRolesRoleIdMembersPostError, Options<AddRoleMemberApiRolesRoleIdMembersPostData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await addRoleMemberApiRolesRoleIdMembersPost({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Remove Role Member
- *
- * Remove member from role. Admin only.
- */
-export const removeRoleMemberApiRolesRoleIdMembersUserIdDeleteMutation = (options?: Partial<Options<RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteData>>): UseMutationOptions<RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteResponse, RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteError, Options<RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteData>> => {
-    const mutationOptions: UseMutationOptions<RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteResponse, RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteError, Options<RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await removeRoleMemberApiRolesRoleIdMembersUserIdDelete({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -628,3 +550,148 @@ export const healthHealthGetOptions = (options?: Options<HealthHealthGetData>) =
     },
     queryKey: healthHealthGetQueryKey(options)
 });
+
+export const listWebhooksGlWebhooksGetQueryKey = (options?: Options<ListWebhooksGlWebhooksGetData>) => createQueryKey('listWebhooksGlWebhooksGet', options);
+
+/**
+ * List Webhooks
+ *
+ * List all GitLab webhooks with pagination.
+ */
+export const listWebhooksGlWebhooksGetOptions = (options?: Options<ListWebhooksGlWebhooksGetData>) => queryOptions<ListWebhooksGlWebhooksGetResponse, ListWebhooksGlWebhooksGetError, ListWebhooksGlWebhooksGetResponse, ReturnType<typeof listWebhooksGlWebhooksGetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listWebhooksGlWebhooksGet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listWebhooksGlWebhooksGetQueryKey(options)
+});
+
+export const listWebhooksGlWebhooksGetInfiniteQueryKey = (options?: Options<ListWebhooksGlWebhooksGetData>): QueryKey<Options<ListWebhooksGlWebhooksGetData>> => createQueryKey('listWebhooksGlWebhooksGet', options, true);
+
+/**
+ * List Webhooks
+ *
+ * List all GitLab webhooks with pagination.
+ */
+export const listWebhooksGlWebhooksGetInfiniteOptions = (options?: Options<ListWebhooksGlWebhooksGetData>) => infiniteQueryOptions<ListWebhooksGlWebhooksGetResponse, ListWebhooksGlWebhooksGetError, InfiniteData<ListWebhooksGlWebhooksGetResponse>, QueryKey<Options<ListWebhooksGlWebhooksGetData>>, number | Pick<QueryKey<Options<ListWebhooksGlWebhooksGetData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+// @ts-ignore
+{
+    queryFn: async ({ pageParam, queryKey, signal }) => {
+        // @ts-ignore
+        const page: Pick<QueryKey<Options<ListWebhooksGlWebhooksGetData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+            query: {
+                page: pageParam
+            }
+        };
+        const params = createInfiniteParams(queryKey, page);
+        const { data } = await listWebhooksGlWebhooksGet({
+            ...options,
+            ...params,
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listWebhooksGlWebhooksGetInfiniteQueryKey(options)
+});
+
+/**
+ * Create Webhook
+ *
+ * Create a new GitLab webhook.
+ */
+export const createWebhookGlWebhooksPostMutation = (options?: Partial<Options<CreateWebhookGlWebhooksPostData>>): UseMutationOptions<CreateWebhookGlWebhooksPostResponse, CreateWebhookGlWebhooksPostError, Options<CreateWebhookGlWebhooksPostData>> => {
+    const mutationOptions: UseMutationOptions<CreateWebhookGlWebhooksPostResponse, CreateWebhookGlWebhooksPostError, Options<CreateWebhookGlWebhooksPostData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createWebhookGlWebhooksPost({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete Webhook
+ *
+ * Delete a GitLab webhook.
+ */
+export const deleteWebhookGlWebhooksWebhookIdDeleteMutation = (options?: Partial<Options<DeleteWebhookGlWebhooksWebhookIdDeleteData>>): UseMutationOptions<DeleteWebhookGlWebhooksWebhookIdDeleteResponse, DeleteWebhookGlWebhooksWebhookIdDeleteError, Options<DeleteWebhookGlWebhooksWebhookIdDeleteData>> => {
+    const mutationOptions: UseMutationOptions<DeleteWebhookGlWebhooksWebhookIdDeleteResponse, DeleteWebhookGlWebhooksWebhookIdDeleteError, Options<DeleteWebhookGlWebhooksWebhookIdDeleteData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteWebhookGlWebhooksWebhookIdDelete({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getWebhookGlWebhooksWebhookIdGetQueryKey = (options: Options<GetWebhookGlWebhooksWebhookIdGetData>) => createQueryKey('getWebhookGlWebhooksWebhookIdGet', options);
+
+/**
+ * Get Webhook
+ *
+ * Get a specific GitLab webhook by ID.
+ */
+export const getWebhookGlWebhooksWebhookIdGetOptions = (options: Options<GetWebhookGlWebhooksWebhookIdGetData>) => queryOptions<GetWebhookGlWebhooksWebhookIdGetResponse, GetWebhookGlWebhooksWebhookIdGetError, GetWebhookGlWebhooksWebhookIdGetResponse, ReturnType<typeof getWebhookGlWebhooksWebhookIdGetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getWebhookGlWebhooksWebhookIdGet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getWebhookGlWebhooksWebhookIdGetQueryKey(options)
+});
+
+/**
+ * Update Webhook
+ *
+ * Update a GitLab webhook.
+ */
+export const updateWebhookGlWebhooksWebhookIdPatchMutation = (options?: Partial<Options<UpdateWebhookGlWebhooksWebhookIdPatchData>>): UseMutationOptions<UpdateWebhookGlWebhooksWebhookIdPatchResponse, UpdateWebhookGlWebhooksWebhookIdPatchError, Options<UpdateWebhookGlWebhooksWebhookIdPatchData>> => {
+    const mutationOptions: UseMutationOptions<UpdateWebhookGlWebhooksWebhookIdPatchResponse, UpdateWebhookGlWebhooksWebhookIdPatchError, Options<UpdateWebhookGlWebhooksWebhookIdPatchData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateWebhookGlWebhooksWebhookIdPatch({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Trigger Webhook
+ *
+ * GitLab webhook trigger endpoint.
+ */
+export const triggerWebhookGlWebhooksWebhookIdTriggerPostMutation = (options?: Partial<Options<TriggerWebhookGlWebhooksWebhookIdTriggerPostData>>): UseMutationOptions<unknown, TriggerWebhookGlWebhooksWebhookIdTriggerPostError, Options<TriggerWebhookGlWebhooksWebhookIdTriggerPostData>> => {
+    const mutationOptions: UseMutationOptions<unknown, TriggerWebhookGlWebhooksWebhookIdTriggerPostError, Options<TriggerWebhookGlWebhooksWebhookIdTriggerPostData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await triggerWebhookGlWebhooksWebhookIdTriggerPost({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};

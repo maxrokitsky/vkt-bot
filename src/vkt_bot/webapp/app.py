@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from vkt_bot import setup
+
 from .api import auth, users, chats, roles, chat_users
 
 app = FastAPI(title="VKT Bot API", version="1.0.0")
@@ -28,3 +30,8 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+def setup_app():
+    setup()
+    return app

@@ -279,3 +279,9 @@ Test framework not currently configured (pytest in dev dependencies but no tests
 - **Services:** PostgreSQL database on port 16432→5432 (RabbitMQ config commented out)
 - Build uses uv with `--all-packages` flag for monorepo support
 - Frontend builds to static files via `pnpm build` in control-panel-app/
+
+# Пожелания
+
+## UI
+
+- Используй компонент Card реже
