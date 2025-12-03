@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddRoleMemberApiRolesRoleIdMembersPostData, AddRoleMemberApiRolesRoleIdMembersPostErrors, AddRoleMemberApiRolesRoleIdMembersPostResponses, CreateRoleApiRolesPostData, CreateRoleApiRolesPostErrors, CreateRoleApiRolesPostResponses, CreateUserApiUsersPostData, CreateUserApiUsersPostErrors, CreateUserApiUsersPostResponses, DeleteRoleApiRolesRoleIdDeleteData, DeleteRoleApiRolesRoleIdDeleteErrors, DeleteRoleApiRolesRoleIdDeleteResponses, DeleteUserApiUsersUsernameDeleteData, DeleteUserApiUsersUsernameDeleteErrors, DeleteUserApiUsersUsernameDeleteResponses, GetChatApiChatsChatIdGetData, GetChatApiChatsChatIdGetErrors, GetChatApiChatsChatIdGetResponses, GetCurrentUserInfoApiAuthMeGetData, GetCurrentUserInfoApiAuthMeGetResponses, GetRoleApiRolesRoleIdGetData, GetRoleApiRolesRoleIdGetErrors, GetRoleApiRolesRoleIdGetResponses, GetUserApiUsersUsernameGetData, GetUserApiUsersUsernameGetErrors, GetUserApiUsersUsernameGetResponses, HealthHealthGetData, HealthHealthGetResponses, ListChatsApiChatsGetData, ListChatsApiChatsGetErrors, ListChatsApiChatsGetResponses, ListRoleMembersApiRolesRoleIdMembersGetData, ListRoleMembersApiRolesRoleIdMembersGetErrors, ListRoleMembersApiRolesRoleIdMembersGetResponses, ListRolesApiRolesGetData, ListRolesApiRolesGetErrors, ListRolesApiRolesGetResponses, ListUsersApiUsersGetData, ListUsersApiUsersGetErrors, ListUsersApiUsersGetResponses, LoginApiAuthLoginPostData, LoginApiAuthLoginPostErrors, LoginApiAuthLoginPostResponses, RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteData, RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteErrors, RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteResponses, RootGetData, RootGetResponses, UpdateRoleApiRolesRoleIdPatchData, UpdateRoleApiRolesRoleIdPatchErrors, UpdateRoleApiRolesRoleIdPatchResponses, UpdateUserApiUsersUsernamePatchData, UpdateUserApiUsersUsernamePatchErrors, UpdateUserApiUsersUsernamePatchResponses } from './types.gen';
+import type { AddRoleMemberApiRolesRoleIdMembersPostData, AddRoleMemberApiRolesRoleIdMembersPostErrors, AddRoleMemberApiRolesRoleIdMembersPostResponses, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostData, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostErrors, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostResponses, CreateRoleApiRolesPostData, CreateRoleApiRolesPostErrors, CreateRoleApiRolesPostResponses, CreateUserApiUsersPostData, CreateUserApiUsersPostErrors, CreateUserApiUsersPostResponses, DeleteRoleApiRolesRoleIdDeleteData, DeleteRoleApiRolesRoleIdDeleteErrors, DeleteRoleApiRolesRoleIdDeleteResponses, DeleteUserApiUsersUsernameDeleteData, DeleteUserApiUsersUsernameDeleteErrors, DeleteUserApiUsersUsernameDeleteResponses, GetChatApiChatsChatIdGetData, GetChatApiChatsChatIdGetErrors, GetChatApiChatsChatIdGetResponses, GetChatUserApiChatUsersUserIdGetData, GetChatUserApiChatUsersUserIdGetErrors, GetChatUserApiChatUsersUserIdGetResponses, GetCurrentUserInfoApiAuthMeGetData, GetCurrentUserInfoApiAuthMeGetResponses, GetRoleApiRolesRoleIdGetData, GetRoleApiRolesRoleIdGetErrors, GetRoleApiRolesRoleIdGetResponses, GetUserApiUsersUsernameGetData, GetUserApiUsersUsernameGetErrors, GetUserApiUsersUsernameGetResponses, HealthHealthGetData, HealthHealthGetResponses, ListChatsApiChatsGetData, ListChatsApiChatsGetErrors, ListChatsApiChatsGetResponses, ListChatUsersApiChatUsersGetData, ListChatUsersApiChatUsersGetErrors, ListChatUsersApiChatUsersGetResponses, ListRoleMembersApiRolesRoleIdMembersGetData, ListRoleMembersApiRolesRoleIdMembersGetErrors, ListRoleMembersApiRolesRoleIdMembersGetResponses, ListRolesApiRolesGetData, ListRolesApiRolesGetErrors, ListRolesApiRolesGetResponses, ListUsersApiUsersGetData, ListUsersApiUsersGetErrors, ListUsersApiUsersGetResponses, LoginApiAuthLoginPostData, LoginApiAuthLoginPostErrors, LoginApiAuthLoginPostResponses, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteData, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteErrors, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteResponses, RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteData, RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteErrors, RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteResponses, RootGetData, RootGetResponses, UpdateRoleApiRolesRoleIdPatchData, UpdateRoleApiRolesRoleIdPatchErrors, UpdateRoleApiRolesRoleIdPatchResponses, UpdateUserApiUsersUsernamePatchData, UpdateUserApiUsersUsernamePatchErrors, UpdateUserApiUsersUsernamePatchResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
     /**
@@ -225,6 +225,50 @@ export const addRoleMemberApiRolesRoleIdMembersPost = <ThrowOnError extends bool
 export const removeRoleMemberApiRolesRoleIdMembersUserIdDelete = <ThrowOnError extends boolean = false>(options: Options<RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteData, ThrowOnError>) => (options.client ?? client).delete<RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteResponses, RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/roles/{role_id}/members/{user_id}',
+    ...options
+});
+
+/**
+ * List Chat Users
+ *
+ * List all chat users with pagination. Admin only.
+ */
+export const listChatUsersApiChatUsersGet = <ThrowOnError extends boolean = false>(options?: Options<ListChatUsersApiChatUsersGetData, ThrowOnError>) => (options?.client ?? client).get<ListChatUsersApiChatUsersGetResponses, ListChatUsersApiChatUsersGetErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/chat-users',
+    ...options
+});
+
+/**
+ * Get Chat User
+ *
+ * Get chat user by ID with roles and chats. Admin only.
+ */
+export const getChatUserApiChatUsersUserIdGet = <ThrowOnError extends boolean = false>(options: Options<GetChatUserApiChatUsersUserIdGetData, ThrowOnError>) => (options.client ?? client).get<GetChatUserApiChatUsersUserIdGetResponses, GetChatUserApiChatUsersUserIdGetErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/chat-users/{user_id}',
+    ...options
+});
+
+/**
+ * Remove Role From User
+ *
+ * Remove role from chat user. Admin only.
+ */
+export const removeRoleFromUserApiChatUsersUserIdRolesRoleIdDelete = <ThrowOnError extends boolean = false>(options: Options<RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteData, ThrowOnError>) => (options.client ?? client).delete<RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteResponses, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/chat-users/{user_id}/roles/{role_id}',
+    ...options
+});
+
+/**
+ * Assign Role To User
+ *
+ * Assign role to chat user. Admin only.
+ */
+export const assignRoleToUserApiChatUsersUserIdRolesRoleIdPost = <ThrowOnError extends boolean = false>(options: Options<AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostData, ThrowOnError>) => (options.client ?? client).post<AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostResponses, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/chat-users/{user_id}/roles/{role_id}',
     ...options
 });
 

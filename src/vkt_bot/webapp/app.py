@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api import auth, users, chats, roles
+from .api import auth, users, chats, roles, chat_users
 
 app = FastAPI(title="VKT Bot API", version="1.0.0")
 
@@ -17,6 +17,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(chats.router)
 app.include_router(roles.router)
+app.include_router(chat_users.router)
 
 
 @app.get("/")

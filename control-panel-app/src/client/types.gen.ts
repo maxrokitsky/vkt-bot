@@ -29,6 +29,62 @@ export type ChatResponse = {
 };
 
 /**
+ * ChatUserChatResponse
+ */
+export type ChatUserChatResponse = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Type
+     */
+    type: string;
+};
+
+/**
+ * ChatUserDetailResponse
+ */
+export type ChatUserDetailResponse = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Roles
+     */
+    roles: Array<ChatUserRoleResponse>;
+    /**
+     * Chats
+     */
+    chats: Array<ChatUserChatResponse>;
+};
+
+/**
+ * ChatUserResponse
+ */
+export type ChatUserResponse = {
+    /**
+     * Id
+     */
+    id: string;
+};
+
+/**
+ * ChatUserRoleResponse
+ */
+export type ChatUserRoleResponse = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -50,6 +106,32 @@ export type LoginRequest = {
      * Password
      */
     password: string;
+};
+
+/**
+ * PaginatedChatUsersResponse
+ */
+export type PaginatedChatUsersResponse = {
+    /**
+     * Items
+     */
+    items: Array<ChatUserResponse>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Size
+     */
+    size: number;
+    /**
+     * Pages
+     */
+    pages: number;
 };
 
 /**
@@ -788,6 +870,142 @@ export type RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteResponses = {
 };
 
 export type RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteResponse = RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteResponses[keyof RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteResponses];
+
+export type ListChatUsersApiChatUsersGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Page
+         */
+        page?: number;
+        /**
+         * Size
+         */
+        size?: number;
+    };
+    url: '/api/chat-users';
+};
+
+export type ListChatUsersApiChatUsersGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListChatUsersApiChatUsersGetError = ListChatUsersApiChatUsersGetErrors[keyof ListChatUsersApiChatUsersGetErrors];
+
+export type ListChatUsersApiChatUsersGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: PaginatedChatUsersResponse;
+};
+
+export type ListChatUsersApiChatUsersGetResponse = ListChatUsersApiChatUsersGetResponses[keyof ListChatUsersApiChatUsersGetResponses];
+
+export type GetChatUserApiChatUsersUserIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * User Id
+         */
+        user_id: string;
+    };
+    query?: never;
+    url: '/api/chat-users/{user_id}';
+};
+
+export type GetChatUserApiChatUsersUserIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetChatUserApiChatUsersUserIdGetError = GetChatUserApiChatUsersUserIdGetErrors[keyof GetChatUserApiChatUsersUserIdGetErrors];
+
+export type GetChatUserApiChatUsersUserIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: ChatUserDetailResponse;
+};
+
+export type GetChatUserApiChatUsersUserIdGetResponse = GetChatUserApiChatUsersUserIdGetResponses[keyof GetChatUserApiChatUsersUserIdGetResponses];
+
+export type RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * User Id
+         */
+        user_id: string;
+        /**
+         * Role Id
+         */
+        role_id: string;
+    };
+    query?: never;
+    url: '/api/chat-users/{user_id}/roles/{role_id}';
+};
+
+export type RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteError = RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteErrors[keyof RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteErrors];
+
+export type RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteResponse = RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteResponses[keyof RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteResponses];
+
+export type AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostData = {
+    body?: never;
+    path: {
+        /**
+         * User Id
+         */
+        user_id: string;
+        /**
+         * Role Id
+         */
+        role_id: string;
+    };
+    query?: never;
+    url: '/api/chat-users/{user_id}/roles/{role_id}';
+};
+
+export type AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostError = AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostErrors[keyof AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostErrors];
+
+export type AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostResponses = {
+    /**
+     * Response Assign Role To User Api Chat Users  User Id  Roles  Role Id  Post
+     *
+     * Successful Response
+     */
+    201: {
+        [key: string]: string;
+    };
+};
+
+export type AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostResponse = AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostResponses[keyof AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostResponses];
 
 export type RootGetData = {
     body?: never;
