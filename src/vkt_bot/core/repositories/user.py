@@ -44,6 +44,10 @@ class UserRepository(AsyncRepository[User, str, CreateUserSchema, UpdateUserSche
             return None
         return user
 
+    async def get_by_username(self, username: str) -> User | None:
+        """Получить пользователя по username."""
+        return await self.get_or_none(username)
+
 
 class CreateChatUserSchema(BaseModel):
     """CreateChatUserSchema."""

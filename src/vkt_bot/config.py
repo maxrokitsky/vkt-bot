@@ -15,7 +15,7 @@ class VktSettings(BaseSettings):
     db_url: PostgresDsn
     owner_id: str | None = None
     log_file: Path | None = None
-    secret_key: str | None = None
+    secret_key: str  # Required for JWT authentication
     public_url: str | None = None
     sentry_dsn: str | None = None
     access_token_expire_minutes: int = 60 * 24 * 8

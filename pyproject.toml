@@ -22,6 +22,7 @@ dependencies = [
     "sentry-sdk>=2.30.0",
     "sqlalchemy[asyncio]>=2.0.41",
     "uvicorn>=0.34.3",
+    "python-jose[cryptography]>=3.5.0",
 ]
 
 [dependency-groups]
