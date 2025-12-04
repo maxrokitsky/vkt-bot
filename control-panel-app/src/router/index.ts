@@ -9,6 +9,7 @@ import ChatUsersView from '@/views/ChatUsersView.vue'
 import ChatUserDetailView from '@/views/ChatUserDetailView.vue'
 import GitLabWebhooksView from '@/views/GitLabWebhooksView.vue'
 import BotSettingsView from '@/views/BotSettingsView.vue'
+import LogsView from '@/views/LogsView.vue'
 import MainLayout from '@/layouts/MainLayout.vue'
 
 const router = createRouter({
@@ -72,6 +73,12 @@ const router = createRouter({
           name: 'bot-settings',
           component: BotSettingsView,
           meta: { title: "Настройки бота", requiresAuth: true, requiresAdmin: true },
+        },
+        {
+          path: 'logs',
+          name: 'logs',
+          component: LogsView,
+          meta: { title: "Логи аудита", requiresAuth: true, requiresAdmin: true },
         },
       ],
     },

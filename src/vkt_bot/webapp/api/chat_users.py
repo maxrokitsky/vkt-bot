@@ -5,7 +5,9 @@ import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy.orm import selectinload
 
+from vkt_bot.core.audit import AuditLogger
 from vkt_bot.core.models import ChatMembership, ChatUser, RoleAssignment
+from vkt_bot.core.models.log_entry import EntityType
 from vkt_bot.core.repositories.role import (
     CreateRoleAssignmentSchema,
     RoleAssignmentRepository,
@@ -103,12 +105,13 @@ async def assign_role_to_user(
     user_id: str,
     role_id: UUID,
     session: SessionDep,
-    _: CurrentAdminUser,
+    current_admin: CurrentAdminUser,
 ) -> dict[str, str]:
     """Assign role to chat user. Admin only."""
     user_repo = ChatUserRepository(session)
     role_repo = RoleRepository(session)
     assignment_repo = RoleAssignmentRepository(session)
+    audit = AuditLogger(session)
 
     # Check if user exists
     user = await user_repo.get_or_none(user_id)
@@ -143,7 +146,18 @@ async def assign_role_to_user(
         role_id=role_id,
         user_id=user_id,
     )
-    await assignment_repo.create(create_schema, commit=True)
+    assignment = await assignment_repo.create(create_schema, commit=False)
+
+    # Audit log
+    await audit.log_assign(
+        entity_type=EntityType.ROLE_ASSIGNMENT,
+        entity_id=str(assignment.id),
+        web_user=current_admin,
+        description=f"Assigned role {role.name} to user {user_id}",
+        details={"role_id": str(role_id), "role_name": role.name, "user_id": user_id},
+    )
+
+    await session.commit()
 
     return {"message": "Role assigned successfully"}
 
@@ -153,13 +167,19 @@ async def remove_role_from_user(
     user_id: str,
     role_id: UUID,
     session: SessionDep,
-    _: CurrentAdminUser,
+    current_admin: CurrentAdminUser,
 ) -> None:
     """Remove role from chat user. Admin only."""
-    # Find assignment
-    stmt = sa.select(RoleAssignment).where(
-        RoleAssignment.role_id == role_id,
-        RoleAssignment.user_id == user_id,
+    audit = AuditLogger(session)
+
+    # Find assignment with role eagerly loaded
+    stmt = (
+        sa.select(RoleAssignment)
+        .where(
+            RoleAssignment.role_id == role_id,
+            RoleAssignment.user_id == user_id,
+        )
+        .options(selectinload(RoleAssignment.role))
     )
     assignment = await session.scalar(stmt)
 
@@ -169,6 +189,19 @@ async def remove_role_from_user(
             detail="User does not have this role",
         )
 
+    role_name = assignment.role.name
+    assignment_id = assignment.id
+
     # Delete assignment
     await session.delete(assignment)
+
+    # Audit log
+    await audit.log_unassign(
+        entity_type=EntityType.ROLE_ASSIGNMENT,
+        entity_id=str(assignment_id),
+        web_user=current_admin,
+        description=f"Removed role {role_name} from user {user_id}",
+        details={"role_id": str(role_id), "role_name": role_name, "user_id": user_id},
+    )
+
     await session.commit()

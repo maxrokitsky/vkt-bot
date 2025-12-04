@@ -3,6 +3,8 @@ import math
 import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, status
 
+from vkt_bot.core.audit import AuditLogger
+from vkt_bot.core.models.log_entry import EntityType
 from vkt_bot.core.models.user import User
 from vkt_bot.core.repositories.user import CreateUserSchema, UserRepository
 from vkt_bot.core.security import get_password_hash
@@ -68,10 +70,11 @@ async def get_user(
 async def create_user(
     user_data: UserCreate,
     session: SessionDep,
-    _: CurrentAdminUser,
+    current_admin: CurrentAdminUser,
 ) -> UserResponse:
     """Create new user. Admin only."""
     user_repo = UserRepository(session)
+    audit = AuditLogger(session)
 
     # Check if user already exists
     existing_user = await user_repo.get_by_username(user_data.username)
@@ -90,7 +93,22 @@ async def create_user(
         is_superuser=user_data.is_superuser,
     )
 
-    user = await user_repo.create(create_schema, commit=True)
+    user = await user_repo.create(create_schema, commit=False)
+
+    # Audit log
+    await audit.log_create(
+        entity_type=EntityType.USER,
+        entity_id=user.username,
+        web_user=current_admin,
+        description=f"Created user {user.username}",
+        details={
+            "is_active": user.is_active,
+            "is_superuser": user.is_superuser,
+        },
+    )
+
+    await session.commit()
+    await session.refresh(user)
     return UserResponse.model_validate(user)
 
 
@@ -99,10 +117,11 @@ async def update_user(
     username: str,
     user_data: UserUpdate,
     session: SessionDep,
-    _: CurrentAdminUser,
+    current_admin: CurrentAdminUser,
 ) -> UserResponse:
     """Update user. Admin only."""
     user_repo = UserRepository(session)
+    audit = AuditLogger(session)
 
     # Check if user exists
     user = await user_repo.get_by_username(username)
@@ -139,6 +158,20 @@ async def update_user(
         for key, value in update_data.items():
             setattr(user, key, value)
         session.add(user)
+
+        # Audit log (log changed fields)
+        changed_fields = {k: v for k, v in update_data.items() if k != "hashed_password"}
+        if "hashed_password" in update_data:
+            changed_fields["password"] = "***"
+
+        await audit.log_update(
+            entity_type=EntityType.USER,
+            entity_id=username,
+            web_user=current_admin,
+            description=f"Updated user {username}",
+            details={"changed_fields": changed_fields},
+        )
+
         await session.commit()
         await session.refresh(user)
 
@@ -149,10 +182,11 @@ async def update_user(
 async def delete_user(
     username: str,
     session: SessionDep,
-    _: CurrentAdminUser,
+    current_admin: CurrentAdminUser,
 ) -> None:
     """Delete user. Admin only."""
     user_repo = UserRepository(session)
+    audit = AuditLogger(session)
 
     # Check if user exists
     user = await user_repo.get_by_username(username)
@@ -162,4 +196,14 @@ async def delete_user(
             detail="User not found",
         )
 
-    await user_repo.delete(username, commit=True)
+    await user_repo.delete(username, commit=False)
+
+    # Audit log
+    await audit.log_delete(
+        entity_type=EntityType.USER,
+        entity_id=username,
+        web_user=current_admin,
+        description=f"Deleted user {username}",
+    )
+
+    await session.commit()

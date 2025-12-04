@@ -7,10 +7,13 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from vkt_bot.db.base import Model
 from vkt_bot.config import settings
-from vkt_bot import setup
+from vkt_bot.utils.log import init_logging, setup_sentry
+import importlib
 
-setup()
+from vkt_bot.webapp.app import create_app
 
+# Initialize logging and import models for migrations
+create_app()
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config

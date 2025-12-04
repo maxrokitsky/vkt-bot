@@ -4,6 +4,8 @@ from uuid import UUID
 import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, status
 
+from vkt_bot.core.audit import AuditLogger
+from vkt_bot.core.models.log_entry import EntityType
 from vkt_bot.core.models.role import Role
 from vkt_bot.core.repositories.role import (
     CreateRoleSchema,
@@ -51,10 +53,11 @@ async def list_roles(
 async def create_role(
     role_data: RoleCreate,
     session: SessionDep,
-    _: CurrentAdminUser,
+    current_admin: CurrentAdminUser,
 ) -> RoleResponse:
     """Create new role. Admin only."""
     role_repo = RoleRepository(session)
+    audit = AuditLogger(session)
 
     # Check if role with this name already exists
     try:
@@ -69,7 +72,19 @@ async def create_role(
 
     # Create role
     create_schema = CreateRoleSchema(name=role_data.name)
-    role = await role_repo.create(create_schema, commit=True)
+    role = await role_repo.create(create_schema, commit=False)
+
+    # Audit log
+    await audit.log_create(
+        entity_type=EntityType.ROLE,
+        entity_id=str(role.id),
+        web_user=current_admin,
+        description=f"Created role {role.name}",
+        details={"name": role.name},
+    )
+
+    await session.commit()
+    await session.refresh(role)
 
     return RoleResponse.model_validate(role)
 
@@ -79,10 +94,11 @@ async def update_role(
     role_id: UUID,
     role_data: RoleUpdate,
     session: SessionDep,
-    _: CurrentAdminUser,
+    current_admin: CurrentAdminUser,
 ) -> RoleResponse:
     """Update role. Admin only."""
     role_repo = RoleRepository(session)
+    audit = AuditLogger(session)
 
     # Check if role exists
     role = await role_repo.get_or_none(role_id)
@@ -105,8 +121,19 @@ async def update_role(
         except NotFoundError:
             pass
 
+        old_name = role.name
         role.name = role_data.name
         session.add(role)
+
+        # Audit log
+        await audit.log_update(
+            entity_type=EntityType.ROLE,
+            entity_id=str(role_id),
+            web_user=current_admin,
+            description=f"Updated role {old_name} to {role.name}",
+            details={"old_name": old_name, "new_name": role.name},
+        )
+
         await session.commit()
         await session.refresh(role)
 
@@ -117,10 +144,11 @@ async def update_role(
 async def delete_role(
     role_id: UUID,
     session: SessionDep,
-    _: CurrentAdminUser,
+    current_admin: CurrentAdminUser,
 ) -> None:
     """Delete role. Admin only."""
     role_repo = RoleRepository(session)
+    audit = AuditLogger(session)
 
     # Check if role exists
     role = await role_repo.get_or_none(role_id)
@@ -130,4 +158,16 @@ async def delete_role(
             detail="Role not found",
         )
 
-    await role_repo.delete(role_id, commit=True)
+    role_name = role.name
+    await role_repo.delete(role_id, commit=False)
+
+    # Audit log
+    await audit.log_delete(
+        entity_type=EntityType.ROLE,
+        entity_id=str(role_id),
+        web_user=current_admin,
+        description=f"Deleted role {role_name}",
+        details={"name": role_name},
+    )
+
+    await session.commit()

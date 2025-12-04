@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { IconHome, IconUsers, IconMessageCircle, IconShield, IconUsersGroup, IconWebhook, IconSettings } from "@tabler/icons-vue"
+import { IconHome, IconUsers, IconMessageCircle, IconShield, IconUsersGroup, IconWebhook, IconSettings, IconFileText } from "@tabler/icons-vue"
 import { useAuthStore } from '@/stores/auth'
 
 import NavMain from '@/components/NavMain.vue'
@@ -60,6 +60,11 @@ const navMain = computed(() => [
     title: "Настройки бота",
     url: "/bot-settings",
     icon: IconSettings,
+  }] : []),
+  ...(isAdmin.value ? [{
+    title: "Логи аудита",
+    url: "/logs",
+    icon: IconFileText,
   }] : []),
 ])
 </script>

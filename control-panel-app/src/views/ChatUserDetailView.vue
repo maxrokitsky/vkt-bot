@@ -28,7 +28,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ArrowLeft, Plus, Trash2 } from 'lucide-vue-next'
+import {
+  TagsInput,
+  TagsInputItem,
+  TagsInputItemDelete,
+  TagsInputItemText,
+} from '@/components/ui/tags-input'
+import { ArrowLeft, Plus } from 'lucide-vue-next'
 
 // Временные типы, пока не сгенерирован клиент
 interface ChatUserRole {
@@ -236,24 +242,20 @@ const availableRoles = computed(() => {
             </DialogContent>
           </Dialog>
         </div>
-        <div v-if="userData.roles.length > 0" class="space-y-2">
-          <div
+        <TagsInput
+          :model-value="userData.roles.map(r => r.name)"
+          :disabled="removeRoleMutation.isPending.value"
+        >
+          <TagsInputItem
             v-for="role in userData.roles"
             :key="role.id"
-            class="flex items-center justify-between p-3 border rounded-lg bg-card"
+            :value="role.name"
           >
-            <span class="font-medium">{{ role.name }}</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              @click="handleRemoveRole(role.id, role.name)"
-              :disabled="removeRoleMutation.isPending.value"
-            >
-              <Trash2 class="h-4 w-4 text-destructive" />
-            </Button>
-          </div>
-        </div>
-        <div v-else class="text-center py-8 text-muted-foreground border rounded-lg">
+            <TagsInputItemText />
+            <TagsInputItemDelete @click="handleRemoveRole(role.id, role.name)" />
+          </TagsInputItem>
+        </TagsInput>
+        <div v-if="userData.roles.length === 0" class="text-center py-4 text-sm text-muted-foreground">
           У пользователя нет ролей
         </div>
       </div>
