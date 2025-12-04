@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/vue-query';
 
 import { client } from '../client.gen';
-import { assignRoleToUserApiChatUsersUserIdRolesRoleIdPost, createRoleApiRolesPost, createUserApiUsersPost, createWebhookGlWebhooksPost, deleteRoleApiRolesRoleIdDelete, deleteUserApiUsersUsernameDelete, deleteWebhookGlWebhooksWebhookIdDelete, getChatApiChatsChatIdGet, getChatUserApiChatUsersUserIdGet, getCurrentUserInfoApiAuthMeGet, getUserApiUsersUsernameGet, getWebhookGlWebhooksWebhookIdGet, healthHealthGet, listChatsApiChatsGet, listChatUsersApiChatUsersGet, listRolesApiRolesGet, listUsersApiUsersGet, listWebhooksGlWebhooksGet, loginApiAuthLoginPost, type Options, removeRoleFromUserApiChatUsersUserIdRolesRoleIdDelete, rootGet, sendMessageApiChatsChatIdSendMessagePost, triggerWebhookGlWebhooksWebhookIdTriggerPost, updateRoleApiRolesRoleIdPatch, updateUserApiUsersUsernamePatch, updateWebhookGlWebhooksWebhookIdPatch } from '../sdk.gen';
-import type { AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostData, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostError, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostResponse, CreateRoleApiRolesPostData, CreateRoleApiRolesPostError, CreateRoleApiRolesPostResponse, CreateUserApiUsersPostData, CreateUserApiUsersPostError, CreateUserApiUsersPostResponse, CreateWebhookGlWebhooksPostData, CreateWebhookGlWebhooksPostError, CreateWebhookGlWebhooksPostResponse, DeleteRoleApiRolesRoleIdDeleteData, DeleteRoleApiRolesRoleIdDeleteError, DeleteRoleApiRolesRoleIdDeleteResponse, DeleteUserApiUsersUsernameDeleteData, DeleteUserApiUsersUsernameDeleteError, DeleteUserApiUsersUsernameDeleteResponse, DeleteWebhookGlWebhooksWebhookIdDeleteData, DeleteWebhookGlWebhooksWebhookIdDeleteError, DeleteWebhookGlWebhooksWebhookIdDeleteResponse, GetChatApiChatsChatIdGetData, GetChatApiChatsChatIdGetError, GetChatApiChatsChatIdGetResponse, GetChatUserApiChatUsersUserIdGetData, GetChatUserApiChatUsersUserIdGetError, GetChatUserApiChatUsersUserIdGetResponse, GetCurrentUserInfoApiAuthMeGetData, GetCurrentUserInfoApiAuthMeGetResponse, GetUserApiUsersUsernameGetData, GetUserApiUsersUsernameGetError, GetUserApiUsersUsernameGetResponse, GetWebhookGlWebhooksWebhookIdGetData, GetWebhookGlWebhooksWebhookIdGetError, GetWebhookGlWebhooksWebhookIdGetResponse, HealthHealthGetData, ListChatsApiChatsGetData, ListChatsApiChatsGetError, ListChatsApiChatsGetResponse, ListChatUsersApiChatUsersGetData, ListChatUsersApiChatUsersGetError, ListChatUsersApiChatUsersGetResponse, ListRolesApiRolesGetData, ListRolesApiRolesGetError, ListRolesApiRolesGetResponse, ListUsersApiUsersGetData, ListUsersApiUsersGetError, ListUsersApiUsersGetResponse, ListWebhooksGlWebhooksGetData, ListWebhooksGlWebhooksGetError, ListWebhooksGlWebhooksGetResponse, LoginApiAuthLoginPostData, LoginApiAuthLoginPostError, LoginApiAuthLoginPostResponse, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteData, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteError, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteResponse, RootGetData, SendMessageApiChatsChatIdSendMessagePostData, SendMessageApiChatsChatIdSendMessagePostError, SendMessageApiChatsChatIdSendMessagePostResponse, TriggerWebhookGlWebhooksWebhookIdTriggerPostData, TriggerWebhookGlWebhooksWebhookIdTriggerPostError, UpdateRoleApiRolesRoleIdPatchData, UpdateRoleApiRolesRoleIdPatchError, UpdateRoleApiRolesRoleIdPatchResponse, UpdateUserApiUsersUsernamePatchData, UpdateUserApiUsersUsernamePatchError, UpdateUserApiUsersUsernamePatchResponse, UpdateWebhookGlWebhooksWebhookIdPatchData, UpdateWebhookGlWebhooksWebhookIdPatchError, UpdateWebhookGlWebhooksWebhookIdPatchResponse } from '../types.gen';
+import { assignRoleToUserApiChatUsersUserIdRolesRoleIdPost, createRoleApiRolesPost, createUserApiUsersPost, createWebhookGlWebhooksPost, deleteRoleApiRolesRoleIdDelete, deleteUserApiUsersUsernameDelete, deleteWebhookGlWebhooksWebhookIdDelete, getBotSettingApiBotSettingsKeyGet, getChatApiChatsChatIdGet, getChatUserApiChatUsersUserIdGet, getCurrentUserInfoApiAuthMeGet, getUserApiUsersUsernameGet, getWebhookGlWebhooksWebhookIdGet, healthHealthGet, listBotSettingsApiBotSettingsGet, listChatsApiChatsGet, listChatUsersApiChatUsersGet, listRolesApiRolesGet, listUsersApiUsersGet, listWebhooksGlWebhooksGet, loginApiAuthLoginPost, type Options, removeRoleFromUserApiChatUsersUserIdRolesRoleIdDelete, rootGet, sendMessageApiChatsChatIdSendMessagePost, triggerWebhookGlWebhooksWebhookIdTriggerPost, updateBotSettingApiBotSettingsKeyPut, updateRoleApiRolesRoleIdPatch, updateUserApiUsersUsernamePatch, updateWebhookGlWebhooksWebhookIdPatch } from '../sdk.gen';
+import type { AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostData, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostError, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostResponse, CreateRoleApiRolesPostData, CreateRoleApiRolesPostError, CreateRoleApiRolesPostResponse, CreateUserApiUsersPostData, CreateUserApiUsersPostError, CreateUserApiUsersPostResponse, CreateWebhookGlWebhooksPostData, CreateWebhookGlWebhooksPostError, CreateWebhookGlWebhooksPostResponse, DeleteRoleApiRolesRoleIdDeleteData, DeleteRoleApiRolesRoleIdDeleteError, DeleteRoleApiRolesRoleIdDeleteResponse, DeleteUserApiUsersUsernameDeleteData, DeleteUserApiUsersUsernameDeleteError, DeleteUserApiUsersUsernameDeleteResponse, DeleteWebhookGlWebhooksWebhookIdDeleteData, DeleteWebhookGlWebhooksWebhookIdDeleteError, DeleteWebhookGlWebhooksWebhookIdDeleteResponse, GetBotSettingApiBotSettingsKeyGetData, GetBotSettingApiBotSettingsKeyGetError, GetBotSettingApiBotSettingsKeyGetResponse, GetChatApiChatsChatIdGetData, GetChatApiChatsChatIdGetError, GetChatApiChatsChatIdGetResponse, GetChatUserApiChatUsersUserIdGetData, GetChatUserApiChatUsersUserIdGetError, GetChatUserApiChatUsersUserIdGetResponse, GetCurrentUserInfoApiAuthMeGetData, GetCurrentUserInfoApiAuthMeGetResponse, GetUserApiUsersUsernameGetData, GetUserApiUsersUsernameGetError, GetUserApiUsersUsernameGetResponse, GetWebhookGlWebhooksWebhookIdGetData, GetWebhookGlWebhooksWebhookIdGetError, GetWebhookGlWebhooksWebhookIdGetResponse, HealthHealthGetData, ListBotSettingsApiBotSettingsGetData, ListBotSettingsApiBotSettingsGetResponse, ListChatsApiChatsGetData, ListChatsApiChatsGetError, ListChatsApiChatsGetResponse, ListChatUsersApiChatUsersGetData, ListChatUsersApiChatUsersGetError, ListChatUsersApiChatUsersGetResponse, ListRolesApiRolesGetData, ListRolesApiRolesGetError, ListRolesApiRolesGetResponse, ListUsersApiUsersGetData, ListUsersApiUsersGetError, ListUsersApiUsersGetResponse, ListWebhooksGlWebhooksGetData, ListWebhooksGlWebhooksGetError, ListWebhooksGlWebhooksGetResponse, LoginApiAuthLoginPostData, LoginApiAuthLoginPostError, LoginApiAuthLoginPostResponse, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteData, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteError, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteResponse, RootGetData, SendMessageApiChatsChatIdSendMessagePostData, SendMessageApiChatsChatIdSendMessagePostError, SendMessageApiChatsChatIdSendMessagePostResponse, TriggerWebhookGlWebhooksWebhookIdTriggerPostData, TriggerWebhookGlWebhooksWebhookIdTriggerPostError, UpdateBotSettingApiBotSettingsKeyPutData, UpdateBotSettingApiBotSettingsKeyPutError, UpdateBotSettingApiBotSettingsKeyPutResponse, UpdateRoleApiRolesRoleIdPatchData, UpdateRoleApiRolesRoleIdPatchError, UpdateRoleApiRolesRoleIdPatchResponse, UpdateUserApiUsersUsernamePatchData, UpdateUserApiUsersUsernamePatchError, UpdateUserApiUsersUsernamePatchResponse, UpdateWebhookGlWebhooksWebhookIdPatchData, UpdateWebhookGlWebhooksWebhookIdPatchError, UpdateWebhookGlWebhooksWebhookIdPatchResponse } from '../types.gen';
 
 /**
  * Login
@@ -533,6 +533,65 @@ export const assignRoleToUserApiChatUsersUserIdRolesRoleIdPostMutation = (option
     };
     return mutationOptions;
 };
+
+export const getBotSettingApiBotSettingsKeyGetQueryKey = (options: Options<GetBotSettingApiBotSettingsKeyGetData>) => createQueryKey('getBotSettingApiBotSettingsKeyGet', options);
+
+/**
+ * Get Bot Setting
+ *
+ * Get bot setting by key. Admin only.
+ */
+export const getBotSettingApiBotSettingsKeyGetOptions = (options: Options<GetBotSettingApiBotSettingsKeyGetData>) => queryOptions<GetBotSettingApiBotSettingsKeyGetResponse, GetBotSettingApiBotSettingsKeyGetError, GetBotSettingApiBotSettingsKeyGetResponse, ReturnType<typeof getBotSettingApiBotSettingsKeyGetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getBotSettingApiBotSettingsKeyGet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getBotSettingApiBotSettingsKeyGetQueryKey(options)
+});
+
+/**
+ * Update Bot Setting
+ *
+ * Update or create bot setting. Admin only.
+ */
+export const updateBotSettingApiBotSettingsKeyPutMutation = (options?: Partial<Options<UpdateBotSettingApiBotSettingsKeyPutData>>): UseMutationOptions<UpdateBotSettingApiBotSettingsKeyPutResponse, UpdateBotSettingApiBotSettingsKeyPutError, Options<UpdateBotSettingApiBotSettingsKeyPutData>> => {
+    const mutationOptions: UseMutationOptions<UpdateBotSettingApiBotSettingsKeyPutResponse, UpdateBotSettingApiBotSettingsKeyPutError, Options<UpdateBotSettingApiBotSettingsKeyPutData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateBotSettingApiBotSettingsKeyPut({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listBotSettingsApiBotSettingsGetQueryKey = (options?: Options<ListBotSettingsApiBotSettingsGetData>) => createQueryKey('listBotSettingsApiBotSettingsGet', options);
+
+/**
+ * List Bot Settings
+ *
+ * List all bot settings. Admin only.
+ */
+export const listBotSettingsApiBotSettingsGetOptions = (options?: Options<ListBotSettingsApiBotSettingsGetData>) => queryOptions<ListBotSettingsApiBotSettingsGetResponse, DefaultError, ListBotSettingsApiBotSettingsGetResponse, ReturnType<typeof listBotSettingsApiBotSettingsGetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listBotSettingsApiBotSettingsGet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listBotSettingsApiBotSettingsGetQueryKey(options)
+});
 
 export const rootGetQueryKey = (options?: Options<RootGetData>) => createQueryKey('rootGet', options);
 

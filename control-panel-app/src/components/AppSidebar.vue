@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { IconHome, IconUsers, IconMessageCircle, IconShield, IconUsersGroup, IconWebhook } from "@tabler/icons-vue"
+import { IconHome, IconUsers, IconMessageCircle, IconShield, IconUsersGroup, IconWebhook, IconSettings } from "@tabler/icons-vue"
 import { useAuthStore } from '@/stores/auth'
 
 import NavMain from '@/components/NavMain.vue'
@@ -55,6 +55,11 @@ const navMain = computed(() => [
     title: "GitLab Webhooks",
     url: "/gitlab/webhooks",
     icon: IconWebhook,
+  }] : []),
+  ...(isAdmin.value ? [{
+    title: "Настройки бота",
+    url: "/bot-settings",
+    icon: IconSettings,
   }] : []),
 ])
 </script>

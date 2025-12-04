@@ -32,6 +32,7 @@ dev = ["pytest>=8.4.1", "ruff>=0.12.0"]
 bot = 'vkt_bot.main:start_bot'
 server = 'vkt_bot.main:start_server'
 shell = 'vkt_bot.main:shell'
+export_schema = 'vkt_bot.main:export_schema'
 
 [build-system]
 requires = ["uv_build>=0.7.13,<0.8.0"]
