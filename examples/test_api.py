@@ -56,7 +56,9 @@ def test_api():
         data = response.json()
         print(f"✅ Found {data['total']} users (page {data['page']}/{data['pages']})")
         for user in data["items"]:
-            print(f"   - {user['username']} ({'admin' if user['is_superuser'] else 'user'})")
+            print(
+                f"   - {user['username']} ({'admin' if user['is_superuser'] else 'user'})"
+            )
     else:
         print(f"❌ Failed: {response.json()}")
 

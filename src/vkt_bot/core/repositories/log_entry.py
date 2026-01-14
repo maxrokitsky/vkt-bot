@@ -20,9 +20,7 @@ class CreateLogEntrySchema(BaseModel):
     bot_user_id: str | None = None
 
 
-class LogEntryRepository(
-    AsyncRepository[LogEntry, int, CreateLogEntrySchema, Any]
-):
+class LogEntryRepository(AsyncRepository[LogEntry, int, CreateLogEntrySchema, Any]):
     """Репозиторий для работы с логами аудита."""
 
     pass

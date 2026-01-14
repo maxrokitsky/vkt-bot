@@ -6,6 +6,5 @@ class Token(BaseModel):
     token_type: str = "bearer"
 
 
-class LoginRequest(BaseModel):
-    username: str
-    password: str
+class TokenLoginRequest(BaseModel):
+    token: str

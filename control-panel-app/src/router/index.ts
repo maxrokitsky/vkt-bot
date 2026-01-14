@@ -2,7 +2,6 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import LoginView from '@/views/LoginView.vue'
 import DashboardView from '@/views/DashboardView.vue'
-import UsersView from '@/views/UsersView.vue'
 import ChatsView from '@/views/ChatsView.vue'
 import RolesView from '@/views/RolesView.vue'
 import ChatUsersView from '@/views/ChatUsersView.vue'
@@ -33,34 +32,28 @@ const router = createRouter({
           meta: { title: "Главная", requiresAuth: true },
         },
         {
-          path: 'users',
-          name: 'users',
-          component: UsersView,
-          meta: { title: "Пользователи", requiresAuth: true, requiresAdmin: true },
-        },
-        {
           path: 'chats',
           name: 'chats',
           component: ChatsView,
-          meta: { title: "Чаты", requiresAuth: true, requiresAdmin: true },
+          meta: { title: "Чаты", requiresAuth: true },
         },
         {
           path: 'roles',
           name: 'roles',
           component: RolesView,
-          meta: { title: "Роли", requiresAuth: true, requiresAdmin: true },
+          meta: { title: "Роли", requiresAuth: true },
         },
         {
           path: 'chat-users',
           name: 'chat-users',
           component: ChatUsersView,
-          meta: { title: "Пользователи чатов", requiresAuth: true, requiresAdmin: true },
+          meta: { title: "Пользователи чатов", requiresAuth: true },
         },
         {
           path: 'chat-users/:id',
           name: 'chat-user-detail',
           component: ChatUserDetailView,
-          meta: { title: "Детали пользователя", requiresAuth: true, requiresAdmin: true },
+          meta: { title: "Детали пользователя", requiresAuth: true },
         },
         {
           path: 'gitlab/webhooks',

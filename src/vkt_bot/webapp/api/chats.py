@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, status
 from vkt_bot.app import bot
 from vkt_bot.core.models.chat import Chat
 from vkt_bot.core.repositories.chat import ChatRepository
-from vkt_bot.webapp.dependencies import CurrentAdminUser, SessionDep
+from vkt_bot.webapp.dependencies import CurrentAdminUser, CurrentUser, SessionDep
 from vkt_bot.webapp.schemas.chat import (
     ChatResponse,
     PaginatedChatsResponse,
@@ -20,11 +20,11 @@ router = APIRouter(prefix="/api/chats", tags=["chats"])
 @router.get("", response_model=PaginatedChatsResponse)
 async def list_chats(
     session: SessionDep,
-    _: CurrentAdminUser,
+    _: CurrentUser,
     page: int = 1,
     size: int = 20,
 ) -> PaginatedChatsResponse:
-    """List all chats with pagination. Admin only."""
+    """List all chats with pagination."""
     # Get total count
     count_stmt = sa.select(sa.func.count()).select_from(Chat)
     total = await session.scalar(count_stmt) or 0
@@ -47,9 +47,9 @@ async def list_chats(
 async def get_chat(
     chat_id: str,
     session: SessionDep,
-    _: CurrentAdminUser,
+    _: CurrentUser,
 ) -> ChatResponse:
-    """Get chat by ID. Admin only."""
+    """Get chat by ID."""
     chat_repo = ChatRepository(session)
     chat = await chat_repo.get_or_none(chat_id)
 

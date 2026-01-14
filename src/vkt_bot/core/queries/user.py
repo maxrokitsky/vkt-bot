@@ -3,33 +3,11 @@ from typing import Any
 
 import sqlalchemy as sa
 
-from vkt_bot.db.query import Query
 from vkt_bot.core.models.role import Role, RoleAssignment
-from vkt_bot.core.models.user import ChatUser, User
+from vkt_bot.core.models.user import ChatUser
+from vkt_bot.db.query import Query
 
 type Statement = sa.Select[Any]
-
-
-class UserQuery(Query): ...
-
-
-class UserByUsernameOrEmail(UserQuery):
-    username: str | None = None
-    email: str | None = None
-
-    def apply(self, statement: Statement) -> Statement:
-        if self.username and self.email:
-            return statement.where(
-                (sa.func.lower(User.email) == self.email.lower())
-                | (sa.func.lower(User.username) == self.username.lower())
-            )
-        if self.email:
-            return statement.where(sa.func.lower(User.email) == self.email.lower())
-        if self.username:
-            return statement.where(
-                sa.func.lower(User.username) == self.username.lower()
-            )
-        raise Exception
 
 
 class ChatUserQuery(Query): ...

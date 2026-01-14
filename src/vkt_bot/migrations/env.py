@@ -7,8 +7,6 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from vkt_bot.db.base import Model
 from vkt_bot.config import settings
-from vkt_bot.utils.log import init_logging, setup_sentry
-import importlib
 
 from vkt_bot.webapp.app import create_app
 

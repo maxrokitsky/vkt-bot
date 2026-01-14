@@ -23,7 +23,7 @@ from vkt_bot.core.repositories.role import (
     RoleAssignmentRepository,
     RoleRepository,
 )
-from vkt_bot.core.repositories.user import ChatUserRepository, CreateChatUserSchema
+from vkt_bot.core.repositories.user import ChatUserRepository
 from vkt_bot.app import dispatcher
 from vkt_bot.core.handlers.callback import CallbackData, DeleteRoleCallbackData
 from vkt_bot.core.handlers.mixins import AdminRequiredMixin
@@ -141,7 +141,7 @@ class AssignRoleHandler(AdminRequiredMixin, CommandHandler):
         try:
             async with async_session() as session:
                 role_repository = RoleRepository(session)
-                chat_user_repository = ChatUserRepository(session)
+                user_repository = ChatUserRepository(session)
                 try:
                     role = await role_repository.get_by_name(role_name)
                 except NotFoundError:
@@ -168,10 +168,7 @@ class AssignRoleHandler(AdminRequiredMixin, CommandHandler):
                         f"{mention(event.payload.sender.userId)}, пользователю {user_id} уже назначена роль {role_name}.",
                     )
                     return
-                try:
-                    await chat_user_repository.get(user_id)
-                except NotFoundError:
-                    await chat_user_repository.create(CreateChatUserSchema(id=user_id))
+                await user_repository.get_or_create(user_id)
                 await role_assignment_repository.create(
                     CreateRoleAssignmentSchema(role_id=role.id, user_id=user_id)
                 )
@@ -302,7 +299,7 @@ class ListRoleMembersHandler(CommandHandler):
     async def callback(self, bot: VKTeams, event: NewMessageEvent) -> None:
         words = event.payload.text.split(" ")[1:]
         async with async_session() as session:
-            chat_user_repository = ChatUserRepository(session)
+            user_repository = ChatUserRepository(session)
             role_repository = RoleRepository(session)
 
             if not words:
@@ -323,8 +320,7 @@ class ListRoleMembersHandler(CommandHandler):
                 return
 
             users = [
-                user.id
-                for user in await chat_user_repository.list_by_roles([role.name])
+                user.id for user in await user_repository.list_by_roles([role.name])
             ]
             if users:
                 await bot.send_text(

@@ -1,10 +1,14 @@
 import datetime
 import enum
+from typing import TYPE_CHECKING
 
 import sqlalchemy as sa
 from sqlalchemy import orm
 
 from vkt_bot.db.base import Model
+
+if TYPE_CHECKING:
+    from .user import ChatUser
 
 
 class ActionType(str, enum.Enum):
@@ -21,7 +25,7 @@ class ActorType(str, enum.Enum):
     """Тип актора, совершившего действие."""
 
     WEB_USER = "web_user"  # Пользователь панели управления
-    BOT_USER = "bot_user"  # Пользователь бота (ChatUser)
+    BOT_USER = "bot_user"  # Пользователь бота
     SYSTEM = "system"  # Системное действие
 
 
@@ -49,9 +53,7 @@ class LogEntry(Model):
 
     # Тип актора и его идентификатор
     actor_type: orm.Mapped[ActorType] = orm.mapped_column(index=True)
-    actor_id: orm.Mapped[str | None] = orm.mapped_column(
-        index=True
-    )  # username для web_user, id для bot_user
+    actor_id: orm.Mapped[str | None] = orm.mapped_column(index=True)
 
     # Тип действия
     action_type: orm.Mapped[ActionType] = orm.mapped_column(index=True)
@@ -66,18 +68,13 @@ class LogEntry(Model):
         type_=sa.JSON
     )  # Дополнительные детали (например, измененные поля)
 
-    # Foreign keys для удобства (optional, но ускоряет поиск)
-    web_user_username: orm.Mapped[str | None] = orm.mapped_column(
-        sa.ForeignKey("users.username", ondelete="SET NULL"), index=True
-    )
+    # Foreign keys - сохраняем для обратной совместимости
+    web_user_username: orm.Mapped[str | None] = orm.mapped_column(index=True)
     bot_user_id: orm.Mapped[str | None] = orm.mapped_column(
         sa.ForeignKey("chat_users.id", ondelete="SET NULL"), index=True
     )
 
-    # Relationships
-    web_user: orm.Mapped["User | None"] = orm.relationship(
-        "User", foreign_keys=[web_user_username]
-    )
-    bot_user: orm.Mapped["ChatUser | None"] = orm.relationship(
+    # Relationship
+    user: orm.Mapped["ChatUser | None"] = orm.relationship(
         "ChatUser", foreign_keys=[bot_user_id]
     )

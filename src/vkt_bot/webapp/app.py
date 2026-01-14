@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from vkt_bot import setup
 
-from .api import auth, users, chats, roles, chat_users, bot_settings, logs
+from .api import auth, chats, roles, chat_users, bot_settings, logs
 
 
 def create_app(*args, **kwargs) -> None:
@@ -19,18 +19,15 @@ def create_app(*args, **kwargs) -> None:
     )
 
     app.include_router(auth.router)
-    app.include_router(users.router)
     app.include_router(chats.router)
     app.include_router(roles.router)
     app.include_router(chat_users.router)
     app.include_router(bot_settings.router)
     app.include_router(logs.router)
 
-
     @app.get("/")
     async def root():
         return {"message": "VKT Bot API"}
-
 
     @app.get("/health")
     async def health():

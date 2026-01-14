@@ -11,9 +11,7 @@ class BotSettings(Model):
 
     __tablename__ = "bot_settings"
 
-    key: orm.Mapped[str] = orm.mapped_column(
-        primary_key=True, index=True, unique=True
-    )
+    key: orm.Mapped[str] = orm.mapped_column(primary_key=True, index=True, unique=True)
     value: orm.Mapped[str] = orm.mapped_column(sa.Text)
     updated_at: orm.Mapped[datetime.datetime] = orm.mapped_column(
         server_default=sa.func.now(), onupdate=sa.func.now()

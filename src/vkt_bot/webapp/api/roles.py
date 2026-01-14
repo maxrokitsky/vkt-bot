@@ -12,7 +12,7 @@ from vkt_bot.core.repositories.role import (
     RoleRepository,
 )
 from vkt_bot.db.exceptions import NotFoundError
-from vkt_bot.webapp.dependencies import CurrentAdminUser, SessionDep
+from vkt_bot.webapp.dependencies import CurrentAdminUser, CurrentUser, SessionDep
 from vkt_bot.webapp.schemas.role import (
     PaginatedRolesResponse,
     RoleCreate,
@@ -26,11 +26,11 @@ router = APIRouter(prefix="/api/roles", tags=["roles"])
 @router.get("", response_model=PaginatedRolesResponse)
 async def list_roles(
     session: SessionDep,
-    _: CurrentAdminUser,
+    _: CurrentUser,
     page: int = 1,
     size: int = 20,
 ) -> PaginatedRolesResponse:
-    """List all roles with pagination. Admin only."""
+    """List all roles with pagination."""
     # Get total count
     count_stmt = sa.select(sa.func.count()).select_from(Role)
     total = await session.scalar(count_stmt) or 0

@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostData, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostErrors, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostResponses, CreateRoleApiRolesPostData, CreateRoleApiRolesPostErrors, CreateRoleApiRolesPostResponses, CreateUserApiUsersPostData, CreateUserApiUsersPostErrors, CreateUserApiUsersPostResponses, CreateWebhookGlWebhooksPostData, CreateWebhookGlWebhooksPostErrors, CreateWebhookGlWebhooksPostResponses, DeleteRoleApiRolesRoleIdDeleteData, DeleteRoleApiRolesRoleIdDeleteErrors, DeleteRoleApiRolesRoleIdDeleteResponses, DeleteUserApiUsersUsernameDeleteData, DeleteUserApiUsersUsernameDeleteErrors, DeleteUserApiUsersUsernameDeleteResponses, DeleteWebhookGlWebhooksWebhookIdDeleteData, DeleteWebhookGlWebhooksWebhookIdDeleteErrors, DeleteWebhookGlWebhooksWebhookIdDeleteResponses, GetBotSettingApiBotSettingsKeyGetData, GetBotSettingApiBotSettingsKeyGetErrors, GetBotSettingApiBotSettingsKeyGetResponses, GetChatApiChatsChatIdGetData, GetChatApiChatsChatIdGetErrors, GetChatApiChatsChatIdGetResponses, GetChatUserApiChatUsersUserIdGetData, GetChatUserApiChatUsersUserIdGetErrors, GetChatUserApiChatUsersUserIdGetResponses, GetCurrentUserInfoApiAuthMeGetData, GetCurrentUserInfoApiAuthMeGetResponses, GetLogApiLogsLogIdGetData, GetLogApiLogsLogIdGetErrors, GetLogApiLogsLogIdGetResponses, GetUserApiUsersUsernameGetData, GetUserApiUsersUsernameGetErrors, GetUserApiUsersUsernameGetResponses, GetWebhookGlWebhooksWebhookIdGetData, GetWebhookGlWebhooksWebhookIdGetErrors, GetWebhookGlWebhooksWebhookIdGetResponses, HealthHealthGetData, HealthHealthGetResponses, ListBotSettingsApiBotSettingsGetData, ListBotSettingsApiBotSettingsGetResponses, ListChatsApiChatsGetData, ListChatsApiChatsGetErrors, ListChatsApiChatsGetResponses, ListChatUsersApiChatUsersGetData, ListChatUsersApiChatUsersGetErrors, ListChatUsersApiChatUsersGetResponses, ListLogsApiLogsGetData, ListLogsApiLogsGetErrors, ListLogsApiLogsGetResponses, ListRolesApiRolesGetData, ListRolesApiRolesGetErrors, ListRolesApiRolesGetResponses, ListUsersApiUsersGetData, ListUsersApiUsersGetErrors, ListUsersApiUsersGetResponses, ListWebhooksGlWebhooksGetData, ListWebhooksGlWebhooksGetErrors, ListWebhooksGlWebhooksGetResponses, LoginApiAuthLoginPostData, LoginApiAuthLoginPostErrors, LoginApiAuthLoginPostResponses, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteData, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteErrors, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteResponses, RootGetData, RootGetResponses, SendMessageApiChatsChatIdSendMessagePostData, SendMessageApiChatsChatIdSendMessagePostErrors, SendMessageApiChatsChatIdSendMessagePostResponses, TriggerWebhookGlWebhooksWebhookIdTriggerPostData, TriggerWebhookGlWebhooksWebhookIdTriggerPostErrors, TriggerWebhookGlWebhooksWebhookIdTriggerPostResponses, UpdateBotSettingApiBotSettingsKeyPutData, UpdateBotSettingApiBotSettingsKeyPutErrors, UpdateBotSettingApiBotSettingsKeyPutResponses, UpdateRoleApiRolesRoleIdPatchData, UpdateRoleApiRolesRoleIdPatchErrors, UpdateRoleApiRolesRoleIdPatchResponses, UpdateUserApiUsersUsernamePatchData, UpdateUserApiUsersUsernamePatchErrors, UpdateUserApiUsersUsernamePatchResponses, UpdateWebhookGlWebhooksWebhookIdPatchData, UpdateWebhookGlWebhooksWebhookIdPatchErrors, UpdateWebhookGlWebhooksWebhookIdPatchResponses } from './types.gen';
+import type { AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostData, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostErrors, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostResponses, CreateRoleApiRolesPostData, CreateRoleApiRolesPostErrors, CreateRoleApiRolesPostResponses, CreateWebhookGlWebhooksPostData, CreateWebhookGlWebhooksPostErrors, CreateWebhookGlWebhooksPostResponses, DeleteRoleApiRolesRoleIdDeleteData, DeleteRoleApiRolesRoleIdDeleteErrors, DeleteRoleApiRolesRoleIdDeleteResponses, DeleteWebhookGlWebhooksWebhookIdDeleteData, DeleteWebhookGlWebhooksWebhookIdDeleteErrors, DeleteWebhookGlWebhooksWebhookIdDeleteResponses, GetBotSettingApiBotSettingsKeyGetData, GetBotSettingApiBotSettingsKeyGetErrors, GetBotSettingApiBotSettingsKeyGetResponses, GetChatApiChatsChatIdGetData, GetChatApiChatsChatIdGetErrors, GetChatApiChatsChatIdGetResponses, GetChatUserApiChatUsersUserIdGetData, GetChatUserApiChatUsersUserIdGetErrors, GetChatUserApiChatUsersUserIdGetResponses, GetCurrentUserInfoApiAuthMeGetData, GetCurrentUserInfoApiAuthMeGetResponses, GetLogApiLogsLogIdGetData, GetLogApiLogsLogIdGetErrors, GetLogApiLogsLogIdGetResponses, GetWebhookGlWebhooksWebhookIdGetData, GetWebhookGlWebhooksWebhookIdGetErrors, GetWebhookGlWebhooksWebhookIdGetResponses, HealthHealthGetData, HealthHealthGetResponses, ListBotSettingsApiBotSettingsGetData, ListBotSettingsApiBotSettingsGetResponses, ListChatsApiChatsGetData, ListChatsApiChatsGetErrors, ListChatsApiChatsGetResponses, ListChatUsersApiChatUsersGetData, ListChatUsersApiChatUsersGetErrors, ListChatUsersApiChatUsersGetResponses, ListLogsApiLogsGetData, ListLogsApiLogsGetErrors, ListLogsApiLogsGetResponses, ListRolesApiRolesGetData, ListRolesApiRolesGetErrors, ListRolesApiRolesGetResponses, ListWebhooksGlWebhooksGetData, ListWebhooksGlWebhooksGetErrors, ListWebhooksGlWebhooksGetResponses, LoginApiAuthLoginPostData, LoginApiAuthLoginPostErrors, LoginApiAuthLoginPostResponses, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteData, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteErrors, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteResponses, RootGetData, RootGetResponses, SendMessageApiChatsChatIdSendMessagePostData, SendMessageApiChatsChatIdSendMessagePostErrors, SendMessageApiChatsChatIdSendMessagePostResponses, TriggerWebhookGlWebhooksWebhookIdTriggerPostData, TriggerWebhookGlWebhooksWebhookIdTriggerPostErrors, TriggerWebhookGlWebhooksWebhookIdTriggerPostResponses, UpdateBotSettingApiBotSettingsKeyPutData, UpdateBotSettingApiBotSettingsKeyPutErrors, UpdateBotSettingApiBotSettingsKeyPutResponses, UpdateRoleApiRolesRoleIdPatchData, UpdateRoleApiRolesRoleIdPatchErrors, UpdateRoleApiRolesRoleIdPatchResponses, UpdateWebhookGlWebhooksWebhookIdPatchData, UpdateWebhookGlWebhooksWebhookIdPatchErrors, UpdateWebhookGlWebhooksWebhookIdPatchResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
     /**
@@ -21,7 +21,7 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 /**
  * Login
  *
- * Login and get JWT token.
+ * Login with temporary token from bot.
  */
 export const loginApiAuthLoginPost = <ThrowOnError extends boolean = false>(options: Options<LoginApiAuthLoginPostData, ThrowOnError>) => (options.client ?? client).post<LoginApiAuthLoginPostResponses, LoginApiAuthLoginPostErrors, ThrowOnError>({
     url: '/api/auth/login',
@@ -41,69 +41,6 @@ export const getCurrentUserInfoApiAuthMeGet = <ThrowOnError extends boolean = fa
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/auth/me',
     ...options
-});
-
-/**
- * List Users
- *
- * List all users with pagination. Admin only.
- */
-export const listUsersApiUsersGet = <ThrowOnError extends boolean = false>(options?: Options<ListUsersApiUsersGetData, ThrowOnError>) => (options?.client ?? client).get<ListUsersApiUsersGetResponses, ListUsersApiUsersGetErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/users',
-    ...options
-});
-
-/**
- * Create User
- *
- * Create new user. Admin only.
- */
-export const createUserApiUsersPost = <ThrowOnError extends boolean = false>(options: Options<CreateUserApiUsersPostData, ThrowOnError>) => (options.client ?? client).post<CreateUserApiUsersPostResponses, CreateUserApiUsersPostErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/users',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Delete User
- *
- * Delete user. Admin only.
- */
-export const deleteUserApiUsersUsernameDelete = <ThrowOnError extends boolean = false>(options: Options<DeleteUserApiUsersUsernameDeleteData, ThrowOnError>) => (options.client ?? client).delete<DeleteUserApiUsersUsernameDeleteResponses, DeleteUserApiUsersUsernameDeleteErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/users/{username}',
-    ...options
-});
-
-/**
- * Get User
- *
- * Get user by username. Admin only.
- */
-export const getUserApiUsersUsernameGet = <ThrowOnError extends boolean = false>(options: Options<GetUserApiUsersUsernameGetData, ThrowOnError>) => (options.client ?? client).get<GetUserApiUsersUsernameGetResponses, GetUserApiUsersUsernameGetErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/users/{username}',
-    ...options
-});
-
-/**
- * Update User
- *
- * Update user. Admin only.
- */
-export const updateUserApiUsersUsernamePatch = <ThrowOnError extends boolean = false>(options: Options<UpdateUserApiUsersUsernamePatchData, ThrowOnError>) => (options.client ?? client).patch<UpdateUserApiUsersUsernamePatchResponses, UpdateUserApiUsersUsernamePatchErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/users/{username}',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
 });
 
 /**

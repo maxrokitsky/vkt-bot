@@ -3,7 +3,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vkt_bot.core.models.log_entry import ActionType, ActorType, EntityType
-from vkt_bot.core.models.user import User, ChatUser
+from vkt_bot.core.models.user import ChatUser
 from vkt_bot.core.repositories.log_entry import (
     CreateLogEntrySchema,
     LogEntryRepository,
@@ -25,8 +25,7 @@ class AuditLogger:
         *,
         actor_type: ActorType = ActorType.SYSTEM,
         actor_id: str | None = None,
-        web_user: User | None = None,
-        bot_user: ChatUser | None = None,
+        user: ChatUser | None = None,
         description: str | None = None,
         details: dict | None = None,
     ) -> None:
@@ -39,8 +38,7 @@ class AuditLogger:
             entity_id: ID сущности
             actor_type: Тип актора
             actor_id: ID актора
-            web_user: Пользователь панели управления (если применимо)
-            bot_user: Пользователь бота (если применимо)
+            user: Пользователь (если применимо)
             description: Человекочитаемое описание
             details: Дополнительные детали в формате dict
         """
@@ -52,8 +50,8 @@ class AuditLogger:
             entity_id=entity_id,
             description=description,
             details=details,
-            web_user_username=web_user.username if web_user else None,
-            bot_user_id=bot_user.id if bot_user else None,
+            web_user_username=user.id if user else None,
+            bot_user_id=user.id if user else None,
         )
         await self.repository.create(schema, commit=False)
 
@@ -62,14 +60,13 @@ class AuditLogger:
         entity_type: EntityType,
         entity_id: str,
         *,
-        web_user: User | None = None,
-        bot_user: ChatUser | None = None,
+        user: ChatUser | None = None,
         description: str | None = None,
         details: dict | None = None,
     ) -> None:
         """Логирование создания сущности."""
-        actor_type = ActorType.WEB_USER if web_user else ActorType.BOT_USER if bot_user else ActorType.SYSTEM
-        actor_id = web_user.username if web_user else bot_user.id if bot_user else None
+        actor_type = ActorType.WEB_USER if user else ActorType.SYSTEM
+        actor_id = user.id if user else None
 
         await self.log(
             action_type=ActionType.CREATE,
@@ -77,8 +74,7 @@ class AuditLogger:
             entity_id=entity_id,
             actor_type=actor_type,
             actor_id=actor_id,
-            web_user=web_user,
-            bot_user=bot_user,
+            user=user,
             description=description or f"Created {entity_type.value} {entity_id}",
             details=details,
         )
@@ -88,14 +84,13 @@ class AuditLogger:
         entity_type: EntityType,
         entity_id: str,
         *,
-        web_user: User | None = None,
-        bot_user: ChatUser | None = None,
+        user: ChatUser | None = None,
         description: str | None = None,
         details: dict | None = None,
     ) -> None:
         """Логирование обновления сущности."""
-        actor_type = ActorType.WEB_USER if web_user else ActorType.BOT_USER if bot_user else ActorType.SYSTEM
-        actor_id = web_user.username if web_user else bot_user.id if bot_user else None
+        actor_type = ActorType.WEB_USER if user else ActorType.SYSTEM
+        actor_id = user.id if user else None
 
         await self.log(
             action_type=ActionType.UPDATE,
@@ -103,8 +98,7 @@ class AuditLogger:
             entity_id=entity_id,
             actor_type=actor_type,
             actor_id=actor_id,
-            web_user=web_user,
-            bot_user=bot_user,
+            user=user,
             description=description or f"Updated {entity_type.value} {entity_id}",
             details=details,
         )
@@ -114,14 +108,13 @@ class AuditLogger:
         entity_type: EntityType,
         entity_id: str,
         *,
-        web_user: User | None = None,
-        bot_user: ChatUser | None = None,
+        user: ChatUser | None = None,
         description: str | None = None,
         details: dict | None = None,
     ) -> None:
         """Логирование удаления сущности."""
-        actor_type = ActorType.WEB_USER if web_user else ActorType.BOT_USER if bot_user else ActorType.SYSTEM
-        actor_id = web_user.username if web_user else bot_user.id if bot_user else None
+        actor_type = ActorType.WEB_USER if user else ActorType.SYSTEM
+        actor_id = user.id if user else None
 
         await self.log(
             action_type=ActionType.DELETE,
@@ -129,8 +122,7 @@ class AuditLogger:
             entity_id=entity_id,
             actor_type=actor_type,
             actor_id=actor_id,
-            web_user=web_user,
-            bot_user=bot_user,
+            user=user,
             description=description or f"Deleted {entity_type.value} {entity_id}",
             details=details,
         )
@@ -140,14 +132,13 @@ class AuditLogger:
         entity_type: EntityType,
         entity_id: str,
         *,
-        web_user: User | None = None,
-        bot_user: ChatUser | None = None,
+        user: ChatUser | None = None,
         description: str | None = None,
         details: dict | None = None,
     ) -> None:
         """Логирование назначения (например, роли)."""
-        actor_type = ActorType.WEB_USER if web_user else ActorType.BOT_USER if bot_user else ActorType.SYSTEM
-        actor_id = web_user.username if web_user else bot_user.id if bot_user else None
+        actor_type = ActorType.WEB_USER if user else ActorType.SYSTEM
+        actor_id = user.id if user else None
 
         await self.log(
             action_type=ActionType.ASSIGN,
@@ -155,8 +146,7 @@ class AuditLogger:
             entity_id=entity_id,
             actor_type=actor_type,
             actor_id=actor_id,
-            web_user=web_user,
-            bot_user=bot_user,
+            user=user,
             description=description or f"Assigned {entity_type.value} {entity_id}",
             details=details,
         )
@@ -166,14 +156,13 @@ class AuditLogger:
         entity_type: EntityType,
         entity_id: str,
         *,
-        web_user: User | None = None,
-        bot_user: ChatUser | None = None,
+        user: ChatUser | None = None,
         description: str | None = None,
         details: dict | None = None,
     ) -> None:
         """Логирование отмены назначения (например, роли)."""
-        actor_type = ActorType.WEB_USER if web_user else ActorType.BOT_USER if bot_user else ActorType.SYSTEM
-        actor_id = web_user.username if web_user else bot_user.id if bot_user else None
+        actor_type = ActorType.WEB_USER if user else ActorType.SYSTEM
+        actor_id = user.id if user else None
 
         await self.log(
             action_type=ActionType.UNASSIGN,
@@ -181,8 +170,7 @@ class AuditLogger:
             entity_id=entity_id,
             actor_type=actor_type,
             actor_id=actor_id,
-            web_user=web_user,
-            bot_user=bot_user,
+            user=user,
             description=description or f"Unassigned {entity_type.value} {entity_id}",
             details=details,
         )

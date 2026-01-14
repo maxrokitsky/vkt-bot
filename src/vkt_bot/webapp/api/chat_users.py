@@ -14,7 +14,7 @@ from vkt_bot.core.repositories.role import (
     RoleRepository,
 )
 from vkt_bot.core.repositories.user import ChatUserRepository
-from vkt_bot.webapp.dependencies import CurrentAdminUser, SessionDep
+from vkt_bot.webapp.dependencies import CurrentAdminUser, CurrentUser, SessionDep
 from vkt_bot.webapp.schemas.chat_user import (
     ChatUserChatResponse,
     ChatUserDetailResponse,
@@ -29,11 +29,11 @@ router = APIRouter(prefix="/api/chat-users", tags=["chat-users"])
 @router.get("", response_model=PaginatedChatUsersResponse)
 async def list_chat_users(
     session: SessionDep,
-    _: CurrentAdminUser,
+    _: CurrentUser,
     page: int = 1,
     size: int = 20,
 ) -> PaginatedChatUsersResponse:
-    """List all chat users with pagination. Admin only."""
+    """List all chat users with pagination."""
     # Get total count
     count_stmt = sa.select(sa.func.count()).select_from(ChatUser)
     total = await session.scalar(count_stmt) or 0
@@ -56,11 +56,9 @@ async def list_chat_users(
 async def get_chat_user(
     user_id: str,
     session: SessionDep,
-    _: CurrentAdminUser,
+    _: CurrentUser,
 ) -> ChatUserDetailResponse:
-    """Get chat user by ID with roles and chats. Admin only."""
-    user_repo = ChatUserRepository(session)
-
+    """Get chat user by ID with roles and chats."""
     # Load user with relationships
     stmt = (
         sa.select(ChatUser)
@@ -152,7 +150,7 @@ async def assign_role_to_user(
     await audit.log_assign(
         entity_type=EntityType.ROLE_ASSIGNMENT,
         entity_id=str(assignment.id),
-        web_user=current_admin,
+        user=current_admin,
         description=f"Assigned role {role.name} to user {user_id}",
         details={"role_id": str(role_id), "role_name": role.name, "user_id": user_id},
     )
@@ -199,7 +197,7 @@ async def remove_role_from_user(
     await audit.log_unassign(
         entity_type=EntityType.ROLE_ASSIGNMENT,
         entity_id=str(assignment_id),
-        web_user=current_admin,
+        user=current_admin,
         description=f"Removed role {role_name} from user {user_id}",
         details={"role_id": str(role_id), "role_name": role_name, "user_id": user_id},
     )

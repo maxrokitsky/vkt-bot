@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import {
   listRolesApiRolesGet,
@@ -10,6 +10,7 @@ import {
   type RoleUpdate,
   type RoleResponse,
 } from '@/client'
+import { useAuthStore } from '@/stores/auth'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -42,6 +43,8 @@ import {
 import { Plus, Trash2, Edit } from 'lucide-vue-next'
 
 const queryClient = useQueryClient()
+const authStore = useAuthStore()
+const isAdmin = computed(() => authStore.isAdmin)
 const page = ref(1)
 const size = ref(10)
 const showCreateDialog = ref(false)
@@ -139,8 +142,7 @@ const handleUpdate = () => {
 
 <template>
   <div class="space-y-6">
-    <div class="flex items-center justify-end">
-      <!-- <h1 class="text-3xl font-bold">Роли</h1> -->
+    <div v-if="isAdmin" class="flex items-center justify-end">
       <Dialog v-model:open="showCreateDialog">
         <DialogTrigger as-child>
           <Button>
@@ -172,14 +174,14 @@ const handleUpdate = () => {
             <TableRow>
               <TableHead>Название</TableHead>
               <TableHead>ID</TableHead>
-              <TableHead class="text-right">Действия</TableHead>
+              <TableHead v-if="isAdmin" class="text-right">Действия</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             <TableRow v-for="role in rolesData.items" :key="role.id">
               <TableCell class="font-medium">{{ role.name }}</TableCell>
               <TableCell class="font-mono text-sm">{{ role.id }}</TableCell>
-              <TableCell class="text-right">
+              <TableCell v-if="isAdmin" class="text-right">
                 <div class="flex justify-end gap-2">
                   <Button
                     variant="outline"

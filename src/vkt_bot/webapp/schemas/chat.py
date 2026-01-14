@@ -19,8 +19,12 @@ class PaginatedChatsResponse(BaseModel):
 
 
 class SendMessageRequest(BaseModel):
-    text: str = Field(..., min_length=1, max_length=4096, description="Message text to send")
-    parse_mode: Literal["MarkdownV2", "HTML"] | None = Field(None, description="Parse mode for message formatting")
+    text: str = Field(
+        ..., min_length=1, max_length=4096, description="Message text to send"
+    )
+    parse_mode: Literal["MarkdownV2", "HTML"] | None = Field(
+        None, description="Parse mode for message formatting"
+    )
 
 
 class SendMessageResponse(BaseModel):

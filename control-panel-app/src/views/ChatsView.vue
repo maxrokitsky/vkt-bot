@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useQuery, useMutation } from '@tanstack/vue-query'
 import { listChatsApiChatsGet, sendMessageApiChatsChatIdSendMessagePost } from '@/client'
+import { useAuthStore } from '@/stores/auth'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -24,6 +25,8 @@ import {
 import { Search, Send } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 
+const authStore = useAuthStore()
+const isAdmin = computed(() => authStore.isAdmin)
 const page = ref(1)
 const size = ref(10)
 const searchQuery = ref('')
@@ -105,7 +108,7 @@ const handleSendMessage = () => {
             <TableRow>
               <TableHead>ID</TableHead>
               <TableHead>Название</TableHead>
-              <TableHead class="w-[100px]">Действия</TableHead>
+              <TableHead v-if="isAdmin" class="w-[100px]">Действия</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -117,7 +120,7 @@ const handleSendMessage = () => {
             >
               <TableCell class="font-mono text-sm">{{ chat.id }}</TableCell>
               <TableCell>{{ chat.title || '—' }}</TableCell>
-              <TableCell>
+              <TableCell v-if="isAdmin">
                 <Button
                   variant="ghost"
                   size="sm"

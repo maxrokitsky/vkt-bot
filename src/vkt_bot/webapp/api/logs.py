@@ -2,7 +2,6 @@ import math
 
 from fastapi import APIRouter, Depends
 
-from vkt_bot.core.models.log_entry import LogEntry
 from vkt_bot.core.queries.log_entry import (
     FilterByActionType,
     FilterByActorId,

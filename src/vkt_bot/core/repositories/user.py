@@ -1,52 +1,11 @@
 from typing import Any
 
 import sqlalchemy as sa
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
-from vkt_bot.db.repository import AsyncRepository
 from vkt_bot.core.models import ChatUser
 from vkt_bot.core.models.role import Role, RoleAssignment
-from vkt_bot.core.models.user import User
-from vkt_bot.core.queries.user import UserByUsernameOrEmail
-from vkt_bot.core.security import verify_password
-
-
-class CreateUserSchema(BaseModel):
-    """CreateUserSchema."""
-
-    username: str
-    hashed_password: str
-    email: EmailStr
-    is_active: bool
-    is_superuser: bool
-
-
-class UpdateUserSchema(BaseModel):
-    """UpdateUserSchema."""
-
-    hashed_password: str
-    email: EmailStr
-    is_active: bool
-    is_superuser: bool
-
-
-class UserRepository(AsyncRepository[User, str, CreateUserSchema, UpdateUserSchema]):
-    """User Repository."""
-
-    async def authenticate(self, email_or_username: str, password: str) -> User | None:
-        """Авторизует пользователя."""
-        user = await self.query(
-            UserByUsernameOrEmail(email=email_or_username, username=email_or_username)
-        ).one_or_none()
-        if not user:
-            return None
-        if not verify_password(password, user.hashed_password):
-            return None
-        return user
-
-    async def get_by_username(self, username: str) -> User | None:
-        """Получить пользователя по username."""
-        return await self.get_or_none(username)
+from vkt_bot.db.repository import AsyncRepository
 
 
 class CreateChatUserSchema(BaseModel):
@@ -56,7 +15,14 @@ class CreateChatUserSchema(BaseModel):
 
 
 class ChatUserRepository(AsyncRepository[ChatUser, str, CreateChatUserSchema, Any]):
-    """Chat User Repository."""
+    """ChatUser Repository."""
+
+    async def get_or_create(self, user_id: str) -> ChatUser:
+        """Получить пользователя или создать если не существует."""
+        user = await self.get_or_none(user_id)
+        if user:
+            return user
+        return await self.create(CreateChatUserSchema(id=user_id))
 
     async def list_by_roles(self, roles: list[str]) -> sa.ScalarResult[ChatUser]:
         """Получить список пользователей по ролям."""

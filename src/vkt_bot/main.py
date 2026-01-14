@@ -13,7 +13,7 @@ from vkt_bot.webapp.app import create_app
 from .loggers import main_logger
 from . import setup
 
-logging.getLogger('passlib').setLevel(logging.ERROR)
+logging.getLogger("passlib").setLevel(logging.ERROR)
 
 
 async def main() -> None:
@@ -30,11 +30,13 @@ def start_bot() -> None:
 
 
 def start_server() -> None:
-    uvicorn.run('vkt_bot.webapp.app:create_app', port=8765, reload=True)
+    uvicorn.run("vkt_bot.webapp.app:create_app", port=8765, reload=True)
+
 
 def export_schema() -> None:
-    Path('openapi.json').write_text(json.dumps(create_app().openapi()))
-    print('openapi.json exported')
+    Path("openapi.json").write_text(json.dumps(create_app().openapi()))
+    print("openapi.json exported")
+
 
 def shell() -> None:
     setup()

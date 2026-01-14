@@ -25,6 +25,7 @@ async def get_bot_setting(
         # Если настройка не найдена и это start_message, возвращаем значение по умолчанию
         if key == "start_message":
             from datetime import datetime, timezone
+
             return BotSettingsResponse(
                 key=key,
                 value=DEFAULT_START_MESSAGE,

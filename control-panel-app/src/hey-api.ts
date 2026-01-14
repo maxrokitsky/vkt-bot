@@ -7,6 +7,11 @@ client.setConfig({
 
 // Add request interceptor to include auth token
 client.interceptors.request.use((request: Request) => {
+  const url = new URL(request.url)
+  // Don't add auth header to login endpoint
+  if (url.pathname === '/api/auth/login') {
+    return request
+  }
   const token = localStorage.getItem('token')
   if (token) {
     request.headers.set('Authorization', `Bearer ${token}`)
