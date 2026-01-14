@@ -30,7 +30,7 @@ def start_bot() -> None:
 
 
 def start_server() -> None:
-    uvicorn.run('vkt_bot.webapp.app:create_app', reload=True)
+    uvicorn.run('vkt_bot.webapp.app:create_app', port=8765, reload=True)
 
 def export_schema() -> None:
     Path('openapi.json').write_text(json.dumps(create_app().openapi()))

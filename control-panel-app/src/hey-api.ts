@@ -2,7 +2,7 @@ import { client } from './client/client.gen'
 
 // Configure client with base URL and auth interceptor
 client.setConfig({
-  baseUrl: 'http://localhost:8000',
+  baseUrl: 'http://localhost:8765',
 })
 
 // Add request interceptor to include auth token

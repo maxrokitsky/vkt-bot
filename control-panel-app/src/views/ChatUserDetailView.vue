@@ -35,28 +35,13 @@ import {
   TagsInputItemText,
 } from '@/components/ui/tags-input'
 import { ArrowLeft, Plus } from 'lucide-vue-next'
-
-// Временные типы, пока не сгенерирован клиент
-interface ChatUserRole {
-  id: string
-  name: string
-}
-
-interface ChatUserChat {
-  id: string
-  type: string
-}
-
-interface ChatUserDetail {
-  id: string
-  roles: ChatUserRole[]
-  chats: ChatUserChat[]
-}
-
-interface Role {
-  id: string
-  name: string
-}
+import {
+  getChatUserApiChatUsersUserIdGetOptions,
+  getChatUserApiChatUsersUserIdGetQueryKey,
+  listRolesApiRolesGetOptions,
+  assignRoleToUserApiChatUsersUserIdRolesRoleIdPostMutation,
+  removeRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteMutation,
+} from '@/client/@tanstack/vue-query.gen'
 
 const route = useRoute()
 const router = useRouter()
@@ -67,98 +52,47 @@ const selectedRoleId = ref<string>('')
 const showDeleteRoleDialog = ref(false)
 const roleToDelete = ref<{ id: string; name: string } | null>(null)
 
-const getToken = () => localStorage.getItem('token')
+const { data: userData, isLoading } = useQuery(
+  computed(() => getChatUserApiChatUsersUserIdGetOptions({
+    path: { user_id: userId.value },
+  }))
+)
 
-// Функция для загрузки деталей пользователя
-const fetchChatUserDetail = async (userId: string): Promise<ChatUserDetail> => {
-  const token = getToken()
-  const response = await fetch(`http://localhost:8000/api/chat-users/${userId}`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
+const { data: rolesData } = useQuery(
+  listRolesApiRolesGetOptions({
+    query: { page: 1, size: 1000 },
   })
-  if (!response.ok) {
-    throw new Error('Failed to fetch chat user details')
-  }
-  return response.json()
-}
-
-// Функция для загрузки всех ролей
-const fetchRoles = async (): Promise<Role[]> => {
-  const token = getToken()
-  const response = await fetch('http://localhost:8000/api/roles?page=1&size=1000', {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  })
-  if (!response.ok) {
-    throw new Error('Failed to fetch roles')
-  }
-  const data = await response.json()
-  return data.items
-}
-
-// Функция для назначения роли
-const assignRole = async (userId: string, roleId: string): Promise<void> => {
-  const token = getToken()
-  const response = await fetch(`http://localhost:8000/api/chat-users/${userId}/roles/${roleId}`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  })
-  if (!response.ok) {
-    throw new Error('Failed to assign role')
-  }
-}
-
-// Функция для удаления роли
-const removeRole = async (userId: string, roleId: string): Promise<void> => {
-  const token = getToken()
-  const response = await fetch(`http://localhost:8000/api/chat-users/${userId}/roles/${roleId}`, {
-    method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  })
-  if (!response.ok) {
-    throw new Error('Failed to remove role')
-  }
-}
-
-const { data: userData, isLoading } = useQuery({
-  queryKey: ['chat-user', userId],
-  queryFn: async () => fetchChatUserDetail(userId.value),
-})
-
-const { data: rolesData } = useQuery({
-  queryKey: ['roles'],
-  queryFn: fetchRoles,
-})
+)
 
 const assignRoleMutation = useMutation({
-  mutationFn: async (roleId: string) => {
-    return await assignRole(userId.value, roleId)
-  },
+  ...assignRoleToUserApiChatUsersUserIdRolesRoleIdPostMutation(),
   onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ['chat-user', userId] })
+    queryClient.invalidateQueries({
+      queryKey: getChatUserApiChatUsersUserIdGetQueryKey({
+        path: { user_id: userId.value },
+      }),
+    })
     showAddRoleDialog.value = false
     selectedRoleId.value = ''
   },
 })
 
 const removeRoleMutation = useMutation({
-  mutationFn: async (roleId: string) => {
-    return await removeRole(userId.value, roleId)
-  },
+  ...removeRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteMutation(),
   onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ['chat-user', userId] })
+    queryClient.invalidateQueries({
+      queryKey: getChatUserApiChatUsersUserIdGetQueryKey({
+        path: { user_id: userId.value },
+      }),
+    })
   },
 })
 
 const handleAssignRole = () => {
   if (selectedRoleId.value) {
-    assignRoleMutation.mutate(selectedRoleId.value)
+    assignRoleMutation.mutate({
+      path: { user_id: userId.value, role_id: selectedRoleId.value },
+    })
   }
 }
 
@@ -169,7 +103,9 @@ const handleRemoveRole = (roleId: string, roleName: string) => {
 
 const confirmRemoveRole = () => {
   if (roleToDelete.value) {
-    removeRoleMutation.mutate(roleToDelete.value.id)
+    removeRoleMutation.mutate({
+      path: { user_id: userId.value, role_id: roleToDelete.value.id },
+    })
     showDeleteRoleDialog.value = false
     roleToDelete.value = null
   }
@@ -181,9 +117,9 @@ const goBack = () => {
 
 // Доступные роли для добавления (исключая уже назначенные)
 const availableRoles = computed(() => {
-  if (!rolesData.value || !userData.value) return []
+  if (!rolesData.value?.items || !userData.value) return []
   const userRoleIds = new Set(userData.value.roles.map(r => r.id))
-  return rolesData.value.filter(role => !userRoleIds.has(role.id))
+  return rolesData.value.items.filter(role => !userRoleIds.has(role.id))
 })
 </script>
 

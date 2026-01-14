@@ -42,25 +42,25 @@ const router = createRouter({
           path: 'chats',
           name: 'chats',
           component: ChatsView,
-          meta: { title: "Чаты", requiresAuth: true },
+          meta: { title: "Чаты", requiresAuth: true, requiresAdmin: true },
         },
         {
           path: 'roles',
           name: 'roles',
           component: RolesView,
-          meta: { title: "Роли", requiresAuth: true },
+          meta: { title: "Роли", requiresAuth: true, requiresAdmin: true },
         },
         {
           path: 'chat-users',
           name: 'chat-users',
           component: ChatUsersView,
-          meta: { title: "Пользователи чатов", requiresAuth: true },
+          meta: { title: "Пользователи чатов", requiresAuth: true, requiresAdmin: true },
         },
         {
           path: 'chat-users/:id',
           name: 'chat-user-detail',
           component: ChatUserDetailView,
-          meta: { title: "Детали пользователя", requiresAuth: true },
+          meta: { title: "Детали пользователя", requiresAuth: true, requiresAdmin: true },
         },
         {
           path: 'gitlab/webhooks',
@@ -98,8 +98,13 @@ router.beforeEach(async (to, from, next) => {
     return
   }
 
+  // Fetch user data if we have a token but no user loaded yet
+  if (authStore.isAuthenticated && !authStore.user) {
+    await authStore.fetchUser()
+  }
+
   if (to.meta.requiresAdmin && !authStore.isAdmin) {
-    next('/chats')
+    next('/')
     return
   }
 

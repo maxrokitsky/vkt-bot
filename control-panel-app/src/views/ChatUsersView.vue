@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuery } from '@tanstack/vue-query'
 import { Button } from '@/components/ui/button'
@@ -12,42 +12,17 @@ import {
   TableCell,
 } from '@/components/ui/table'
 import { Eye } from 'lucide-vue-next'
-
-// Временный тип, пока не сгенерирован клиент
-interface ChatUser {
-  id: string
-}
-
-interface PaginatedChatUsersResponse {
-  items: ChatUser[]
-  total: number
-  page: number
-  size: number
-  pages: number
-}
+import { listChatUsersApiChatUsersGetOptions } from '@/client/@tanstack/vue-query.gen'
 
 const router = useRouter()
 const page = ref(1)
 const size = ref(20)
 
-// Временная функция для загрузки данных
-const fetchChatUsers = async (page: number, size: number): Promise<PaginatedChatUsersResponse> => {
-  const token = localStorage.getItem('token')
-  const response = await fetch(`http://localhost:8000/api/chat-users?page=${page}&size=${size}`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  })
-  if (!response.ok) {
-    throw new Error('Failed to fetch chat users')
-  }
-  return response.json()
-}
-
-const { data: usersData, isLoading } = useQuery({
-  queryKey: ['chat-users', page, size],
-  queryFn: async () => fetchChatUsers(page.value, size.value),
-})
+const { data: usersData, isLoading } = useQuery(
+  computed(() => listChatUsersApiChatUsersGetOptions({
+    query: { page: page.value, size: size.value },
+  }))
+)
 
 const viewUserDetails = (userId: string) => {
   router.push(`/chat-users/${userId}`)
