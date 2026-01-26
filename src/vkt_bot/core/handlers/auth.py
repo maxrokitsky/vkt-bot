@@ -32,7 +32,12 @@ class LoginHandler(CommandHandler):
 
             login_token = await token_repo.create_token(user_id, expires_minutes=5)
             await session.commit()
-            logger.info("Created login token for user %s: %s... (id=%s)", user_id, login_token.token[:10], login_token.id)
+            logger.info(
+                "Created login token for user %s: %s... (id=%s)",
+                user_id,
+                login_token.token[:10],
+                login_token.id,
+            )
 
         if settings.public_url:
             login_url = f"{settings.public_url}/login?token={login_token.token}"

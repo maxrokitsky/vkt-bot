@@ -39,11 +39,17 @@ async def login(
     history_repo = LoginHistoryRepository(session)
 
     token_value = login_data.token.strip()
-    logger.debug("Login attempt with token: %s...", token_value[:10] if len(token_value) > 10 else token_value)
+    logger.debug(
+        "Login attempt with token: %s...",
+        token_value[:10] if len(token_value) > 10 else token_value,
+    )
 
     login_token = await token_repo.get_by_token(token_value)
     if not login_token:
-        logger.warning("Token not found in database: %s...", token_value[:10] if len(token_value) > 10 else token_value)
+        logger.warning(
+            "Token not found in database: %s...",
+            token_value[:10] if len(token_value) > 10 else token_value,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
         )
