@@ -20,6 +20,22 @@ class VktSettings(BaseSettings):
     sentry_dsn: str | None = None
     access_token_expire_minutes: int = 60 * 24 * 8
 
+    # Настройки для загрузки файлов
+    max_file_size: int = 50 * 1024 * 1024  # 50 MB по умолчанию
+    allowed_file_types: list[str] = [
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+        "application/pdf",
+        "text/plain",
+        "text/csv",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ]
+
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
     )

@@ -2,6 +2,7 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Header, HTTPException, status
+from vkteams_client.types import MsgLoadFileResponse
 
 from vkt_bot.app import bot
 from vkt_bot.core.repositories.webhook import WebhookRepository
@@ -59,33 +60,54 @@ async def handle_public_webhook(
             "default_parse_mode"
         )
 
-        await bot.send_text(
-            chat_id=webhook.chat_id,
-            text=request.text,
-            parse_mode=parse_mode,
-            inline_keyboard_markup=request.inline_keyboard_markup,
-        )
+        msg_id = None
+        file_id = None
+        log_message = ""
+
+        if request.text is not None:
+            # Отправка текста
+            text = request.text  # request.text гарантированно не None здесь
+            await bot.send_text(
+                chat_id=webhook.chat_id,
+                text=text,
+                parse_mode=parse_mode,
+            )
+            log_message = f"Public webhook message sent: webhook_id={webhook.id}, chat_id={webhook.chat_id}, text_length={len(text)}"
+
+        elif request.file:
+            # Отправка файла
+            file_content = await request.file.read()
+            result = await bot.send_file(
+                chat_id=webhook.chat_id,
+                file=file_content,
+                filename=request.file.filename,
+                caption=request.caption,
+                parse_mode=parse_mode,
+            )
+            msg_id = result.msgId
+            # Проверяем наличие fileId в результате
+            if isinstance(result, MsgLoadFileResponse):
+                file_id = result.fileId
+            log_message = f"Public webhook file sent: webhook_id={webhook.id}, chat_id={webhook.chat_id}, filename={request.file.filename}, size={len(file_content)}"
 
         # 5. Логирование успешной отправки
         await webhook_repo.log_webhook_call(
             webhook_id=webhook.id,
             success=True,
             request_data=request.model_dump(),
-            response_data={"status": "sent"},
+            response_data={"status": "sent", "msg_id": msg_id, "file_id": file_id},
         )
 
-        logger.info(
-            "Public webhook message sent: webhook_id=%s, chat_id=%s, text_length=%d",
-            webhook.id,
-            webhook.chat_id,
-            len(request.text),
-        )
+        if log_message:
+            logger.info(log_message)
 
         return WebhookSendResponse(
             success=True,
             message="Message sent successfully",
             webhook_id=webhook.id,
             chat_id=webhook.chat_id,
+            msg_id=msg_id,
+            file_id=file_id,
         )
 
     except Exception as e:

@@ -98,11 +98,10 @@ Content-Type: application/json
 
 **Body (JSON):**
 ```json
-{
+ {
   "text": "✅ Развертывание успешно завершено!\n\nПроект: {{$json.project}}\nВерсия: {{$json.version}}\nСреда: {{$json.environment}}\nВремя: {{$json.timestamp}}",
-  "parse_mode": "MarkdownV2",
-  "inline_keyboard_markup": "[[{\"text\":\"Открыть пайплайн\",\"url\":\"{{$json.pipeline_url}}\"}]]"
-}
+  "parse_mode": "MarkdownV2"
+ }
 ```
 
 ### 3. Пример использования в n8n Workflow
@@ -113,22 +112,14 @@ Content-Type: application/json
 
 **Пример Function Node:**
 ```javascript
-const message = {
-  text: `✅ *Развертывание успешно завершено!*\n\n` +
-        `*Проект:* ${$json.project}\n` +
-        `*Версия:* ${$json.version}\n` +
-        `*Среда:* ${$json.environment}\n` +
-        `*Время:* ${new Date().toLocaleString()}`,
-  parse_mode: "MarkdownV2",
-  inline_keyboard_markup: JSON.stringify([
-    [
-      {
-        "text": "Открыть пайплайн",
-        "url": $json.pipeline_url
-      }
-    ]
-  ])
-};
+ const message = {
+   text: `✅ *Развертывание успешно завершено!*\n\n` +
+         `*Проект:* ${$json.project}\n` +
+         `*Версия:* ${$json.version}\n` +
+         `*Среда:* ${$json.environment}\n` +
+         `*Время:* ${new Date().toLocaleString()}`,
+   parse_mode: "MarkdownV2"
+ };
 
 return message;
 ```
@@ -139,9 +130,10 @@ return message;
 
 | Параметр | Тип | Описание | Обязательный |
 |----------|-----|----------|--------------|
-| text | string | Текст сообщения (до 4000 символов) | Да |
+| text | string | Текст сообщения (до 4000 символов) | Да (если не отправляется файл) |
+| file | file | Файл для отправки | Да (если не отправляется текст) |
+| caption | string | Подпись к файлу (до 4000 символов) | Нет |
 | parse_mode | string | Режим разметки: "MarkdownV2" или "HTML" | Нет |
-| inline_keyboard_markup | string | JSON-строка с inline клавиатурой | Нет |
 
 ### Поддержка MarkdownV2
 
@@ -153,28 +145,28 @@ _italic text_
 `inline fixed-width code`
 ```
 
-### Inline клавиатуры
+### Отправка файлов
 
-```json
-[
-  [
-    {
-      "text": "Кнопка 1",
-      "url": "https://example.com"
-    },
-    {
-      "text": "Кнопка 2",
-      "callbackData": "action_2"
-    }
-  ],
-  [
-    {
-      "text": "Кнопка 3",
-      "url": "https://example2.com"
-    }
-  ]
-]
+Для отправки файлов используйте `multipart/form-data` формат:
+
+**Пример запроса с файлом:**
+```bash
+curl -X POST https://your-bot-domain.com/webhooks/{webhook_id} \
+  -H "Authorization: Bearer {api_key}" \
+  -F "file=@document.pdf" \
+  -F "caption=Важный документ" \
+  -F "parse_mode=MarkdownV2"
 ```
+
+**Поддерживаемые типы файлов:**
+- Изображения: JPEG, PNG, GIF, WebP
+- Документы: PDF, TXT, CSV
+- Office документы: DOC, DOCX, XLS, XLSX
+
+**Ограничения:**
+- Максимальный размер файла: 50 MB
+- Файл должен иметь имя
+- Нельзя отправлять одновременно текст и файл
 
 ## Безопасность
 
@@ -252,8 +244,7 @@ _italic text_
 ```json
 {
   "text": "⚠️ *Обнаружена ошибка!*\n\nСервис: payment-service\nОшибка: Database connection failed\nУровень: CRITICAL\nВремя: {{$json.timestamp}}",
-  "parse_mode": "MarkdownV2",
-  "inline_keyboard_markup": "[[{\"text\":\"Открыть Grafana\",\"url\":\"https://grafana.example.com\"}]]"
+  "parse_mode": "MarkdownV2"
 }
 ```
 
@@ -264,6 +255,25 @@ _italic text_
   "text": "📊 *Ежедневный отчет*\n\nНовых пользователей: {{$json.new_users}}\nТранзакций: {{$json.transactions}}\nОшибок: {{$json.errors}}\nДоход: {{$json.revenue}} руб.",
   "parse_mode": "MarkdownV2"
 }
+```
+
+### Отправка файлов
+
+**Пример отправки лог-файла:**
+```bash
+curl -X POST https://your-bot-domain.com/webhooks/{webhook_id} \
+  -H "Authorization: Bearer {api_key}" \
+  -F "file=@server_logs_2024-01-26.txt" \
+  -F "caption=Логи сервера за сегодня" \
+  -F "parse_mode=MarkdownV2"
+```
+
+**Пример отправки отчета в PDF:**
+```bash
+curl -X POST https://your-bot-domain.com/webhooks/{webhook_id} \
+  -H "Authorization: Bearer {api_key}" \
+  -F "file=@monthly_report.pdf" \
+  -F "caption=📈 Ежемесячный финансовый отчет"
 ```
 
 ## Устранение неполадок

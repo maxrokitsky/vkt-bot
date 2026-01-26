@@ -1,7 +1,8 @@
 import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from fastapi import UploadFile
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class WebhookCreateSchema(BaseModel):
@@ -29,13 +30,25 @@ class WebhookUpdateSchema(BaseModel):
 class WebhookSendRequest(BaseModel):
     """Схема для отправки сообщения через вебхук."""
 
-    text: str = Field(..., min_length=1, max_length=4000, description="Текст сообщения")
+    text: str | None = Field(None, max_length=4000, description="Текст сообщения")
+    file: UploadFile | None = Field(None, description="Файл для отправки")
+    caption: str | None = Field(None, max_length=4000, description="Подпись к файлу")
     parse_mode: Literal["MarkdownV2", "HTML"] | None = Field(
         None, description="Режим разметки текста"
     )
-    inline_keyboard_markup: str | None = Field(
-        None, description="JSON-строка с inline клавиатурой"
-    )
+
+    @model_validator(mode="after")
+    def validate_content(self):
+        has_text = bool(self.text)
+        has_file = bool(self.file)
+
+        if not (has_text or has_file):
+            raise ValueError("Должен быть указан либо text, либо file")
+        if has_text and has_file:
+            raise ValueError("Нельзя указывать одновременно text и file")
+        if self.file and not self.file.filename:
+            raise ValueError("Файл должен иметь имя")
+        return self
 
 
 class WebhookResponse(BaseModel):
@@ -71,6 +84,10 @@ class WebhookSendResponse(BaseModel):
     message: str = Field(..., description="Сообщение о результате")
     webhook_id: str = Field(..., description="ID вебхука")
     chat_id: str = Field(..., description="ID чата, в который отправлено сообщение")
+    msg_id: str | None = Field(None, description="ID отправленного сообщения")
+    file_id: str | None = Field(
+        None, description="ID загруженного файла (если отправлялся файл)"
+    )
 
 
 class WebhookListResponse(BaseModel):

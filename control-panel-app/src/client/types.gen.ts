@@ -699,19 +699,25 @@ export type WebhookSendRequest = {
      *
      * Текст сообщения
      */
-    text: string;
+    text?: string | null;
+    /**
+     * File
+     *
+     * Файл для отправки
+     */
+    file?: Blob | File | null;
+    /**
+     * Caption
+     *
+     * Подпись к файлу
+     */
+    caption?: string | null;
     /**
      * Parse Mode
      *
      * Режим разметки текста
      */
     parse_mode?: 'MarkdownV2' | 'HTML' | null;
-    /**
-     * Inline Keyboard Markup
-     *
-     * JSON-строка с inline клавиатурой
-     */
-    inline_keyboard_markup?: string | null;
 };
 
 /**
@@ -744,6 +750,18 @@ export type WebhookSendResponse = {
      * ID чата, в который отправлено сообщение
      */
     chat_id: string;
+    /**
+     * Msg Id
+     *
+     * ID отправленного сообщения
+     */
+    msg_id?: string | null;
+    /**
+     * File Id
+     *
+     * ID загруженного файла (если отправлялся файл)
+     */
+    file_id?: string | null;
 };
 
 /**
