@@ -48,11 +48,21 @@ async def get_current_user(
     return user
 
 
+def is_owner(user: ChatUser) -> bool:
+    """Check if user is the owner."""
+    return settings.owner_id is not None and user.id == settings.owner_id
+
+
+def is_admin(user: ChatUser) -> bool:
+    """Check if user has admin privileges (owner or superuser)."""
+    return user.is_superuser or is_owner(user)
+
+
 async def get_current_admin_user(
     current_user: Annotated[ChatUser, Depends(get_current_user)],
 ) -> ChatUser:
-    """Require current user to be admin."""
-    if not current_user.is_superuser:
+    """Require current user to be admin (superuser or owner)."""
+    if not is_admin(current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions. Admin access required.",
@@ -60,6 +70,19 @@ async def get_current_admin_user(
     return current_user
 
 
+async def get_current_owner_user(
+    current_user: Annotated[ChatUser, Depends(get_current_user)],
+) -> ChatUser:
+    """Require current user to be the owner."""
+    if not is_owner(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions. Owner access required.",
+        )
+    return current_user
+
+
 CurrentUser = Annotated[ChatUser, Depends(get_current_user)]
 CurrentAdminUser = Annotated[ChatUser, Depends(get_current_admin_user)]
+CurrentOwnerUser = Annotated[ChatUser, Depends(get_current_owner_user)]
 SessionDep = Annotated[AsyncSession, Depends(get_session)]

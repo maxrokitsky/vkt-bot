@@ -9,7 +9,8 @@ export const useAuthStore = defineStore('auth', () => {
   const isLoading = ref(false)
 
   const isAuthenticated = computed(() => !!token.value)
-  const isAdmin = computed(() => user.value?.is_superuser ?? false)
+  const isOwner = computed(() => user.value?.is_owner ?? false)
+  const isAdmin = computed(() => user.value?.is_superuser || isOwner.value)
 
   function setToken(newToken: string) {
     token.value = newToken
@@ -46,6 +47,7 @@ export const useAuthStore = defineStore('auth', () => {
     token,
     user,
     isAuthenticated,
+    isOwner,
     isAdmin,
     isLoading,
     setToken,

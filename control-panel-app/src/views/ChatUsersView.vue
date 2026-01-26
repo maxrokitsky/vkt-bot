@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuery } from '@tanstack/vue-query'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import {
   Table,
   TableHeader,
@@ -11,7 +12,7 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table'
-import { Eye } from 'lucide-vue-next'
+import { Eye, Shield, Crown } from 'lucide-vue-next'
 import { listChatUsersApiChatUsersGetOptions } from '@/client/@tanstack/vue-query.gen'
 
 const router = useRouter()
@@ -39,12 +40,25 @@ const viewUserDetails = (userId: string) => {
       <TableHeader>
         <TableRow>
           <TableHead>ID пользователя</TableHead>
+          <TableHead>Статус</TableHead>
           <TableHead class="text-right">Действия</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         <TableRow v-for="user in usersData.items" :key="user.id">
           <TableCell class="font-medium">{{ user.id }}</TableCell>
+          <TableCell>
+            <div class="flex gap-1">
+              <Badge v-if="user.is_owner" variant="default" class="gap-1">
+                <Crown class="h-3 w-3" />
+                Владелец
+              </Badge>
+              <Badge v-else-if="user.is_superuser" variant="secondary" class="gap-1">
+                <Shield class="h-3 w-3" />
+                Админ
+              </Badge>
+            </div>
+          </TableCell>
           <TableCell class="text-right">
             <Button
               variant="outline"

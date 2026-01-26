@@ -79,6 +79,10 @@ export type ChatUserDetailResponse = {
      */
     id: string;
     /**
+     * Is Superuser
+     */
+    is_superuser: boolean;
+    /**
      * Roles
      */
     roles: Array<ChatUserRoleResponse>;
@@ -86,6 +90,12 @@ export type ChatUserDetailResponse = {
      * Chats
      */
     chats: Array<ChatUserChatResponse>;
+    /**
+     * Is Owner
+     *
+     * Check if this user is the owner.
+     */
+    readonly is_owner: boolean;
 };
 
 /**
@@ -96,6 +106,16 @@ export type ChatUserResponse = {
      * Id
      */
     id: string;
+    /**
+     * Is Superuser
+     */
+    is_superuser: boolean;
+    /**
+     * Is Owner
+     *
+     * Check if this user is the owner.
+     */
+    readonly is_owner: boolean;
 };
 
 /**
@@ -491,6 +511,16 @@ export type UpdateBotSettingsRequest = {
 };
 
 /**
+ * UpdateChatUserRequest
+ */
+export type UpdateChatUserRequest = {
+    /**
+     * Is Superuser
+     */
+    is_superuser: boolean;
+};
+
+/**
  * UserResponse
  */
 export type UserResponse = {
@@ -502,6 +532,12 @@ export type UserResponse = {
      * Is Superuser
      */
     is_superuser: boolean;
+    /**
+     * Is Owner
+     *
+     * Check if this user is the owner.
+     */
+    readonly is_owner: boolean;
 };
 
 /**
@@ -520,6 +556,82 @@ export type ValidationError = {
      * Error Type
      */
     type: string;
+};
+
+/**
+ * ChatUserDetailResponse
+ */
+export type ChatUserDetailResponseWritable = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Is Superuser
+     */
+    is_superuser: boolean;
+    /**
+     * Roles
+     */
+    roles: Array<ChatUserRoleResponse>;
+    /**
+     * Chats
+     */
+    chats: Array<ChatUserChatResponse>;
+};
+
+/**
+ * ChatUserResponse
+ */
+export type ChatUserResponseWritable = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Is Superuser
+     */
+    is_superuser: boolean;
+};
+
+/**
+ * PaginatedChatUsersResponse
+ */
+export type PaginatedChatUsersResponseWritable = {
+    /**
+     * Items
+     */
+    items: Array<ChatUserResponseWritable>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Size
+     */
+    size: number;
+    /**
+     * Pages
+     */
+    pages: number;
+};
+
+/**
+ * UserResponse
+ */
+export type UserResponseWritable = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Is Superuser
+     */
+    is_superuser: boolean;
 };
 
 export type LoginApiAuthLoginPostData = {
@@ -839,6 +951,36 @@ export type GetChatUserApiChatUsersUserIdGetResponses = {
 };
 
 export type GetChatUserApiChatUsersUserIdGetResponse = GetChatUserApiChatUsersUserIdGetResponses[keyof GetChatUserApiChatUsersUserIdGetResponses];
+
+export type UpdateChatUserApiChatUsersUserIdPatchData = {
+    body: UpdateChatUserRequest;
+    path: {
+        /**
+         * User Id
+         */
+        user_id: string;
+    };
+    query?: never;
+    url: '/api/chat-users/{user_id}';
+};
+
+export type UpdateChatUserApiChatUsersUserIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdateChatUserApiChatUsersUserIdPatchError = UpdateChatUserApiChatUsersUserIdPatchErrors[keyof UpdateChatUserApiChatUsersUserIdPatchErrors];
+
+export type UpdateChatUserApiChatUsersUserIdPatchResponses = {
+    /**
+     * Successful Response
+     */
+    200: ChatUserResponse;
+};
+
+export type UpdateChatUserApiChatUsersUserIdPatchResponse = UpdateChatUserApiChatUsersUserIdPatchResponses[keyof UpdateChatUserApiChatUsersUserIdPatchResponses];
 
 export type RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteData = {
     body?: never;

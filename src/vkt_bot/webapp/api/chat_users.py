@@ -14,13 +14,20 @@ from vkt_bot.core.repositories.role import (
     RoleRepository,
 )
 from vkt_bot.core.repositories.user import ChatUserRepository
-from vkt_bot.webapp.dependencies import CurrentAdminUser, CurrentUser, SessionDep
+from vkt_bot.config import settings
+from vkt_bot.webapp.dependencies import (
+    CurrentAdminUser,
+    CurrentOwnerUser,
+    CurrentUser,
+    SessionDep,
+)
 from vkt_bot.webapp.schemas.chat_user import (
     ChatUserChatResponse,
     ChatUserDetailResponse,
     ChatUserResponse,
     ChatUserRoleResponse,
     PaginatedChatUsersResponse,
+    UpdateChatUserRequest,
 )
 
 router = APIRouter(prefix="/api/chat-users", tags=["chat-users"])
@@ -90,9 +97,70 @@ async def get_chat_user(
 
     return ChatUserDetailResponse(
         id=result.id,
+        is_superuser=result.is_superuser,
         roles=roles,
         chats=chats,
     )
+
+
+@router.patch("/{user_id}", response_model=ChatUserResponse)
+async def update_chat_user(
+    user_id: str,
+    data: UpdateChatUserRequest,
+    session: SessionDep,
+    current_owner: CurrentOwnerUser,
+) -> ChatUserResponse:
+    """Update chat user. Owner only."""
+    # Prevent modifying owner's admin status
+    if settings.owner_id and user_id == settings.owner_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot modify owner's admin status. Owner is always admin.",
+        )
+
+    user_repo = ChatUserRepository(session)
+    audit = AuditLogger(session)
+
+    # Check if user exists
+    user = await user_repo.get_or_none(user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chat user not found",
+        )
+
+    # Track the change for audit
+    old_status = user.is_superuser
+    new_status = data.is_superuser
+
+    if old_status != new_status:
+        # Update user
+        user.is_superuser = new_status
+        session.add(user)
+
+        # Audit log
+        action_description = (
+            f"Granted admin status to user {user_id}"
+            if new_status
+            else f"Revoked admin status from user {user_id}"
+        )
+
+        await audit.log_update(
+            entity_type=EntityType.CHAT_USER,
+            entity_id=user_id,
+            user=current_owner,
+            description=action_description,
+            details={
+                "field": "is_superuser",
+                "old_value": old_status,
+                "new_value": new_status,
+            },
+        )
+
+        await session.commit()
+        await session.refresh(user)
+
+    return ChatUserResponse.model_validate(user)
 
 
 @router.post(

@@ -4,6 +4,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogTrigger,
@@ -34,18 +36,23 @@ import {
   TagsInputItemDelete,
   TagsInputItemText,
 } from '@/components/ui/tags-input'
-import { ArrowLeft, Plus } from 'lucide-vue-next'
+import { ArrowLeft, Plus, Shield, Crown } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
+import { useAuthStore } from '@/stores/auth'
 import {
   getChatUserApiChatUsersUserIdGetOptions,
   getChatUserApiChatUsersUserIdGetQueryKey,
   listRolesApiRolesGetOptions,
   assignRoleToUserApiChatUsersUserIdRolesRoleIdPostMutation,
   removeRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteMutation,
+  updateChatUserApiChatUsersUserIdPatchMutation,
 } from '@/client/@tanstack/vue-query.gen'
 
 const route = useRoute()
 const router = useRouter()
 const queryClient = useQueryClient()
+const authStore = useAuthStore()
+const isOwner = computed(() => authStore.isOwner)
 const userId = computed(() => route.params.id as string)
 const showAddRoleDialog = ref(false)
 const selectedRoleId = ref<string>('')
@@ -88,6 +95,21 @@ const removeRoleMutation = useMutation({
   },
 })
 
+const updateUserMutation = useMutation({
+  ...updateChatUserApiChatUsersUserIdPatchMutation(),
+  onSuccess: () => {
+    queryClient.invalidateQueries({
+      queryKey: getChatUserApiChatUsersUserIdGetQueryKey({
+        path: { user_id: userId.value },
+      }),
+    })
+    toast.success('Статус администратора обновлен')
+  },
+  onError: (error) => {
+    toast.error(`Ошибка: ${error.message}`)
+  },
+})
+
 const handleAssignRole = () => {
   if (selectedRoleId.value) {
     assignRoleMutation.mutate({
@@ -115,6 +137,13 @@ const goBack = () => {
   router.push('/chat-users')
 }
 
+const handleToggleAdmin = (checked: boolean) => {
+  updateUserMutation.mutate({
+    path: { user_id: userId.value },
+    body: { is_superuser: checked },
+  })
+}
+
 // Доступные роли для добавления (исключая уже назначенные)
 const availableRoles = computed(() => {
   if (!rolesData.value?.items || !userData.value) return []
@@ -131,6 +160,29 @@ const availableRoles = computed(() => {
         Назад
       </Button>
       <h1 class="text-3xl font-bold">Пользователь: {{ userId }}</h1>
+    </div>
+
+    <!-- Статус администратора -->
+    <div v-if="!isLoading && userData" class="flex items-center gap-4 p-4 border rounded-lg">
+      <div class="flex items-center gap-2">
+        <Badge v-if="userData.is_owner" variant="default" class="gap-1">
+          <Crown class="h-3 w-3" />
+          Владелец
+        </Badge>
+        <Badge v-else-if="userData.is_superuser" variant="secondary" class="gap-1">
+          <Shield class="h-3 w-3" />
+          Админ
+        </Badge>
+        <span v-else class="text-sm text-muted-foreground">Обычный пользователь</span>
+      </div>
+      <div v-if="isOwner && !userData.is_owner" class="flex items-center gap-2 ml-auto">
+        <Switch
+          :checked="userData.is_superuser"
+          :disabled="updateUserMutation.isPending.value"
+          @update:checked="handleToggleAdmin"
+        />
+        <Label class="text-sm">Администратор</Label>
+      </div>
     </div>
 
     <div v-if="!isLoading && userData" class="grid gap-6 md:grid-cols-2">
