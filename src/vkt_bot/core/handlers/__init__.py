@@ -1,3 +1,3 @@
-from . import auth, chats, help, roles
+from . import auth, chats, help, roles, webhooks
 
-__all__ = ("roles", "chats", "help", "auth")
+__all__ = ("roles", "chats", "help", "auth", "webhooks")

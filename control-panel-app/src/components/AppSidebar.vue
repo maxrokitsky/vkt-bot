@@ -46,6 +46,11 @@ const navMain = computed(() => [
     url: "/roles",
     icon: IconShield,
   },
+  {
+    title: "Вебхуки",
+    url: "/webhooks",
+    icon: IconWebhook,
+  },
   ...(isAdmin.value ? [{
     title: "GitLab Webhooks",
     url: "/gitlab/webhooks",

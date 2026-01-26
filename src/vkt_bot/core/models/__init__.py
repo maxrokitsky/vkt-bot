@@ -5,6 +5,7 @@ from .login_history import LoginHistory
 from .login_token import LoginToken
 from .role import Role, RoleAssignment
 from .user import ChatUser
+from .webhook import Webhook
 
 __all__ = (
     "Role",
@@ -19,4 +20,5 @@ __all__ = (
     "EntityType",
     "LoginToken",
     "LoginHistory",
+    "Webhook",
 )

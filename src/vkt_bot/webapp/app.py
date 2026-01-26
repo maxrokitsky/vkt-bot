@@ -3,10 +3,19 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from vkt_bot import setup
 
-from .api import auth, chats, roles, chat_users, bot_settings, logs
+from .api import (
+    auth,
+    chats,
+    roles,
+    chat_users,
+    bot_settings,
+    logs,
+    webhooks,
+    public_webhooks,
+)
 
 
-def create_app(*args, **kwargs) -> None:
+def create_app(*args, **kwargs) -> FastAPI:
     print(*args, **kwargs)
     app = FastAPI(title="VKT Bot API", version="1.0.0")
 
@@ -24,6 +33,8 @@ def create_app(*args, **kwargs) -> None:
     app.include_router(chat_users.router)
     app.include_router(bot_settings.router)
     app.include_router(logs.router)
+    app.include_router(webhooks.router)
+    app.include_router(public_webhooks.router)
 
     @app.get("/")
     async def root():

@@ -51,5 +51,4 @@ class LoginHandler(CommandHandler):
         await bot.send_text(
             chat_id=event.payload.chat.chatId,
             text=message,
-            parse_mode="MarkdownV2",
         )

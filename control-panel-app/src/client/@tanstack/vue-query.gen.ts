@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/vue-query';
 
 import { client } from '../client.gen';
-import { assignRoleToUserApiChatUsersUserIdRolesRoleIdPost, createRoleApiRolesPost, createWebhookGlWebhooksPost, deleteRoleApiRolesRoleIdDelete, deleteWebhookGlWebhooksWebhookIdDelete, getBotSettingApiBotSettingsKeyGet, getChatApiChatsChatIdGet, getChatUserApiChatUsersUserIdGet, getCurrentUserInfoApiAuthMeGet, getLogApiLogsLogIdGet, getWebhookGlWebhooksWebhookIdGet, healthHealthGet, listBotSettingsApiBotSettingsGet, listChatsApiChatsGet, listChatUsersApiChatUsersGet, listLogsApiLogsGet, listRolesApiRolesGet, listWebhooksGlWebhooksGet, loginApiAuthLoginPost, type Options, removeRoleFromUserApiChatUsersUserIdRolesRoleIdDelete, rootGet, sendMessageApiChatsChatIdSendMessagePost, triggerWebhookGlWebhooksWebhookIdTriggerPost, updateBotSettingApiBotSettingsKeyPut, updateChatUserApiChatUsersUserIdPatch, updateRoleApiRolesRoleIdPatch, updateWebhookGlWebhooksWebhookIdPatch } from '../sdk.gen';
-import type { AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostData, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostError, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostResponse, CreateRoleApiRolesPostData, CreateRoleApiRolesPostError, CreateRoleApiRolesPostResponse, CreateWebhookGlWebhooksPostData, CreateWebhookGlWebhooksPostError, CreateWebhookGlWebhooksPostResponse, DeleteRoleApiRolesRoleIdDeleteData, DeleteRoleApiRolesRoleIdDeleteError, DeleteRoleApiRolesRoleIdDeleteResponse, DeleteWebhookGlWebhooksWebhookIdDeleteData, DeleteWebhookGlWebhooksWebhookIdDeleteError, DeleteWebhookGlWebhooksWebhookIdDeleteResponse, GetBotSettingApiBotSettingsKeyGetData, GetBotSettingApiBotSettingsKeyGetError, GetBotSettingApiBotSettingsKeyGetResponse, GetChatApiChatsChatIdGetData, GetChatApiChatsChatIdGetError, GetChatApiChatsChatIdGetResponse, GetChatUserApiChatUsersUserIdGetData, GetChatUserApiChatUsersUserIdGetError, GetChatUserApiChatUsersUserIdGetResponse, GetCurrentUserInfoApiAuthMeGetData, GetCurrentUserInfoApiAuthMeGetResponse, GetLogApiLogsLogIdGetData, GetLogApiLogsLogIdGetError, GetLogApiLogsLogIdGetResponse, GetWebhookGlWebhooksWebhookIdGetData, GetWebhookGlWebhooksWebhookIdGetError, GetWebhookGlWebhooksWebhookIdGetResponse, HealthHealthGetData, ListBotSettingsApiBotSettingsGetData, ListBotSettingsApiBotSettingsGetResponse, ListChatsApiChatsGetData, ListChatsApiChatsGetError, ListChatsApiChatsGetResponse, ListChatUsersApiChatUsersGetData, ListChatUsersApiChatUsersGetError, ListChatUsersApiChatUsersGetResponse, ListLogsApiLogsGetData, ListLogsApiLogsGetError, ListLogsApiLogsGetResponse, ListRolesApiRolesGetData, ListRolesApiRolesGetError, ListRolesApiRolesGetResponse, ListWebhooksGlWebhooksGetData, ListWebhooksGlWebhooksGetError, ListWebhooksGlWebhooksGetResponse, LoginApiAuthLoginPostData, LoginApiAuthLoginPostError, LoginApiAuthLoginPostResponse, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteData, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteError, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteResponse, RootGetData, SendMessageApiChatsChatIdSendMessagePostData, SendMessageApiChatsChatIdSendMessagePostError, SendMessageApiChatsChatIdSendMessagePostResponse, TriggerWebhookGlWebhooksWebhookIdTriggerPostData, TriggerWebhookGlWebhooksWebhookIdTriggerPostError, UpdateBotSettingApiBotSettingsKeyPutData, UpdateBotSettingApiBotSettingsKeyPutError, UpdateBotSettingApiBotSettingsKeyPutResponse, UpdateChatUserApiChatUsersUserIdPatchData, UpdateChatUserApiChatUsersUserIdPatchError, UpdateChatUserApiChatUsersUserIdPatchResponse, UpdateRoleApiRolesRoleIdPatchData, UpdateRoleApiRolesRoleIdPatchError, UpdateRoleApiRolesRoleIdPatchResponse, UpdateWebhookGlWebhooksWebhookIdPatchData, UpdateWebhookGlWebhooksWebhookIdPatchError, UpdateWebhookGlWebhooksWebhookIdPatchResponse } from '../types.gen';
+import { assignRoleToUserApiChatUsersUserIdRolesRoleIdPost, createRoleApiRolesPost, createWebhookApiWebhooksPost, createWebhookGlWebhooksPost, deleteRoleApiRolesRoleIdDelete, deleteWebhookApiWebhooksWebhookIdDelete, deleteWebhookGlWebhooksWebhookIdDelete, getBotSettingApiBotSettingsKeyGet, getChatApiChatsChatIdGet, getChatUserApiChatUsersUserIdGet, getCurrentUserInfoApiAuthMeGet, getLogApiLogsLogIdGet, getWebhookApiWebhooksWebhookIdGet, getWebhookGlWebhooksWebhookIdGet, handlePublicWebhookWebhooksWebhookIdPost, handleWebhookApiWebhooksWebhookIdSendPost, healthHealthGet, listBotSettingsApiBotSettingsGet, listChatsApiChatsGet, listChatUsersApiChatUsersGet, listLogsApiLogsGet, listRolesApiRolesGet, listWebhooksApiWebhooksGet, listWebhooksGlWebhooksGet, loginApiAuthLoginPost, type Options, regenerateWebhookApiKeyApiWebhooksWebhookIdRegeneratePost, removeRoleFromUserApiChatUsersUserIdRolesRoleIdDelete, rootGet, sendMessageApiChatsChatIdSendMessagePost, triggerWebhookGlWebhooksWebhookIdTriggerPost, updateBotSettingApiBotSettingsKeyPut, updateChatUserApiChatUsersUserIdPatch, updateRoleApiRolesRoleIdPatch, updateWebhookApiWebhooksWebhookIdPut, updateWebhookGlWebhooksWebhookIdPatch } from '../sdk.gen';
+import type { AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostData, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostError, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostResponse, CreateRoleApiRolesPostData, CreateRoleApiRolesPostError, CreateRoleApiRolesPostResponse, CreateWebhookApiWebhooksPostData, CreateWebhookApiWebhooksPostError, CreateWebhookApiWebhooksPostResponse, CreateWebhookGlWebhooksPostData, CreateWebhookGlWebhooksPostError, CreateWebhookGlWebhooksPostResponse, DeleteRoleApiRolesRoleIdDeleteData, DeleteRoleApiRolesRoleIdDeleteError, DeleteRoleApiRolesRoleIdDeleteResponse, DeleteWebhookApiWebhooksWebhookIdDeleteData, DeleteWebhookApiWebhooksWebhookIdDeleteError, DeleteWebhookApiWebhooksWebhookIdDeleteResponse, DeleteWebhookGlWebhooksWebhookIdDeleteData, DeleteWebhookGlWebhooksWebhookIdDeleteError, DeleteWebhookGlWebhooksWebhookIdDeleteResponse, GetBotSettingApiBotSettingsKeyGetData, GetBotSettingApiBotSettingsKeyGetError, GetBotSettingApiBotSettingsKeyGetResponse, GetChatApiChatsChatIdGetData, GetChatApiChatsChatIdGetError, GetChatApiChatsChatIdGetResponse, GetChatUserApiChatUsersUserIdGetData, GetChatUserApiChatUsersUserIdGetError, GetChatUserApiChatUsersUserIdGetResponse, GetCurrentUserInfoApiAuthMeGetData, GetCurrentUserInfoApiAuthMeGetResponse, GetLogApiLogsLogIdGetData, GetLogApiLogsLogIdGetError, GetLogApiLogsLogIdGetResponse, GetWebhookApiWebhooksWebhookIdGetData, GetWebhookApiWebhooksWebhookIdGetError, GetWebhookApiWebhooksWebhookIdGetResponse, GetWebhookGlWebhooksWebhookIdGetData, GetWebhookGlWebhooksWebhookIdGetError, GetWebhookGlWebhooksWebhookIdGetResponse, HandlePublicWebhookWebhooksWebhookIdPostData, HandlePublicWebhookWebhooksWebhookIdPostError, HandlePublicWebhookWebhooksWebhookIdPostResponse, HandleWebhookApiWebhooksWebhookIdSendPostData, HandleWebhookApiWebhooksWebhookIdSendPostError, HandleWebhookApiWebhooksWebhookIdSendPostResponse, HealthHealthGetData, ListBotSettingsApiBotSettingsGetData, ListBotSettingsApiBotSettingsGetResponse, ListChatsApiChatsGetData, ListChatsApiChatsGetError, ListChatsApiChatsGetResponse, ListChatUsersApiChatUsersGetData, ListChatUsersApiChatUsersGetError, ListChatUsersApiChatUsersGetResponse, ListLogsApiLogsGetData, ListLogsApiLogsGetError, ListLogsApiLogsGetResponse, ListRolesApiRolesGetData, ListRolesApiRolesGetError, ListRolesApiRolesGetResponse, ListWebhooksApiWebhooksGetData, ListWebhooksApiWebhooksGetResponse, ListWebhooksGlWebhooksGetData, ListWebhooksGlWebhooksGetError, ListWebhooksGlWebhooksGetResponse, LoginApiAuthLoginPostData, LoginApiAuthLoginPostError, LoginApiAuthLoginPostResponse, RegenerateWebhookApiKeyApiWebhooksWebhookIdRegeneratePostData, RegenerateWebhookApiKeyApiWebhooksWebhookIdRegeneratePostError, RegenerateWebhookApiKeyApiWebhooksWebhookIdRegeneratePostResponse, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteData, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteError, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteResponse, RootGetData, SendMessageApiChatsChatIdSendMessagePostData, SendMessageApiChatsChatIdSendMessagePostError, SendMessageApiChatsChatIdSendMessagePostResponse, TriggerWebhookGlWebhooksWebhookIdTriggerPostData, TriggerWebhookGlWebhooksWebhookIdTriggerPostError, UpdateBotSettingApiBotSettingsKeyPutData, UpdateBotSettingApiBotSettingsKeyPutError, UpdateBotSettingApiBotSettingsKeyPutResponse, UpdateChatUserApiChatUsersUserIdPatchData, UpdateChatUserApiChatUsersUserIdPatchError, UpdateChatUserApiChatUsersUserIdPatchResponse, UpdateRoleApiRolesRoleIdPatchData, UpdateRoleApiRolesRoleIdPatchError, UpdateRoleApiRolesRoleIdPatchResponse, UpdateWebhookApiWebhooksWebhookIdPutData, UpdateWebhookApiWebhooksWebhookIdPutError, UpdateWebhookApiWebhooksWebhookIdPutResponse, UpdateWebhookGlWebhooksWebhookIdPatchData, UpdateWebhookGlWebhooksWebhookIdPatchError, UpdateWebhookGlWebhooksWebhookIdPatchResponse } from '../types.gen';
 
 /**
  * Login
@@ -574,6 +574,160 @@ export const getLogApiLogsLogIdGetOptions = (options: Options<GetLogApiLogsLogId
     },
     queryKey: getLogApiLogsLogIdGetQueryKey(options)
 });
+
+export const listWebhooksApiWebhooksGetQueryKey = (options?: Options<ListWebhooksApiWebhooksGetData>) => createQueryKey('listWebhooksApiWebhooksGet', options);
+
+/**
+ * List Webhooks
+ *
+ * Получить список вебхуков пользователя.
+ */
+export const listWebhooksApiWebhooksGetOptions = (options?: Options<ListWebhooksApiWebhooksGetData>) => queryOptions<ListWebhooksApiWebhooksGetResponse, DefaultError, ListWebhooksApiWebhooksGetResponse, ReturnType<typeof listWebhooksApiWebhooksGetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listWebhooksApiWebhooksGet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listWebhooksApiWebhooksGetQueryKey(options)
+});
+
+/**
+ * Create Webhook
+ *
+ * Создать новый вебхук.
+ */
+export const createWebhookApiWebhooksPostMutation = (options?: Partial<Options<CreateWebhookApiWebhooksPostData>>): UseMutationOptions<CreateWebhookApiWebhooksPostResponse, CreateWebhookApiWebhooksPostError, Options<CreateWebhookApiWebhooksPostData>> => {
+    const mutationOptions: UseMutationOptions<CreateWebhookApiWebhooksPostResponse, CreateWebhookApiWebhooksPostError, Options<CreateWebhookApiWebhooksPostData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createWebhookApiWebhooksPost({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete Webhook
+ *
+ * Удалить вебхук.
+ */
+export const deleteWebhookApiWebhooksWebhookIdDeleteMutation = (options?: Partial<Options<DeleteWebhookApiWebhooksWebhookIdDeleteData>>): UseMutationOptions<DeleteWebhookApiWebhooksWebhookIdDeleteResponse, DeleteWebhookApiWebhooksWebhookIdDeleteError, Options<DeleteWebhookApiWebhooksWebhookIdDeleteData>> => {
+    const mutationOptions: UseMutationOptions<DeleteWebhookApiWebhooksWebhookIdDeleteResponse, DeleteWebhookApiWebhooksWebhookIdDeleteError, Options<DeleteWebhookApiWebhooksWebhookIdDeleteData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteWebhookApiWebhooksWebhookIdDelete({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getWebhookApiWebhooksWebhookIdGetQueryKey = (options: Options<GetWebhookApiWebhooksWebhookIdGetData>) => createQueryKey('getWebhookApiWebhooksWebhookIdGet', options);
+
+/**
+ * Get Webhook
+ *
+ * Получить информацию о вебхуке.
+ */
+export const getWebhookApiWebhooksWebhookIdGetOptions = (options: Options<GetWebhookApiWebhooksWebhookIdGetData>) => queryOptions<GetWebhookApiWebhooksWebhookIdGetResponse, GetWebhookApiWebhooksWebhookIdGetError, GetWebhookApiWebhooksWebhookIdGetResponse, ReturnType<typeof getWebhookApiWebhooksWebhookIdGetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getWebhookApiWebhooksWebhookIdGet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getWebhookApiWebhooksWebhookIdGetQueryKey(options)
+});
+
+/**
+ * Update Webhook
+ *
+ * Обновить вебхук.
+ */
+export const updateWebhookApiWebhooksWebhookIdPutMutation = (options?: Partial<Options<UpdateWebhookApiWebhooksWebhookIdPutData>>): UseMutationOptions<UpdateWebhookApiWebhooksWebhookIdPutResponse, UpdateWebhookApiWebhooksWebhookIdPutError, Options<UpdateWebhookApiWebhooksWebhookIdPutData>> => {
+    const mutationOptions: UseMutationOptions<UpdateWebhookApiWebhooksWebhookIdPutResponse, UpdateWebhookApiWebhooksWebhookIdPutError, Options<UpdateWebhookApiWebhooksWebhookIdPutData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateWebhookApiWebhooksWebhookIdPut({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Regenerate Webhook Api Key
+ *
+ * Перегенерировать API ключ для вебхука.
+ */
+export const regenerateWebhookApiKeyApiWebhooksWebhookIdRegeneratePostMutation = (options?: Partial<Options<RegenerateWebhookApiKeyApiWebhooksWebhookIdRegeneratePostData>>): UseMutationOptions<RegenerateWebhookApiKeyApiWebhooksWebhookIdRegeneratePostResponse, RegenerateWebhookApiKeyApiWebhooksWebhookIdRegeneratePostError, Options<RegenerateWebhookApiKeyApiWebhooksWebhookIdRegeneratePostData>> => {
+    const mutationOptions: UseMutationOptions<RegenerateWebhookApiKeyApiWebhooksWebhookIdRegeneratePostResponse, RegenerateWebhookApiKeyApiWebhooksWebhookIdRegeneratePostError, Options<RegenerateWebhookApiKeyApiWebhooksWebhookIdRegeneratePostData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await regenerateWebhookApiKeyApiWebhooksWebhookIdRegeneratePost({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Handle Webhook
+ *
+ * Универсальный обработчик для всех вебхуков.
+ */
+export const handleWebhookApiWebhooksWebhookIdSendPostMutation = (options?: Partial<Options<HandleWebhookApiWebhooksWebhookIdSendPostData>>): UseMutationOptions<HandleWebhookApiWebhooksWebhookIdSendPostResponse, HandleWebhookApiWebhooksWebhookIdSendPostError, Options<HandleWebhookApiWebhooksWebhookIdSendPostData>> => {
+    const mutationOptions: UseMutationOptions<HandleWebhookApiWebhooksWebhookIdSendPostResponse, HandleWebhookApiWebhooksWebhookIdSendPostError, Options<HandleWebhookApiWebhooksWebhookIdSendPostData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await handleWebhookApiWebhooksWebhookIdSendPost({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Handle Public Webhook
+ *
+ * Универсальный обработчик для публичных вебхуков (для интеграции с n8n).
+ */
+export const handlePublicWebhookWebhooksWebhookIdPostMutation = (options?: Partial<Options<HandlePublicWebhookWebhooksWebhookIdPostData>>): UseMutationOptions<HandlePublicWebhookWebhooksWebhookIdPostResponse, HandlePublicWebhookWebhooksWebhookIdPostError, Options<HandlePublicWebhookWebhooksWebhookIdPostData>> => {
+    const mutationOptions: UseMutationOptions<HandlePublicWebhookWebhooksWebhookIdPostResponse, HandlePublicWebhookWebhooksWebhookIdPostError, Options<HandlePublicWebhookWebhooksWebhookIdPostData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await handlePublicWebhookWebhooksWebhookIdPost({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
 
 export const rootGetQueryKey = (options?: Options<RootGetData>) => createQueryKey('rootGet', options);
 
