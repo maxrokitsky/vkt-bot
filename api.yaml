@@ -1,0 +1,133 @@
+openapi: 3.0.0
+servers:
+  - url: https://__API_URL__
+info:
+  title: __TITLE__
+  description:
+    <h2>__tr{{mainPage.botCreating}}__</h2>
+    <p>tr{{mainPage.botCreatingDesc}}(https://__PROFILE_URL__70001)</p>
+    <h2>__tr{{mainPage.botAuth}}__</h2>
+    <p>tr{{mainPage.botAuthDesc}}</p>
+    <h2>__tr{{mainPage.requestSending}}__</h2>
+    <p>tr{{mainPage.requestSendingDesc1}}</p>
+    <p>tr{{mainPage.requestSendingDesc2}}&#58;
+      <ul>
+        <li>[URL query string](https://en.wikipedia.org/wiki/Query_string)</li>
+        <li>[multipart/form-data](https://ru.wikipedia.org/wiki/Multipart/form-data) (tr{{mainPage.usedForFilesDownloading}})</li>
+      </ul>
+    </p>
+    <p>tr{{mainPage.requestSendingDesc3}}</p>
+    <p>tr{{mainPage.requestSendingDesc4}}</p>
+    <h2>__tr{{mainPage.responsesProcessing}}__</h2>
+    <p>tr{{mainPage.responsesProcessingDesc}}</p>
+    <h2>__tr{{mainPage.receivingServerEvents}}__</h2>
+    <p>tr{{mainPage.receivingServerEventsDesc}}
+    <h2>__tr{{mainPage.librariesForCreatingBots}}__</h2>
+    <ul>
+    <li>[Python](https://github.com/mail-ru-im/bot-python) <a href="https://pypi.org/project/mailru-im-bot/">(PIP)</a></li>
+    <li>[Golang](https://github.com/mail-ru-im/bot-golang)</li>
+    <li>[Java](https://github.com/mail-ru-im/bot-java)</li>
+    </ul>
+    <h2>__tr{{mainPage.apiChanges}}__</h2>
+    <div>
+      <p>__11.05.2021__</p>
+      <div>
+        <p>tr{{mainPage.apiChanges7}}</p>
+      </div>
+      <br>
+      <br>
+      <p>__14.12.2020__</p>
+      <div>
+        <p>tr{{mainPage.apiChanges6}}</p>
+      </div>
+      <br>
+      <br>
+      <p>__10.09.2020__</p>
+      <div>
+        <p>tr{{mainPage.apiChanges5}}</p>
+      </div>
+      <br>
+      <br>
+      <p>__20.03.2020__</p>
+      <div>
+        <p>tr{{mainPage.apiChanges1}}</p>
+        <br>
+        <br>
+        <p>tr{{mainPage.apiChanges2}}</p>
+      </div>
+      <br>
+      <br>
+    <p>__05.03.2020__</p>
+      <div>
+        <p>tr{{mainPage.apiChanges3}}</p>
+      </div>
+      <br>
+      <br>
+    <p>__29.01.2020__</p>
+      <div>
+        <p>tr{{mainPage.apiChanges4}}</p>
+      </div>
+    </div>
+    <h2>__tr{{mainPage.servers}}__</h2>
+    <p>tr{{mainPage.urlServers}}</p>
+tags:
+  - name: self
+  - name: messages
+  - name: chats
+  - name: files
+  - name: events
+paths:
+  /self/get:
+    $ref: 'self/get.json'
+  /messages/sendText:
+    $ref: 'messages/sendText.json'
+  /messages/sendFile:
+    $ref: 'messages/sendFile.json'
+  /messages/sendVoice:
+    $ref: 'messages/sendVoice.json'
+  /messages/editText:
+    $ref: 'messages/editText.json'
+  /messages/deleteMessages:
+    $ref: 'messages/deleteMessages.json'
+  /messages/answerCallbackQuery:
+    $ref: 'messages/answerCallbackQuery.json'
+  /chats/createChat:
+    $ref: 'chats/createChat.json'
+  /chats/members/add:
+    $ref: 'chats/addMembers.json'
+  /chats/members/delete:
+    $ref: 'chats/deleteMembers.json'
+  /chats/avatar/set:
+    $ref: 'chats/setAvatar.json'
+  /chats/sendActions:
+    $ref: 'chats/sendActions.json'
+  /chats/getInfo:
+    $ref: 'chats/getInfo.json'
+  /chats/getAdmins:
+    $ref: 'chats/getAdmins.json'
+  /chats/getMembers:
+    $ref: 'chats/getMembers.json'
+  /chats/getBlockedUsers:
+    $ref: 'chats/getBlockedUsers.json'
+  /chats/getPendingUsers:
+    $ref: 'chats/getPendingUsers.json'
+  /chats/blockUser:
+    $ref: 'chats/blockUser.json'
+  /chats/unblockUser:
+    $ref: 'chats/unblockUser.json'
+  /chats/resolvePending:
+    $ref: 'chats/resolvePending.json'
+  /chats/setTitle:
+    $ref: 'chats/setTitle.json'
+  /chats/setAbout:
+    $ref: 'chats/setAbout.json'
+  /chats/setRules:
+    $ref: 'chats/setRules.json'
+  /chats/pinMessage:
+    $ref: 'chats/pinMessage.json'
+  /chats/unpinMessage:
+    $ref: 'chats/unpinMessage.json'
+  /files/getInfo:
+    $ref: 'files/getInfo.json'
+  /events/get:
+    $ref: 'events/get.json'

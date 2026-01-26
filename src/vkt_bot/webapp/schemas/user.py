@@ -1,43 +1,16 @@
-import datetime as dt
-from typing import Annotated
+from pydantic import BaseModel, ConfigDict, computed_field
 
-from annotated_types import Len
-from pydantic import BaseModel, EmailStr
+from vkt_bot.config import settings
 
 
-class CreateUserAPISchema(BaseModel):
-    """Юзер."""
-
-    username: str
-    password: Annotated[str, Len(8, 40)]
-    email: EmailStr
-    is_active: bool
+class UserResponse(BaseModel):
+    id: str
     is_superuser: bool
 
+    model_config = ConfigDict(from_attributes=True)
 
-class UpdateUserAPISchema(BaseModel):
-    """Юзер."""
-
-    password: Annotated[str, Len(8, 40)]
-    email: EmailStr
-    is_active: bool
-    is_superuser: bool
-
-
-class PartialUpdateUserAPISchema(BaseModel):
-    """Юзер."""
-
-    password: Annotated[str, Len(8, 40)] | None = None
-    email: EmailStr | None = None
-    is_active: bool | None = None
-    is_superuser: bool | None = None
-
-
-class DetailUserAPISchema(BaseModel):
-    """Юзер."""
-
-    username: str
-    email: EmailStr
-    created_at: dt.datetime
-    is_active: bool
-    is_superuser: bool
+    @computed_field
+    @property
+    def is_owner(self) -> bool:
+        """Check if this user is the owner."""
+        return settings.owner_id is not None and self.id == settings.owner_id

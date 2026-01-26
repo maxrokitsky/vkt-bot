@@ -199,3 +199,16 @@ class GetMembersResponse(Response):
     """Ответ метода /chats/members."""
 
     members: list[ChatMember]
+
+
+class MsgResponse(Response):
+    """Ответ метода с msgId."""
+
+    msgId: str
+
+
+class MsgLoadFileResponse(Response):
+    """Ответ метода /messages/sendFile (POST)."""
+
+    fileId: str
+    msgId: str

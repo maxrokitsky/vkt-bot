@@ -1,18 +1,43 @@
-import datetime as dt
-import uuid
+from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
-class CreateRoleAPISchema(BaseModel):
-    """Роль."""
-
+class RoleBase(BaseModel):
     name: str
 
 
-class DetailRoleAPISchema(BaseModel):
-    """Роль."""
+class RoleCreate(RoleBase):
+    pass
 
-    id: uuid.UUID
-    name: str
-    created_at: dt.datetime
+
+class RoleUpdate(BaseModel):
+    name: str | None = None
+
+
+class RoleResponse(RoleBase):
+    id: UUID
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RoleMemberResponse(BaseModel):
+    user_id: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RoleWithMembersResponse(RoleResponse):
+    members: list[RoleMemberResponse]
+
+
+class AddRoleMemberRequest(BaseModel):
+    user_id: str
+
+
+class PaginatedRolesResponse(BaseModel):
+    items: list[RoleResponse]
+    total: int
+    page: int
+    size: int
+    pages: int

@@ -14,7 +14,14 @@ class ShowCommandsCallbackData(BaseModel):
     requested_by: str
 
 
+class WebhookCallbackData(BaseModel):
+    command: Literal["deletewebhook", "regeneratewebhookkey"] = "deletewebhook"
+    webhook_id: str
+    webhook_name: str
+    requested_by: str
+
+
 type CallbackData = Annotated[
-    DeleteRoleCallbackData | ShowCommandsCallbackData,
+    DeleteRoleCallbackData | ShowCommandsCallbackData | WebhookCallbackData,
     Field(discriminator="command"),
 ]

@@ -4,11 +4,13 @@ from typing import ClassVar
 
 from pydantic import TypeAdapter
 
-import vkt_bot
 from vkteams_client import VKTeams
 from vkteams_client.types import CallbackQueryEvent, NewMessageEvent
 from vkt_dispatcher.handlers import BotButtonCommandHandler, CommandHandler
 from vkt_bot.app import dispatcher
+from vkt_bot.db.session import async_session
+from vkt_bot.core.repositories.bot_settings import BotSettingsRepository
+from vkt_bot.core.constants import DEFAULT_START_MESSAGE
 
 from .callback import CallbackData, ShowCommandsCallbackData
 
@@ -27,11 +29,20 @@ help_msg = """
 /listroles `idпользователя` - список ролей пользователя
 /listrolemembers `названиероли` - список пользователей с указанной ролью
 
+Вебхуки
+/listwebhooks - список вебхуков текущего чата
+/webhookinfo `id-вебхука` - информация о вебхуке
+
 Команды администратора (требуется роль `admin`)
 /createrole `названиероли` - создать новую роль
 /deleterole `названиероли` - удалить роль
-/assignrole `idпользователя` `названиероли` - Назначить роль пользователю
-/revokerole `idпользователя` `названиероли` - Отозвать роль у пользователя
+/assignrole `id-пользователя` `названиероли` - Назначить роль пользователю
+/revokerole `id-пользователя` `названиероли` - Отозвать роль у пользователя
+
+/createwebhook `название` - создать вебхук для текущего чата
+/deletewebhook `id-вебхука` - удалить вебхук
+/regeneratewebhookkey `id-вебхука` - перегенерировать API ключ вебхука
+/togglewebhook `id-вебхука` - включить/выключить вебхук
 """
 
 
@@ -50,20 +61,6 @@ class HelpHandler(CommandHandler):
         )
 
 
-start_msg = """
-Привет! Я бот 🤖Ассистент. Управляю ролями и стремлюсь к большему 🚀
-
-Вот что я умею:
-- *Управление ролями* - я могу создавать и удалять роли, назначать роли пользователям.
-- *Призывать пользователей по роли* - если ты упомянешь роль с помощью хештега `#названиероли`, то я перешлю твоё сообщение всем пользователям с этой ролью, чтобы они обратили внимание.
-
-⚠️ Бот находится в стадии активной разработки.
-
-Версия: {version}
-by max@rokitsky.ru
-""".format(version=vkt_bot.__version__)  # noqa: E501
-
-
 @dispatcher.register_handler
 class StartHandler(CommandHandler):
     """/start."""
@@ -72,9 +69,14 @@ class StartHandler(CommandHandler):
     description = "/start - Приветственное сообщение."
 
     async def callback(self, bot: VKTeams, event: NewMessageEvent) -> None:
+        async with async_session() as session:
+            repo = BotSettingsRepository(session)
+            settings = await repo.get_by_key("start_message")
+            message_text = settings.value if settings else DEFAULT_START_MESSAGE
+
         await bot.send_text(
             event.payload.chat.chatId,
-            start_msg,
+            message_text,
             parse_mode="MarkdownV2",
             inline_keyboard_markup="[{}]".format(
                 json.dumps(

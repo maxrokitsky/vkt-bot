@@ -65,10 +65,17 @@ class AsyncRepository[
         """Get."""
         return bool(await self.get_or_none(pk))
 
-    async def create(self, schema: T_CreateSchema, *, commit: bool = False) -> T_Model:
+    async def create(
+        self, schema: T_CreateSchema | dict[str, Any], *, commit: bool = False
+    ) -> T_Model:
         """Save."""
         obj = self.model()
-        for k, v in schema.model_dump().items():
+        if isinstance(schema, BaseModel):
+            data = schema.model_dump()
+        else:
+            data = schema
+
+        for k, v in data.items():
             setattr(obj, k, v)
         self.session.add(obj)
         if commit:
@@ -93,7 +100,8 @@ class AsyncRepository[
 
     async def delete(self, pk: T_PK, *, commit: bool = False) -> None:
         """Save."""
-        stmt = sa.delete(self.model).where(self.model.id == pk)
+        pk_column = sa.inspect(self.model).primary_key[0]
+        stmt = sa.delete(self.model).where(pk_column == pk)
         res = await self.session.execute(stmt)
         if not res.rowcount:
             raise NotFoundError
