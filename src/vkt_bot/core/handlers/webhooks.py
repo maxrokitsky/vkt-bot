@@ -4,6 +4,7 @@ from typing import ClassVar
 
 from vkteams_client import VKTeams
 from vkteams_client.types import CallbackQueryEvent, NewMessageEvent
+from vkt_bot.config import settings
 from vkt_bot.db.session import async_session
 from vkt_dispatcher.handlers import (
     BotButtonCommandHandler,
@@ -72,7 +73,8 @@ class CreateWebhookHandler(AdminRequiredMixin, CommandHandler):
             await session.commit()
 
         # Формируем URL вебхука
-        webhook_url = f"http://localhost:8765/api/webhooks/{webhook.id}/send"
+        base_url = settings.public_url or 'http://localhost:8765'
+        webhook_url = f"{base_url}/api/webhooks/{webhook.id}/send"
 
         await bot.send_text(
             event.payload.chat.chatId,
@@ -355,7 +357,8 @@ class WebhookInfoHandler(CommandHandler):
                 return
 
             # Формируем URL вебхука
-            webhook_url = f"http://localhost:8765/api/webhooks/{webhook.id}/send"
+            base_url = settings.public_url or 'http://localhost:8765'
+            webhook_url = f"{base_url}/api/webhooks/{webhook.id}/send"
 
             status = "✅ Активен" if webhook.is_active else "❌ Неактивен"
             metadata = json.dumps(
@@ -431,8 +434,9 @@ class WebhookConfirmationHandler(BotButtonCommandHandler):
                 ) = await webhook_repository.regenerate_api_key(data.webhook_id)
                 await session.commit()
 
+                base_url = settings.public_url or 'http://localhost:8765'
                 webhook_url = (
-                    f"http://localhost:8765/api/webhooks/{updated_webhook.id}/send"
+                    f"{base_url}/api/webhooks/{updated_webhook.id}/send"
                 )
 
                 await bot.answer_callback_query(
