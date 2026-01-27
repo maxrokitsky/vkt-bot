@@ -78,13 +78,11 @@ class CreateWebhookHandler(AdminRequiredMixin, CommandHandler):
 
         await bot.send_text(
             event.payload.chat.chatId,
-            f"{mention(user_id)}, вебхук '{webhook_name}' создан!\n\n"
-            f"📝 **ID вебхука:** `{webhook.id}`\n"
-            f"🔑 **API ключ:** `{api_key}`\n"
+            f"Вебхук '{webhook_name}' создан!\n\n"
             f"🌐 **URL для отправки:** `{webhook_url}`\n\n"
-            f"⚠️ **Сохраните API ключ!** Он показывается только один раз.\n"
-            f"Для отправки сообщений используйте POST запрос с заголовком:\n"
-            f"`Authorization: Bearer {api_key}`",
+            f"🔑 **API ключ:**\n"
+            f"```\n{api_key}\n```",
+            reply_msg_id=event.payload.msgId,
             parse_mode="MarkdownV2",
         )
 
@@ -124,7 +122,8 @@ class ListWebhooksHandler(CommandHandler):
 
         await bot.send_text(
             event.payload.chat.chatId,
-            f"{mention(user_id)}, вебхуки в этом чате:\n\n" + "\n\n".join(webhook_list),
+            "Вебхуки в этом чате:\n\n" + "\n\n".join(webhook_list),
+            reply_msg_id=event.payload.msgId,
             parse_mode="MarkdownV2",
         )
 
