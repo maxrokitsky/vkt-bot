@@ -131,7 +131,9 @@ return message;
 | Параметр | Тип | Описание | Обязательный |
 |----------|-----|----------|--------------|
 | text | string | Текст сообщения (до 4000 символов) | Да (если не отправляется файл) |
-| file | file | Файл для отправки | Да (если не отправляется текст) |
+| file | file | Файл для отправки (multipart/form-data) | Да (если не отправляется текст или file_base64) |
+| file_base64 | string | Base64 encoded file (application/json) | Да (если не отправляется текст или file) |
+| filename | string | Имя файла (требуется с file_base64) | Да (с file_base64) |
 | caption | string | Подпись к файлу (до 4000 символов) | Нет |
 | parse_mode | string | Режим разметки: "MarkdownV2" или "HTML" | Нет |
 
@@ -147,6 +149,7 @@ _italic text_
 
 ### Отправка файлов
 
+#### Вариант 1: multipart/form-data
 Для отправки файлов используйте `multipart/form-data` формат:
 
 **Пример запроса с файлом:**
@@ -158,6 +161,22 @@ curl -X POST https://your-bot-domain.com/webhooks/{webhook_id} \
   -F "parse_mode=MarkdownV2"
 ```
 
+#### Вариант 2: application/json с base64
+Для отправки файлов через JSON используйте base64 кодирование:
+
+**Пример запроса с base64 файлом:**
+```bash
+curl -X POST https://your-bot-domain.com/webhooks/{webhook_id} \
+  -H "Authorization: Bearer {api_key}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "file_base64": "BASE64_ENCODED_FILE_CONTENT",
+    "filename": "document.pdf",
+    "caption": "Важный документ",
+    "parse_mode": "MarkdownV2"
+  }'
+```
+
 **Поддерживаемые типы файлов:**
 - Изображения: JPEG, PNG, GIF, WebP
 - Документы: PDF, TXT, CSV
@@ -167,6 +186,7 @@ curl -X POST https://your-bot-domain.com/webhooks/{webhook_id} \
 - Максимальный размер файла: 50 MB
 - Файл должен иметь имя
 - Нельзя отправлять одновременно текст и файл
+- Для base64 файлов обязательно указывать `filename`
 
 ## Безопасность
 

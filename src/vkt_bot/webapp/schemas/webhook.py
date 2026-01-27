@@ -1,7 +1,7 @@
+import base64
 import datetime
 from typing import Literal
 
-from fastapi import UploadFile
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
@@ -27,12 +27,55 @@ class WebhookUpdateSchema(BaseModel):
     )
 
 
+class WebhookFileSchema(BaseModel):
+    """Схема для файла в вебхуке."""
+
+    content: str | None = Field(None, description="Base64 encoded file content")
+    data_url: str | None = Field(None, description="Data URL with file content")
+    filename: str = Field(..., description="File name")
+    caption: str | None = Field(None, max_length=4000, description="Подпись к файлу")
+
+    @model_validator(mode="after")
+    def validate_content(self):
+        if not self.content and not self.data_url:
+            raise ValueError("Either content or data_url must be provided")
+        if self.content and self.data_url:
+            raise ValueError("Cannot provide both content and data_url")
+        return self
+
+    def get_file_content(self) -> bytes:
+        """Получить содержимое файла в виде bytes."""
+        if self.content:
+            try:
+                return base64.b64decode(self.content)
+            except Exception as e:
+                raise ValueError(f"Invalid base64 encoding: {str(e)}")
+        elif self.data_url:
+            try:
+                # Парсим data URL: data:[<mediatype>][;base64],<data>
+                if not self.data_url.startswith("data:"):
+                    raise ValueError("Invalid data URL format")
+
+                # Разделяем заголовок и данные
+                header, data = self.data_url.split(",", 1)
+                parts = header.split(";")
+
+                # Проверяем base64 кодирование
+                if "base64" not in parts:
+                    raise ValueError("Data URL must be base64 encoded")
+
+                return base64.b64decode(data)
+            except Exception as e:
+                raise ValueError(f"Invalid data URL: {str(e)}")
+        else:
+            raise ValueError("No file content provided")
+
+
 class WebhookSendRequest(BaseModel):
     """Схема для отправки сообщения через вебхук."""
 
     text: str | None = Field(None, max_length=4000, description="Текст сообщения")
-    file: UploadFile | None = Field(None, description="Файл для отправки")
-    caption: str | None = Field(None, max_length=4000, description="Подпись к файлу")
+    file: WebhookFileSchema | None = Field(None, description="Файл для отправки")
     parse_mode: Literal["MarkdownV2", "HTML"] | None = Field(
         None, description="Режим разметки текста"
     )
@@ -44,10 +87,12 @@ class WebhookSendRequest(BaseModel):
 
         if not (has_text or has_file):
             raise ValueError("Должен быть указан либо text, либо file")
-        if has_text and has_file:
+
+        # Проверяем, что не указано одновременно несколько источников контента
+        content_sources = sum([has_text, has_file])
+        if content_sources > 1:
             raise ValueError("Нельзя указывать одновременно text и file")
-        if self.file and not self.file.filename:
-            raise ValueError("Файл должен иметь имя")
+
         return self
 
 

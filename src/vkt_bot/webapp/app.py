@@ -1,5 +1,7 @@
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from vkt_bot import setup
 
@@ -11,8 +13,9 @@ from .api import (
     bot_settings,
     logs,
     webhooks,
-    public_webhooks,
 )
+
+STATIC_DIR = "./static"
 
 
 def create_app(*args, **kwargs) -> FastAPI:
@@ -34,7 +37,7 @@ def create_app(*args, **kwargs) -> FastAPI:
     app.include_router(bot_settings.router)
     app.include_router(logs.router)
     app.include_router(webhooks.router)
-    app.include_router(public_webhooks.router)
+    app.include_router(webhooks.public_router)
 
     @app.get("/")
     async def root():
@@ -45,5 +48,8 @@ def create_app(*args, **kwargs) -> FastAPI:
         return {"status": "ok"}
 
     setup(app)
+
+    Path(STATIC_DIR).mkdir(parents=True, exist_ok=True)
+    app.mount("/", StaticFiles(directory="./static", html=True), name="static")
 
     return app

@@ -74,7 +74,7 @@ class CreateWebhookHandler(AdminRequiredMixin, CommandHandler):
 
         # Формируем URL вебхука
         base_url = settings.public_url or "http://localhost:8765"
-        webhook_url = f"{base_url}/api/webhooks/{webhook.id}/send"
+        webhook_url = f"{base_url}/webhooks/{webhook.id}"
 
         await bot.send_text(
             event.payload.chat.chatId,
@@ -358,7 +358,7 @@ class WebhookInfoHandler(CommandHandler):
 
             # Формируем URL вебхука
             base_url = settings.public_url or "http://localhost:8765"
-            webhook_url = f"{base_url}/api/webhooks/{webhook.id}/send"
+            webhook_url = f"{base_url}/webhooks/{webhook.id}"
 
             status = "✅ Активен" if webhook.is_active else "❌ Неактивен"
             metadata = json.dumps(
@@ -435,7 +435,7 @@ class WebhookConfirmationHandler(BotButtonCommandHandler):
                 await session.commit()
 
                 base_url = settings.public_url or "http://localhost:8765"
-                webhook_url = f"{base_url}/api/webhooks/{updated_webhook.id}/send"
+                webhook_url = f"{base_url}/webhooks/{updated_webhook.id}"
 
                 await bot.answer_callback_query(
                     query_id=event.payload.queryId,

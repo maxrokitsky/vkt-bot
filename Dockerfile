@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS backend
 
 WORKDIR /app
 
@@ -15,6 +15,20 @@ COPY . /app
 RUN uv sync --locked --no-dev --all-packages
 
 ENV PATH="/app/.venv/bin:$PATH"
+
+# FROM node:20-alpine AS frontend
+
+# WORKDIR /app/control-panel-app
+
+# COPY control-panel-app/package.json control-panel-app/pnpm-lock.yaml* ./
+# RUN corepack enable pnpm && pnpm install --frozen-lockfile
+
+# COPY control-panel-app/ .
+# RUN pnpm build
+
+# FROM backend
+
+# COPY --from=frontend /app/control-panel-app/dist /app/static
 
 ENTRYPOINT []
 

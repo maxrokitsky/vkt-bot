@@ -22,6 +22,7 @@ from vkt_bot.webapp.schemas.webhook import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/webhooks", tags=["webhooks"])
+public_router = APIRouter(prefix="/webhooks", tags=["public-webhooks"])
 
 
 @router.get("", response_model=WebhookListResponse)
@@ -205,7 +206,7 @@ async def regenerate_webhook_api_key(
     )
 
 
-@router.post("/{webhook_id}/send", response_model=WebhookSendResponse)
+@public_router.post("/{webhook_id}", response_model=WebhookSendResponse)
 async def handle_webhook(
     webhook_id: str,
     request: WebhookSendRequest,
@@ -266,20 +267,26 @@ async def handle_webhook(
             log_message = f"Webhook message sent: webhook_id={webhook.id}, chat_id={webhook.chat_id}, text_length={len(text)}"
 
         elif request.file:
-            # Отправка файла
-            file_content = await request.file.read()
-            result = await bot.send_file(
-                chat_id=webhook.chat_id,
-                file=file_content,
-                filename=request.file.filename,
-                caption=request.caption,
-                parse_mode=parse_mode,
-            )
-            msg_id = result.msgId
-            # Проверяем наличие fileId в результате
-            if isinstance(result, MsgLoadFileResponse):
-                file_id = result.fileId
-            log_message = f"Webhook file sent: webhook_id={webhook.id}, chat_id={webhook.chat_id}, filename={request.file.filename}, size={len(file_content)}"
+            # Отправка файла из новой схемы
+            try:
+                file_content = request.file.get_file_content()
+                result = await bot.send_file(
+                    chat_id=webhook.chat_id,
+                    file=file_content,
+                    filename=request.file.filename,
+                    caption=request.file.caption,
+                    parse_mode=parse_mode,
+                )
+                msg_id = result.msgId
+                # Проверяем наличие fileId в результате
+                if isinstance(result, MsgLoadFileResponse):
+                    file_id = result.fileId
+                log_message = f"Webhook file sent: webhook_id={webhook.id}, chat_id={webhook.chat_id}, filename={request.file.filename}, size={len(file_content)}"
+            except ValueError as e:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid file content: {str(e)}",
+                )
 
         # 5. Логирование успешной отправки
         await webhook_repo.log_webhook_call(

@@ -3,9 +3,8 @@ from .bot_settings import router as bot_settings_router
 from .chat_users import router as chat_users_router
 from .chats import router as chats_router
 from .logs import router as logs_router
-from .public_webhooks import router as public_webhooks_router
 from .roles import router as roles_router
-from .webhooks import router as webhooks_router
+from .webhooks import router as webhooks_router, public_router as public_webhooks_router
 
 __all__ = (
     "auth_router",
