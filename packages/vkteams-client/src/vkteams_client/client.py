@@ -69,6 +69,7 @@ class VKTeams:
         self,
         chat_id: str,
         text: str,
+        reply_msg_id: list[int] | None = None,
         forward_msg_id: str | None = None,
         forward_chat_id: str | None = None,
         parse_mode: Literal["MarkdownV2", "HTML"] | None = None,
@@ -82,6 +83,8 @@ class VKTeams:
             "chatId": chat_id,
             "text": text,
         }
+        if reply_msg_id:
+            params["replyMsgId"] = reply_msg_id
         if forward_msg_id and forward_chat_id:
             params["forwardChatId"] = forward_chat_id
             params["forwardMsgId"] = forward_msg_id
