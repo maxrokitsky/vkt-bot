@@ -4,14 +4,16 @@
 
 Система позволяет создавать динамические эндпоинты для отправки сообщений в чаты VK Teams через вебхуки из системы автоматизации n8n.
 
+> **Важное обновление**: Ранее существовало два endpoint'а для отправки сообщений (`/api/webhooks/{id}/send` и `/webhooks/{id}`). Теперь используется единый endpoint `/webhooks/{webhook_id}` для всех интеграций.
+
 ## Архитектура
 
 ### Компоненты
 
 1. **Модель Webhook** - хранение информации о вебхуках в БД
 2. **WebhookRepository** - CRUD операции и управление API ключами
-3. **API для управления** - создание, просмотр, обновление, удаление вебхуков
-4. **Публичные вебхуки** - эндпоинты для интеграции с n8n
+3. **API для управления** - создание, просмотр, обновление, удаление вебхуков (требует аутентификации)
+4. **Публичный вебхук** - единый эндпоинт для интеграции с n8n и другими системами
 
 ### Безопасность
 
@@ -31,7 +33,6 @@ GET    /api/webhooks/{id}               - информация о вебхуке
 PUT    /api/webhooks/{id}               - обновление вебхука
 DELETE /api/webhooks/{id}               - удаление вебхука
 POST   /api/webhooks/{id}/regenerate    - перегенерация API ключа
-POST   /api/webhooks/{id}/send          - отправка сообщения (альтернативный путь)
 ```
 
 ### Публичные вебхуки (для интеграции с n8n)
@@ -131,10 +132,11 @@ return message;
 | Параметр | Тип | Описание | Обязательный |
 |----------|-----|----------|--------------|
 | text | string | Текст сообщения (до 4000 символов) | Да (если не отправляется файл) |
-| file | file | Файл для отправки (multipart/form-data) | Да (если не отправляется текст или file_base64) |
-| file_base64 | string | Base64 encoded file (application/json) | Да (если не отправляется текст или file) |
-| filename | string | Имя файла (требуется с file_base64) | Да (с file_base64) |
-| caption | string | Подпись к файлу (до 4000 символов) | Нет |
+| file | object | Файл для отправки в формате JSON | Да (если не отправляется текст) |
+| file.content | string | Base64 encoded file content | Да (если не используется file.data_url) |
+| file.data_url | string | Data URL с содержимым файла | Да (если не используется file.content) |
+| file.filename | string | Имя файла | Да |
+| file.caption | string | Подпись к файлу (до 4000 символов) | Нет |
 | parse_mode | string | Режим разметки: "MarkdownV2" или "HTML" | Нет |
 
 ### Поддержка MarkdownV2
@@ -149,19 +151,7 @@ _italic text_
 
 ### Отправка файлов
 
-#### Вариант 1: multipart/form-data
-Для отправки файлов используйте `multipart/form-data` формат:
-
-**Пример запроса с файлом:**
-```bash
-curl -X POST https://your-bot-domain.com/webhooks/{webhook_id} \
-  -H "Authorization: Bearer {api_key}" \
-  -F "file=@document.pdf" \
-  -F "caption=Важный документ" \
-  -F "parse_mode=MarkdownV2"
-```
-
-#### Вариант 2: application/json с base64
+#### Вариант 1: Base64 encoded content
 Для отправки файлов через JSON используйте base64 кодирование:
 
 **Пример запроса с base64 файлом:**
@@ -170,9 +160,29 @@ curl -X POST https://your-bot-domain.com/webhooks/{webhook_id} \
   -H "Authorization: Bearer {api_key}" \
   -H "Content-Type: application/json" \
   -d '{
-    "file_base64": "BASE64_ENCODED_FILE_CONTENT",
-    "filename": "document.pdf",
-    "caption": "Важный документ",
+    "file": {
+      "content": "BASE64_ENCODED_FILE_CONTENT",
+      "filename": "document.pdf",
+      "caption": "Важный документ"
+    },
+    "parse_mode": "MarkdownV2"
+  }'
+```
+
+#### Вариант 2: Data URL
+Альтернативный способ - использование Data URL:
+
+**Пример запроса с Data URL:**
+```bash
+curl -X POST https://your-bot-domain.com/webhooks/{webhook_id} \
+  -H "Authorization: Bearer {api_key}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "file": {
+      "data_url": "data:application/pdf;base64,BASE64_ENCODED_FILE_CONTENT",
+      "filename": "document.pdf",
+      "caption": "Важный документ"
+    },
     "parse_mode": "MarkdownV2"
   }'
 ```
@@ -184,9 +194,10 @@ curl -X POST https://your-bot-domain.com/webhooks/{webhook_id} \
 
 **Ограничения:**
 - Максимальный размер файла: 50 MB
-- Файл должен иметь имя
+- Файл должен иметь имя (filename)
 - Нельзя отправлять одновременно текст и файл
-- Для base64 файлов обязательно указывать `filename`
+- Для файлов обязательно указывать либо `content` (base64), либо `data_url`
+- Data URL должен быть base64 encoded
 
 ## Безопасность
 
@@ -283,17 +294,29 @@ curl -X POST https://your-bot-domain.com/webhooks/{webhook_id} \
 ```bash
 curl -X POST https://your-bot-domain.com/webhooks/{webhook_id} \
   -H "Authorization: Bearer {api_key}" \
-  -F "file=@server_logs_2024-01-26.txt" \
-  -F "caption=Логи сервера за сегодня" \
-  -F "parse_mode=MarkdownV2"
+  -H "Content-Type: application/json" \
+  -d '{
+    "file": {
+      "content": "BASE64_ENCODED_LOG_FILE",
+      "filename": "server_logs_2024-01-26.txt",
+      "caption": "Логи сервера за сегодня"
+    },
+    "parse_mode": "MarkdownV2"
+  }'
 ```
 
 **Пример отправки отчета в PDF:**
 ```bash
 curl -X POST https://your-bot-domain.com/webhooks/{webhook_id} \
   -H "Authorization: Bearer {api_key}" \
-  -F "file=@monthly_report.pdf" \
-  -F "caption=📈 Ежемесячный финансовый отчет"
+  -H "Content-Type: application/json" \
+  -d '{
+    "file": {
+      "data_url": "data:application/pdf;base64,BASE64_ENCODED_PDF",
+      "filename": "monthly_report.pdf",
+      "caption": "📈 Ежемесячный финансовый отчет"
+    }
+  }'
 ```
 
 ## Устранение неполадок
@@ -345,7 +368,7 @@ curl -X POST http://localhost:8000/api/webhooks \
   -H "Content-Type: application/json" \
   -d '{"name": "Test", "chat_id": "123"}'
 
-# Отправка тестового сообщения
+# Отправка тестового сообщения (используйте единый endpoint)
 curl -X POST http://localhost:8000/webhooks/<webhook_id> \
   -H "Authorization: Bearer <api_key>" \
   -H "Content-Type: application/json" \
