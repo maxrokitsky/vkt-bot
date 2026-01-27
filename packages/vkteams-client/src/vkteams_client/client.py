@@ -330,7 +330,7 @@ class VKTeams:
                 return result
         elif file:
             # Загрузка и отправка нового файла (POST multipart/form-data)
-            data = aiohttp.FormData()
+            data = aiohttp.FormData(quote_fields=False)
 
             # Добавляем query параметры
             for key, value in params.items():
