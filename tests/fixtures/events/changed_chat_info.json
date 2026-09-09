@@ -1,0 +1,12 @@
+{
+  "eventId": 12,
+  "type": "changedChatInfo",
+  "payload": {
+    "chat": {
+      "chatId": "681869378@chat.agent",
+      "type": "group",
+      "title": "Новое название"
+    },
+    "title": "Новое название"
+  }
+}

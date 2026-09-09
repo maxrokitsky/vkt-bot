@@ -1,0 +1,23 @@
+{
+  "eventId": 10,
+  "type": "newChatMembers",
+  "payload": {
+    "chat": {
+      "chatId": "681869378@chat.agent",
+      "type": "group",
+      "title": "Тестовая группа"
+    },
+    "newMembers": [
+      {
+        "firstName": "Пётр",
+        "lastName": "Петров",
+        "userId": "9876543210"
+      }
+    ],
+    "addedBy": {
+      "firstName": "Иван",
+      "lastName": "Иванов",
+      "userId": "1234567890"
+    }
+  }
+}

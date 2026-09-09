@@ -28,7 +28,14 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=8.4.1", "ruff>=0.12.0"]
+dev = [
+    "aioresponses>=0.7.9",
+    "aiosqlite>=0.22.1",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.12.0",
+]
 
 [project.scripts]
 bot = 'vkt_bot.main:start_bot'
@@ -49,6 +56,46 @@ members = ["packages/*", "plugins/*"]
 
 [tool.uv.build-backend]
 source-exclude = ["src/vkt_bot/webapp/client", "tmp", "dist"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["tests"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--cov=vkt_bot",
+    "--cov=vkteams_client",
+    "--cov=vkt_dispatcher",
+    "--cov=vkt_gitlab",
+    "--cov-report=term-missing:skip-covered",
+    "--cov-fail-under=70",
+]
+markers = [
+    "postgres: тест требует настоящий PostgreSQL (TEST_DB_URL)",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:passlib.*",
+]
+
+[tool.coverage.run]
+branch = true
+# SQLAlchemy async ходит через greenlet: без этого coverage теряет трассировку
+# внутри корутин, которые обращаются к БД.
+concurrency = ["thread", "greenlet"]
+omit = [
+    "*/migrations/*",
+    "*/webapp/client/*",
+]
+
+[tool.coverage.report]
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@abstractmethod",
+    "\\.\\.\\.",
+]
 
 [tool.alembic]
 

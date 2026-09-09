@@ -1,0 +1,23 @@
+{
+  "eventId": 4,
+  "type": "newMessage",
+  "payload": {
+    "chat": {
+      "chatId": "681869378@chat.agent",
+      "type": "group",
+      "title": "Тестовая группа"
+    },
+    "from": {
+      "firstName": "Иван",
+      "lastName": "Иванов",
+      "userId": "1234567890"
+    },
+    "msgId": "6752739791872001114",
+    "text": "жирный курсив",
+    "format": {
+      "bold": [{"offset": 0, "length": 6}],
+      "italic": [{"offset": 7, "length": 6}]
+    },
+    "timestamp": 1546290003
+  }
+}

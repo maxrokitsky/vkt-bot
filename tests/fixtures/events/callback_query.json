@@ -1,0 +1,28 @@
+{
+  "eventId": 13,
+  "type": "callbackQuery",
+  "payload": {
+    "queryId": "SVR:123456",
+    "from": {
+      "firstName": "Иван",
+      "lastName": "Иванов",
+      "userId": "1234567890"
+    },
+    "message": {
+      "chat": {
+        "chatId": "681869378@chat.agent",
+        "type": "group",
+        "title": "Тестовая группа"
+      },
+      "from": {
+        "firstName": "Бот",
+        "userId": "123456789:bot",
+        "nick": "test_bot"
+      },
+      "msgId": "6752739791872001120",
+      "text": "Выберите действие",
+      "timestamp": 1546290300
+    },
+    "callbackData": "{\"command\":\"start__showcommands\",\"requested_by\":\"1234567890\"}"
+  }
+}

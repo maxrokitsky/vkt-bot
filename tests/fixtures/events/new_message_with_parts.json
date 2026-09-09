@@ -1,0 +1,37 @@
+{
+  "eventId": 5,
+  "type": "newMessage",
+  "payload": {
+    "chat": {
+      "chatId": "681869378@chat.agent",
+      "type": "group",
+      "title": "Тестовая группа"
+    },
+    "from": {
+      "firstName": "Иван",
+      "lastName": "Иванов",
+      "userId": "1234567890"
+    },
+    "msgId": "6752739791872001115",
+    "text": "Смотри картинку @[9876543210]",
+    "parts": [
+      {
+        "type": "file",
+        "payload": {
+          "fileId": "0dC76vcKS3XZOtG5DVs9y15d1daefa1ae",
+          "type": "image",
+          "caption": "Картинка"
+        }
+      },
+      {
+        "type": "mention",
+        "payload": {
+          "firstName": "Пётр",
+          "lastName": "Петров",
+          "userId": "9876543210"
+        }
+      }
+    ],
+    "timestamp": 1546290004
+  }
+}

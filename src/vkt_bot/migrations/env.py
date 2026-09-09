@@ -1,4 +1,5 @@
 import asyncio
+import os
 
 from alembic import context
 from sqlalchemy import pool
@@ -27,6 +28,16 @@ config = context.config
 # target_metadata = mymodel.Base.metadata
 target_metadata = Model.metadata
 
+
+def get_url() -> str:
+    """DSN для миграций.
+
+    ``ALEMBIC_DB_URL`` позволяет прогнать миграции на другой базе
+    (например, на тестовой), не подменяя настройки приложения.
+    """
+    return os.environ.get("ALEMBIC_DB_URL") or str(settings.db_url)
+
+
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
@@ -46,7 +57,7 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = str(settings.db_url)
+    url = get_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -71,7 +82,7 @@ async def run_async_migrations() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
-        url=str(settings.db_url),
+        url=get_url(),
     )
 
     async with connectable.connect() as connection:

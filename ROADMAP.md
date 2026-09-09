@@ -10,12 +10,42 @@
 
 ---
 
-## Фаза 1. Тесты на весь работающий код
+## Фаза 1. Тесты на весь работающий код — ✅ сделано
 
 Цель — зафиксировать текущее поведение до того, как начнём его менять. Всё
 последующее (threads, фиксы клиента, панель) опирается на эту сетку.
 
-### 1.0 Инфраструктура (блокеры, делать первыми)
+**Итог:** 850 тестов, покрытие 97% (порог в CI — 70%). Набор гоняется и на
+SQLite (по умолчанию, без внешних сервисов), и на PostgreSQL (`TEST_DB_URL`,
+так делает CI). Как запускать — в [CLAUDE.md](CLAUDE.md#testing).
+
+### 1.0 Инфраструктура (блокеры, делать первыми) — ✅
+
+Было: код физически нетестируем — проблемы на уровне импортов.
+
+Сделано:
+
+- `config.py` — `get_settings()` с `lru_cache`, `sys.exit` убран, модульный
+  `settings` резолвится лениво через `__getattr__`; точка выхода —
+  `main.check_settings()`.
+- `vkt_bot/__init__.py` и `utils/log.py` больше не читают настройки на
+  импорте — иначе `import vkt_bot` всё равно требовал бы полного `.env`.
+- `db/session.py` — `create_session_factory(url)` + ленивая
+  `LazySessionFactory`; `async_session.configure(...)` подменяет базу сразу
+  для всех модулей, которые импортировали её по имени.
+- `migrations/env.py` — DSN можно переопределить через `ALEMBIC_DB_URL`.
+- Dev-зависимости: `pytest-asyncio`, `pytest-cov`, `aioresponses`, `aiosqlite`.
+- `[tool.pytest.ini_options]` и `[tool.coverage.*]` в `pyproject.toml`.
+- `tests/` с `conftest.py`, `factories.py`, фикстурами событий и разделами
+  `client/`, `dispatcher/`, `db/`, `webapp/`, `handlers/`, `plugins/`,
+  `core/`, `utils/`.
+- CI: `.github/workflows/test.yml` с service-контейнером PostgreSQL.
+
+Осталось руками: включить job `test` в обязательные проверки для merge в
+`master` (настройка branch protection в GitHub).
+
+<details>
+<summary>Исходный план 1.0</summary>
 
 Сейчас код физически нетестируем — три проблемы на уровне импортов:
 
@@ -47,7 +77,9 @@
 Фикстуры событий брать прямо из спеки: в `schemas.json` у каждого поля есть
 `example`, из них собирается валидный payload для всех типов событий.
 
-### 1.1 `packages/vkteams-client`
+</details>
+
+### 1.1 `packages/vkteams-client` — ✅
 
 Самый ценный слой для тестов — вся сериализация и парсинг API.
 
@@ -64,7 +96,7 @@
 - `edit_text`, `delete_messages`, `get_members`, `get_self`.
 - Негативные кейсы: невалидный JSON, `{"ok": false}`, HTTP 4xx/5xx.
 
-### 1.2 `packages/vkt-dispatcher`
+### 1.2 `packages/vkt-dispatcher` — ✅
 
 - `Filter`: композиция `&` / `|` / `~`, `AllFilter`, `AnyFilter`.
 - Часть фильтров сейчас **падает с `AttributeError`** (обращение к `event.data`,
@@ -84,7 +116,7 @@
   асинхронный генератор) и порядок post-триггеров в reverse.
 - `start_polling`: `last_event_id = max(...)`.
 
-### 1.3 Слой БД
+### 1.3 Слой БД — ✅
 
 - `db/repository.py` — `AsyncRepository`: create / get / update / delete / list,
   автовывод генериков.
@@ -94,7 +126,7 @@
 - `db/exceptions.py`, поведение при нарушении констрейнтов, rollback.
 - Прогон `alembic upgrade head` на чистой БД как smoke-тест миграций.
 
-### 1.4 `webapp` (httpx + ASGITransport)
+### 1.4 `webapp` (httpx + ASGITransport) — ✅
 
 - `auth`: логин (успех / неверный пароль / неактивный пользователь), срок
   жизни JWT, `CurrentUser` и `CurrentAdminUser` (403 обычному пользователю).
@@ -106,7 +138,7 @@
 - Проверка, что `openapi.json` в репозитории не разошёлся с приложением
   (`uv run export_schema` + `git diff --exit-code`).
 
-### 1.5 Хендлеры бота и плагин
+### 1.5 Хендлеры бота и плагин — ✅
 
 - `core/handlers/`: `auth`, `chats`, `help`, `roles`, `webhooks`, `callback`,
   `mixins` — на фейковом `VKTeams` (spy), проверяем какие вызовы API сделаны.
@@ -120,6 +152,53 @@
 
 Зелёный `pytest` в CI, покрытие ≥70% по `packages/` и
 `src/vkt_bot/{db,core,webapp}`, тесты обязательны для merge.
+
+**Статус:** покрытие 97%, `pytest` зелёный на обоих диалектах. Осталось
+включить job `test` в обязательные проверки ветки `master`.
+
+### Что нашли по пути
+
+Тесты фиксируют текущее поведение, поэтому сломанные места помечены
+`xfail(strict=True)` или задокументированы в докстрингах. Кандидаты в
+фазу 3:
+
+1. **`webapp/api/roles.py`** зовёт `AuditLogger.log_create/log_update/log_delete`
+   с аргументом `web_user=`, которого в сигнатуре нет (`user=`). Создание,
+   переименование и удаление роли через панель отдают 500. Три `xfail`.
+2. **`/togglewebhook`** и `PUT /api/webhooks/{id}` с частичным телом падают:
+   `AsyncRepository.update` пишет весь `model_dump()`, поэтому незаданные
+   поля затираются в `NULL`, а `webhooks.name`/`is_active` — `NOT NULL`.
+   Нужен `model_dump(exclude_unset=True)`.
+3. **`DELETE /api/webhooks/{id}`** отвечает 204, но не коммитит: вызов
+   `repo.delete(webhook_id)` без `commit=True`.
+4. **`GET /api/logs/{id}`** не превращает `NotFoundError` в 404 — уходит 500.
+5. **`QueryResult.paginate`** считает `total` по всей таблице: берёт
+   `statement.froms[0]` и теряет `where`. Плюс `Select.froms` объявлен
+   устаревшим — нужен `get_final_froms()`.
+6. **`utils/datetime.now()`** вызывает `datetime.datetime()` без аргументов —
+   всегда `TypeError`. Функция нигде не используется.
+7. **Наивные `datetime`-колонки.** `LoginToken.expires_at` без таймзоны, а
+   `webapp/api/auth.py` делает `expires_at.replace(tzinfo=utc)`. Если
+   TimeZone базы не UTC, срок жизни токена уезжает на её смещение.
+8. **Строки вместо `UUID`.** `RoleByIdQuery.role_id` и аргумент
+   `/glwebhookdel` типизированы как `str`, хотя колонки — `UUID`. PostgreSQL
+   приводит сам, любая другая база — нет.
+9. **`SenderFilter`** сравнивает `chatId`, а не `userId` отправителя: в личке
+   совпадает, в группе фильтр молча не работает.
+10. **`CommandHandler()`** без `command` падает с `AttributeError`: `check`
+    читает `self.commands`, который `__init__` не задаёт. Ветка
+    `not self.commands` недостижима.
+11. **Ручки `/gl/webhooks`** (кроме `trigger` и `DELETE`) обращаются к
+    несуществующим полям: `Chat.title`, `ChatUser.name`,
+    `GlWebhook.created_at`/`updated_at`, `current_user.chat_user_id`.
+    См. 3.10.
+12. **`uv run shell`** вызывал `setup()` без обязательного аргумента `app` —
+    поправлено вместе с точками входа.
+13. **Разметка GitLab-уведомлений** уходит с `parse_mode="MarkdownV2"` без
+    экранирования: спецсимволы в ветке или сообщении коммита ломают
+    сообщение.
+14. **`send_text`/`edit_text`** не проверяют `ok` в ответе — неудачная
+    отправка проходит незамеченной.
 
 ---
 
@@ -311,8 +390,8 @@
   См. 4.1.
 - В корне репозитория лежат артефакты: `collapsible-example.vue`, `tmp/`,
   `api.yaml`. Разобрать.
-- `CLAUDE.md` пишет «Test framework not currently configured» — обновить
-  после фазы 1.
+- ~~`CLAUDE.md` пишет «Test framework not currently configured»~~ — обновлено
+  в фазе 1.
 
 ---
 
@@ -388,5 +467,4 @@ inline-клавиатуры с превью и стилями кнопок, от
 - **3.9 и 3.10 (уборка и расхождения с документацией)** — независимые мелкие
   задачи, годятся для заполнения пауз.
 - **4.7 (тесты фронта)** не зависит от фаз 1–3.
-- **1.0 (тестируемость `config.py` и `db/session.py`)** обязательно до всего
-  остального в фазе 1.
+- ~~**1.0 (тестируемость `config.py` и `db/session.py`)**~~ — сделано.

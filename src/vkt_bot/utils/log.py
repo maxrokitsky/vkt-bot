@@ -6,7 +6,6 @@ from pydantic_core import MultiHostHost, MultiHostUrl
 import yaml
 
 import vkt_bot
-from vkt_bot.config import settings
 
 
 def mask_string(url: str) -> str:
@@ -52,6 +51,9 @@ def import_logging():
 
 
 def init_logging() -> None:
+    from vkt_bot.config import get_settings
+
+    settings = get_settings()
     logging_config = import_logging()
     if settings.log_file:
         if not settings.log_file.parent.exists():
@@ -80,6 +82,9 @@ def init_logging() -> None:
 
 
 def setup_sentry() -> None:
+    from vkt_bot.config import get_settings
+
+    settings = get_settings()
     if settings.sentry_dsn:
         import sentry_sdk
 
