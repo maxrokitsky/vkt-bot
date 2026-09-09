@@ -13,7 +13,6 @@ from vkt_bot.db.session import async_session
 from vkt_bot.app import dispatcher
 from vkt_bot.webapp.app import create_app
 from .loggers import main_logger
-from . import setup
 
 logging.getLogger("passlib").setLevel(logging.ERROR)
 
@@ -58,7 +57,8 @@ def export_schema() -> None:
 
 def shell() -> None:
     check_settings()
-    setup(create_app())
+    # create_app() сам вызывает setup(): логирование, модели, плагины.
+    create_app()
     session = async_session()
     try:
         IPython.start_ipython(

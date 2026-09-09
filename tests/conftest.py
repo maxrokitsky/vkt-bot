@@ -158,9 +158,15 @@ async def session(
 
 
 @pytest.fixture(autouse=True)
-def _no_global_session_factory() -> Iterator[None]:
-    """Не давать тестам без фикстуры БД случайно открыть настоящее соединение."""
+async def _no_global_session_factory() -> AsyncIterator[None]:
+    """Не давать тестам без фикстуры БД случайно открыть настоящее соединение.
+
+    ``reset`` не закрывает движок сам, поэтому сначала отдаём пул: иначе
+    тест, дошедший до фолбэка на ``settings.db_url``, оставил бы за собой
+    незакрытые соединения.
+    """
     yield
+    await async_session.dispose()
     async_session.reset()
 
 

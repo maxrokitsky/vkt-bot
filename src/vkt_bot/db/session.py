@@ -44,7 +44,12 @@ class LazySessionFactory:
         engine: AsyncEngine | None = None,
         **engine_kwargs: Any,
     ) -> None:
-        """Задать источник сессий: DSN или готовую фабрику."""
+        """Задать источник сессий: DSN или готовую фабрику.
+
+        Предыдущий движок не закрывается: метод синхронный, а
+        ``AsyncEngine.dispose`` — корутина. Если движок уже создан,
+        вызывающий должен сам сделать ``await dispose()``.
+        """
         if factory is not None:
             self._engine = engine
             self._factory = factory
@@ -55,7 +60,11 @@ class LazySessionFactory:
         self._engine, self._factory = create_session_factory(url, **engine_kwargs)
 
     def reset(self) -> None:
-        """Сбросить конфигурацию (следующее обращение возьмёт DSN из настроек)."""
+        """Сбросить конфигурацию (следующее обращение возьмёт DSN из настроек).
+
+        Как и ``configure``, не закрывает текущий движок — сначала
+        ``await dispose()``.
+        """
         self._engine = None
         self._factory = None
 

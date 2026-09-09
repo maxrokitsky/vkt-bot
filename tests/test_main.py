@@ -136,13 +136,23 @@ class TestShell:
             captured["user_ns"] = user_ns
 
         monkeypatch.setattr(main_module, "check_settings", lambda: None)
-        monkeypatch.setattr(main_module, "setup", lambda app: None)  # noqa: ARG005
         monkeypatch.setattr(main_module.IPython, "start_ipython", start_ipython)
         monkeypatch.setattr(main_module.asyncio, "run", lambda coro: coro.close())
 
         main_module.shell()
 
         assert "session" in captured["user_ns"]
+
+    def test_does_not_call_setup_twice(self) -> None:
+        """``setup`` зовётся один раз — внутри ``create_app``.
+
+        Отдельный вызов повторно прогонял бы ``init_logging``,
+        ``setup_sentry`` и ``install()`` каждого плагина.
+        """
+        names = main_module.shell.__code__.co_names
+
+        assert "create_app" in names
+        assert "setup" not in names
 
 
 class TestCheckSettings:
