@@ -33,10 +33,12 @@ def migration_db_url(db_url: str, is_postgres: bool) -> str:
     admin = sa.create_engine(
         base.set(database="postgres"), isolation_level="AUTOCOMMIT"
     )
+    # str(URL) прячет пароль под ***, поэтому DSN собираем явно.
+    dsn = base.set(database=name).render_as_string(hide_password=False)
     with admin.connect() as conn:
         conn.execute(sa.text(f'CREATE DATABASE "{name}"'))
     try:
-        yield str(base.set(database=name))
+        yield dsn
     finally:
         with admin.connect() as conn:
             conn.execute(

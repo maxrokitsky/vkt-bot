@@ -13,16 +13,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
-          python-version: '3.x'
+          enable-cache: true
 
+      - name: Set up Python
+        run: uv python install
+
+      # Раньше здесь стоял `pip install ruff` без версии: линтер обновлялся
+      # сам, включал новые правила по умолчанию и ронял CI на неизменном коде.
+      # Теперь версия берётся из dev-зависимостей проекта.
       - name: Install Ruff
-        run: pip install ruff
+        run: uv sync --only-group dev
 
       - name: Run ruff check
-        run: ruff check .
+        run: uv run --no-sync ruff check .
 
       - name: Run ruff format (check only)
-        run: ruff format --check .
+        run: uv run --no-sync ruff format --check .
