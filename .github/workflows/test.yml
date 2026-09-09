@@ -54,4 +54,6 @@ jobs:
         with:
           name: coverage
           path: .coverage
+          # .coverage — скрытый файл, upload-artifact их по умолчанию пропускает.
+          include-hidden-files: true
           if-no-files-found: ignore
