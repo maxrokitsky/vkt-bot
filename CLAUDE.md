@@ -382,9 +382,11 @@ TEST_DB_URL=postgresql+psycopg://postgres@localhost:16432/vkt_bot_test uv run py
 (станут зелёными после починки):
 
 - 11 фильтров в `vkt_dispatcher.filters` читают несуществующий `event.data`
-  (ROADMAP 3.1);
-- `webapp/api/roles.py` зовёт `AuditLogger.log_*` с аргументом `web_user=`,
-  которого нет в сигнатуре.
+  (ROADMAP 3.1).
+
+Тайпчекера в проекте нет: CI гоняет только `ruff check` и `ruff format`, а они
+сигнатуры вызовов не проверяют. Ошибки вида «неизвестный именованный аргумент»
+ловятся только тестами.
 
 ## Deployment
 
