@@ -1,0 +1,19 @@
+{
+  "eventId": 8,
+  "type": "pinnedMessage",
+  "payload": {
+    "chat": {
+      "chatId": "681869378@chat.agent",
+      "type": "group",
+      "title": "Тестовая группа"
+    },
+    "from": {
+      "firstName": "Иван",
+      "lastName": "Иванов",
+      "userId": "1234567890"
+    },
+    "msgId": "6752739791872001111",
+    "text": "Закреплённое сообщение",
+    "timestamp": 1546290180
+  }
+}

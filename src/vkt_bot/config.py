@@ -1,8 +1,8 @@
+import functools
 from pathlib import Path
-import sys
-from typing import Literal
+from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import PostgresDsn, ValidationError
+from pydantic import PostgresDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -41,8 +41,31 @@ class VktSettings(BaseSettings):
     )
 
 
-try:
-    settings = VktSettings()
-except ValidationError as e:
-    print(e, file=sys.stderr)
-    sys.exit(1)
+@functools.lru_cache(maxsize=1)
+def get_settings() -> VktSettings:
+    """Настройки приложения.
+
+    Валидируются при первом обращении и кэшируются. Кидает
+    ``pydantic.ValidationError``, если обязательные переменные не заданы;
+    обрабатывать её и завершать процесс — дело точки входа (``main.py``).
+    """
+    return VktSettings()
+
+
+def __getattr__(name: str) -> Any:  # noqa: ANN401
+    """Ленивый доступ к ``vkt_bot.config.settings``.
+
+    Позволяет импортировать модуль (и всё, что его импортирует) без
+    полного окружения — настройки читаются только при первом обращении
+    к ``settings``.
+    """
+    if name == "settings":
+        return get_settings()
+    msg = f"module {__name__!r} has no attribute {name!r}"
+    raise AttributeError(msg)
+
+
+if TYPE_CHECKING:
+    # Для статических анализаторов: `from vkt_bot.config import settings`
+    # разрешается через module-level __getattr__ выше.
+    settings: VktSettings

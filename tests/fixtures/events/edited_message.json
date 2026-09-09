@@ -1,0 +1,20 @@
+{
+  "eventId": 6,
+  "type": "editedMessage",
+  "payload": {
+    "chat": {
+      "chatId": "681869378@chat.agent",
+      "type": "group",
+      "title": "Тестовая группа"
+    },
+    "from": {
+      "firstName": "Иван",
+      "lastName": "Иванов",
+      "userId": "1234567890"
+    },
+    "msgId": "6752739791872001111",
+    "text": "Привет! (исправлено)",
+    "timestamp": 1546290000,
+    "editedTimestamp": 1546290060
+  }
+}

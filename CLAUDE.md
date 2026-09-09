@@ -80,6 +80,11 @@ ruff check --fix     # Auto-fix linting issues
 ruff format          # Format code
 ```
 
+### Tests
+```bash
+uv run pytest        # Run the test suite with coverage
+```
+
 ### Dependencies
 ```bash
 uv sync              # Install/sync all dependencies
@@ -271,7 +276,71 @@ Structured logging with multiple loggers:
 
 ## Testing
 
-Test framework not currently configured (pytest in dev dependencies but no tests directory).
+**Framework:** pytest + pytest-asyncio (`asyncio_mode = "auto"`, тесты и фикстуры
+живут в одном event loop уровня сессии).
+
+### Запуск
+
+```bash
+uv run pytest                       # весь набор + отчёт покрытия
+uv run pytest tests/client -q       # один раздел
+uv run pytest --no-cov              # без покрытия (быстрее)
+```
+
+### База данных
+
+По умолчанию тесты идут на файловом SQLite — `pytest` работает без внешних
+сервисов. `TEST_DB_URL` переключает их на настоящий PostgreSQL (так делает CI):
+
+```bash
+docker compose up -d postgres-db
+createdb -h localhost -p 16432 -U postgres vkt_bot_test
+TEST_DB_URL=postgresql+psycopg://postgres@localhost:16432/vkt_bot_test uv run pytest
+```
+
+Только на PostgreSQL прогоняются: smoke-тест миграций (`tests/db/test_migrations.py`,
+маркер `postgres`), `ilike` по кириллице и приведение строк к `UUID`.
+
+Изоляция — через внешнюю транзакцию: `conftest.py` открывает соединение,
+привязывает к нему фабрику сессий (`join_transaction_mode="create_savepoint"`)
+и откатывает всё после теста. Поэтому `commit()` внутри тестируемого кода
+виден внутри теста и исчезает после него.
+
+### Структура `tests/`
+
+- `conftest.py` — окружение, БД, `FakeBot` (шпион вместо `VKTeams`),
+  `app`/`client` для FastAPI, заголовки авторизации;
+- `factories.py` — загрузка событий из `tests/fixtures/events/*.json` и
+  фабрики моделей;
+- разделы: `client/`, `dispatcher/`, `db/`, `webapp/`, `handlers/`,
+  `plugins/`, `core/`, `utils/`.
+
+### Тестируемость
+
+- Настройки читаются лениво: `vkt_bot.config.get_settings()` (кэш через
+  `lru_cache`), модульный `settings` резолвится по первому обращению. Импорт
+  любого модуля `vkt_bot.*` не требует `.env` и не завершает процесс.
+- Единственная точка выхода при неполной конфигурации — `main.check_settings()`.
+- `vkt_bot.db.session.async_session` — ленивая фабрика: `configure(url=...)`
+  или `configure(factory=...)` подменяет базу для всех модулей сразу,
+  `create_session_factory(url)` собирает движок и фабрику вручную.
+- Миграции принимают DSN из `ALEMBIC_DB_URL` (иначе берут `settings.db_url`).
+
+### Покрытие
+
+Порог — 70% (`--cov-fail-under=70`), фактическое покрытие ~97%. Coverage
+настроен с `concurrency = ["thread", "greenlet"]`: без этого трассировка
+теряется внутри корутин, которые ходят в БД через greenlet SQLAlchemy.
+
+### Известные дефекты под `xfail`
+
+Тесты фиксируют текущее поведение, в том числе сломанное. Строгие `xfail`
+(станут зелёными после починки):
+
+- 11 фильтров в `vkt_dispatcher.filters` читают несуществующий `event.data`
+  (ROADMAP 3.1);
+- `webapp/api/roles.py` зовёт `AuditLogger.log_*` с аргументом `web_user=`,
+  которого нет в сигнатуре.
 
 ## Deployment
 

@@ -1,0 +1,18 @@
+{
+  "eventId": 2,
+  "type": "newMessage",
+  "payload": {
+    "chat": {
+      "chatId": "1234567890",
+      "type": "private"
+    },
+    "from": {
+      "firstName": "Иван",
+      "lastName": "Иванов",
+      "userId": "1234567890"
+    },
+    "msgId": "6752739791872001112",
+    "text": "/help",
+    "timestamp": 1546290001
+  }
+}
