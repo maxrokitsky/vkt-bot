@@ -86,6 +86,17 @@ class LeftChatMembersHandler(HandlerBase):
         )
 
 
+class ChangedChatInfoHandler(HandlerBase):
+    """ChangedChatInfoHandler."""
+
+    def check(self, event: Event, dispatcher: Dispatcher) -> bool:
+        """Check."""
+        return (
+            super().check(event=event, dispatcher=dispatcher)
+            and event.type == EventType.CHANGED_CHAT_INFO
+        )
+
+
 class PinnedMessageHandler(HandlerBase):
     """PinnedMessageHandler."""
 

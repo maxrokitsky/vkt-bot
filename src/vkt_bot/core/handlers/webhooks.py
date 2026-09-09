@@ -57,7 +57,7 @@ class CreateWebhookHandler(AdminRequiredMixin, CommandHandler):
                     return
 
             # Создаем пользователя если не существует
-            await user_repository.get_or_create(user_id)
+            await user_repository.sync_profile(event.payload.sender)
 
             # Создаем вебхук
             from vkt_bot.webapp.schemas.webhook import WebhookCreateSchema

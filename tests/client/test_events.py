@@ -156,18 +156,44 @@ class TestOtherPayloads:
         assert payload.message.chat.chatId == "681869378@chat.agent"
         assert json.loads(payload.callbackData)["command"] == "start__showcommands"
 
+    def test_left_chat_members(self) -> None:
+        payload = make_event("left_chat_members").payload
+        assert payload.chat.chatId == "681869378@chat.agent"
+        assert [m.userId for m in payload.leftMembers] == ["9876543210"]
+        assert payload.removedBy is not None
+        assert payload.removedBy.userId == "1234567890"
+
+    def test_left_chat_members_removed_by_is_optional(self) -> None:
+        data = raw_event("left_chat_members")
+        del data["payload"]["removedBy"]
+        assert LeftChatMembersEvent.model_validate(data).payload.removedBy is None
+
+    def test_left_chat_members_without_members(self) -> None:
+        """Состав может не прийти — событие всё равно должно разбираться."""
+        data = raw_event("left_chat_members")
+        del data["payload"]["leftMembers"]
+        assert LeftChatMembersEvent.model_validate(data).payload.leftMembers == []
+
+    def test_changed_chat_info(self) -> None:
+        payload = make_event("changed_chat_info").payload
+        assert payload.chat.chatId == "681869378@chat.agent"
+        assert payload.title == "Новое название"
+
+    def test_changed_chat_info_title_is_optional(self) -> None:
+        data = raw_event("changed_chat_info")
+        del data["payload"]["title"]
+        assert ChangedChatInfoEvent.model_validate(data).payload.title is None
+
     @pytest.mark.parametrize(
         "fixture",
         [
             "deleted_message",
             "pinned_message",
             "unpinned_message",
-            "left_chat_members",
-            "changed_chat_info",
         ],
     )
     def test_untyped_payloads_stay_dicts(self, fixture: str) -> None:
-        """У четырёх событий ``payload: Any`` — см. ROADMAP 3.5."""
+        """У трёх событий ``payload: Any`` — см. ROADMAP 3.5."""
         event = make_event(fixture)
         assert isinstance(event.payload, dict)
         assert event.payload == raw_event(fixture)["payload"]

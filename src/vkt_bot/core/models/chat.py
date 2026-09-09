@@ -19,6 +19,7 @@ class Chat(Model):
 
     id: orm.Mapped[str] = orm.mapped_column(primary_key=True, index=True, unique=True)
     type: orm.Mapped[ChatType] = orm.mapped_column(sa.Enum(ChatType, native_enum=False))
+    title: orm.Mapped[str | None] = orm.mapped_column(default=None)
     memberships: orm.Mapped[list[ChatMembership]] = orm.relationship(
         back_populates="chat"
     )

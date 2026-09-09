@@ -48,7 +48,7 @@ make bot             # Alternative using Makefile
 
 ### Running the Web Server (Backend API)
 ```bash
-uv run server        # Start FastAPI web server on 0.0.0.0:8000
+uv run server        # Start FastAPI web server on 0.0.0.0:8765
 make server          # Alternative using Makefile
 ```
 
@@ -97,11 +97,25 @@ uv add --dev <package>  # Add dev dependency
 docker-compose up postgres-db  # Start PostgreSQL database (port 16432:5432)
 ```
 
-### Admin User Management
-```bash
-uv run python -m vkt_bot.scripts.create_admin <username> <password> <email>
-make createsuperuser  # Interactive prompt version
-```
+### Admin Access
+
+There is no login/password account model — the web panel authenticates through
+the bot. Send `/login` to the bot in VK Teams and it replies with a one-time
+token (valid 5 minutes) plus a link to `{PUBLIC_URL}/login?token=...`.
+
+Admin rights come from either:
+- `OWNER_ID` in `.env` matching the VK Teams user id (owner), or
+- the `is_superuser` flag on the user's `ChatUser` row.
+
+The `ChatUser` row is created automatically on the first `/login`, and the
+owner is persisted with `is_superuser = True` at that moment
+(`core/handlers/auth.py`), so admin rights survive a later change to
+`OWNER_ID`. The promotion is idempotent and written to the audit log.
+
+Note: the `createsuperuser` target in the Makefile refers to
+`vkt_bot.scripts.create_admin`, which no longer exists — it is a leftover from
+the removed password-based user model. Setting `OWNER_ID` and sending `/login`
+replaces it.
 
 ## Architecture
 
@@ -123,7 +137,30 @@ The bot uses an event-driven architecture with the following flow:
 - `CommandHandler`: Commands (text starting with `/`)
 - `BotButtonCommandHandler`: Callback queries from inline buttons
 - `NewChatMembersHandler`, `LeftChatMembersHandler`: Chat member events
+- `ChangedChatInfoHandler`: Chat renames and other chat info changes
 - `EditedMessageHandler`, `DeletedMessageHandler`: Message modifications
+
+**Chat registration** (`core/handlers/chats.py`):
+- A chat is recorded as soon as the bot is added to it (`newChatMembers`), and
+  also on the first message in it (`CreateChatMiddleware`) for chats the bot
+  joined earlier.
+- When the bot itself is added, the existing roster is fetched via
+  `chats/getMembers` — members who joined before the bot produce no events.
+  Note `get_members` has no cursor support yet, so very large chats are
+  truncated by the API (ROADMAP 3.6).
+- `chat_memberships` follows `newChatMembers` / `leftChatMembers`; a `ChatUser`
+  row is kept after the user leaves (they may hold roles or be in other chats).
+- Names (`first_name`, `last_name`, `nick`) come from events only — `User` and
+  `Bot` objects carry them, `chats/getMembers` returns bare ids. Every message
+  refreshes its sender's name (`CreateChatMiddleware`, update-only: the message
+  flow never creates `ChatUser` rows). Until a roster member appears in some
+  event, `ChatUser.display_name` falls back to the id. An empty value never
+  overwrites a known one.
+- Bots are recorded as ordinary members with `ChatUser.is_bot = True`. The flag
+  can only be set from an event, where bots arrive as a distinct `Bot` type —
+  `chats/getMembers` returns bare ids. So a bot already in the chat before ours
+  joined is recorded as a regular user until it appears in some event. The flag
+  is never cleared once set.
 
 **Filters:**
 - Defined in `vkt_dispatcher.filters`
@@ -181,23 +218,30 @@ Plugins use Python entry points for auto-discovery:
 **Structure:**
 - `app.py`: FastAPI app instance with all routers
 - `api/`: API route modules
-  - `auth.py`: JWT authentication (login, get current user)
-  - `users.py`: User management CRUD (admin only)
+  - `auth.py`: one-time token login, JWT issuing, current user (`/api/auth/me`)
   - `chats.py`: Chat viewing (admin only)
   - `chat_users.py`: Chat user management (admin only)
   - `roles.py`: Role management CRUD and members (admin only)
+  - `bot_settings.py`: Bot settings (admin only)
+  - `logs.py`: Audit log viewing (admin only)
+  - `webhooks.py`: Webhook CRUD plus a public router for incoming calls
 - `schemas/`: Pydantic schemas for request/response validation
 - `dependencies.py`: Dependency injection (session, auth, admin check)
 
 **Authentication:**
-- JWT-based with Bearer token
-- Secret key required in `.env` (`SECRET_KEY`)
-- Two-tier access: authenticated users and admin users
-- Admin check via `is_superuser` flag on User model
+- Login is a one-time token issued by the bot's `/login` command
+  (`core/handlers/auth.py`), exchanged for a JWT at `POST /api/auth/login`.
+  Tokens are single-use and expire after 5 minutes.
+- JWT-based with Bearer token; secret key required in `.env` (`SECRET_KEY`)
+- Three-tier access: authenticated user, admin, owner
+- Identity is the `ChatUser` model (VK Teams user id as PK) — there is no
+  separate `User` table
+- Admin check via `is_superuser` on `ChatUser` or a match against `OWNER_ID`
 
 **Key Dependencies:**
 - `CurrentUser`: Annotated dependency for authenticated user
 - `CurrentAdminUser`: Annotated dependency for admin user
+- `CurrentOwnerUser`: Annotated dependency for the owner
 - `SessionDep`: Annotated dependency for database session
 
 **API Documentation:** Available at `/docs` (Swagger) and `/redoc`
@@ -266,13 +310,13 @@ Structured logging with multiple loggers:
 5. **Frontend changes:**
    - Frontend in `control-panel-app/` directory
    - Regenerate API client after OpenAPI changes: `cd control-panel-app && pnpm openapi-ts`
-   - Configure API base URL in `src/hey-api.ts` (default: `http://localhost:8000`)
+   - API base URL is set in `src/hey-api.ts` (`http://localhost:8765`)
    - Uses JWT token from localStorage for authentication
 
-6. **Creating admin user:**
-   - Use script: `uv run python -m vkt_bot.scripts.create_admin <username> <password> <email>`
-   - Or interactive: `make createsuperuser`
-   - First admin needed before using web API
+6. **Signing in to the panel:**
+   - Send `/login` to the bot, then open the link it replies with
+   - `OWNER_ID` in `.env` grants admin rights without any DB edit
+   - See "Admin Access" above
 
 ## Testing
 

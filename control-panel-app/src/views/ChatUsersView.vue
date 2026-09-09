@@ -12,7 +12,7 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table'
-import { Eye, Shield, Crown } from 'lucide-vue-next'
+import { Eye, Shield, Crown, Bot } from 'lucide-vue-next'
 import { listChatUsersApiChatUsersGetOptions } from '@/client/@tanstack/vue-query.gen'
 
 const router = useRouter()
@@ -39,14 +39,22 @@ const viewUserDetails = (userId: string) => {
     <Table v-if="!isLoading && usersData">
       <TableHeader>
         <TableRow>
-          <TableHead>ID пользователя</TableHead>
+          <TableHead>Пользователь</TableHead>
           <TableHead>Статус</TableHead>
           <TableHead class="text-right">Действия</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         <TableRow v-for="user in usersData.items" :key="user.id">
-          <TableCell class="font-medium">{{ user.id }}</TableCell>
+          <TableCell>
+            <div class="font-medium">{{ user.display_name }}</div>
+            <div
+              v-if="user.display_name !== user.id"
+              class="text-xs text-muted-foreground"
+            >
+              {{ user.id }}
+            </div>
+          </TableCell>
           <TableCell>
             <div class="flex gap-1">
               <Badge v-if="user.is_owner" variant="default" class="gap-1">
@@ -56,6 +64,10 @@ const viewUserDetails = (userId: string) => {
               <Badge v-else-if="user.is_superuser" variant="secondary" class="gap-1">
                 <Shield class="h-3 w-3" />
                 Админ
+              </Badge>
+              <Badge v-if="user.is_bot" variant="outline" class="gap-1">
+                <Bot class="h-3 w-3" />
+                Бот
               </Badge>
             </div>
           </TableCell>

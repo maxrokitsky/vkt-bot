@@ -14,12 +14,18 @@ const authStore = useAuthStore()
 const token = ref('')
 const error = ref('')
 
+const redirectTarget = (route.query.redirect as string) || '/'
+
 onMounted(() => {
   const urlToken = route.query.token as string
-  if (urlToken) {
-    token.value = urlToken
-    handleSubmit()
-  }
+  if (!urlToken) return
+
+  token.value = urlToken
+  // Keep the single-use token out of the address bar and browser history.
+  const query = { ...route.query }
+  delete query.token
+  router.replace({ path: '/login', query })
+  handleSubmit()
 })
 
 const loginMutation = useMutation({
@@ -43,7 +49,7 @@ const loginMutation = useMutation({
         authStore.setUser(userResponse.data)
       }
 
-      router.push('/')
+      router.replace(redirectTarget)
     }
   },
   onError: (err: unknown) => {

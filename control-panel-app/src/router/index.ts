@@ -85,30 +85,31 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to) => {
   const authStore = useAuthStore()
 
-  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next('/login')
-    return
+  if (to.path === '/login') {
+    // A magic link always wins, even over an existing session.
+    if (to.query.token) return true
+    // Only skip the login page for a session the server has confirmed.
+    if (await authStore.ensureUser()) return { path: '/' }
+    return true
   }
 
-  if (to.path === '/login' && authStore.isAuthenticated) {
-    next('/')
-    return
-  }
+  if (!to.meta.requiresAuth) return true
 
-  // Fetch user data if we have a token but no user loaded yet
-  if (authStore.isAuthenticated && !authStore.user) {
-    await authStore.fetchUser()
+  if (!(await authStore.ensureUser())) {
+    return {
+      path: '/login',
+      query: to.fullPath === '/' ? {} : { redirect: to.fullPath },
+    }
   }
 
   if (to.meta.requiresAdmin && !authStore.isAdmin) {
-    next('/')
-    return
+    return { path: '/' }
   }
 
-  next()
+  return true
 })
 
 export default router

@@ -82,7 +82,12 @@ class TestGetChatUser:
         assert response.json() == {
             "id": user.id,
             "is_superuser": False,
+            "is_bot": False,
             "is_owner": False,
+            "first_name": None,
+            "last_name": None,
+            "nick": None,
+            "display_name": user.id,
             "roles": [],
             "chats": [],
         }
