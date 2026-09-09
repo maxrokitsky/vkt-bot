@@ -78,7 +78,7 @@ async def create_role(
     await audit.log_create(
         entity_type=EntityType.ROLE,
         entity_id=str(role.id),
-        web_user=current_admin,
+        user=current_admin,
         description=f"Created role {role.name}",
         details={"name": role.name},
     )
@@ -129,7 +129,7 @@ async def update_role(
         await audit.log_update(
             entity_type=EntityType.ROLE,
             entity_id=str(role_id),
-            web_user=current_admin,
+            user=current_admin,
             description=f"Updated role {old_name} to {role.name}",
             details={"old_name": old_name, "new_name": role.name},
         )
@@ -165,7 +165,7 @@ async def delete_role(
     await audit.log_delete(
         entity_type=EntityType.ROLE,
         entity_id=str(role_id),
-        web_user=current_admin,
+        user=current_admin,
         description=f"Deleted role {role_name}",
         details={"name": role_name},
     )

@@ -6,6 +6,10 @@ from vkt_bot.config import settings
 class ChatUserResponse(BaseModel):
     id: str
     is_superuser: bool
+    is_bot: bool = False
+    first_name: str | None = None
+    last_name: str | None = None
+    nick: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -14,6 +18,13 @@ class ChatUserResponse(BaseModel):
     def is_owner(self) -> bool:
         """Check if this user is the owner."""
         return settings.owner_id is not None and self.id == settings.owner_id
+
+    @computed_field
+    @property
+    def display_name(self) -> str:
+        """Имя для показа. Пока имя неизвестно — остаётся ``id``."""
+        full_name = " ".join(filter(None, (self.first_name, self.last_name)))
+        return full_name or self.nick or self.id
 
 
 class ChatUserRoleResponse(BaseModel):

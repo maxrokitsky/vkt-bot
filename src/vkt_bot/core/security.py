@@ -20,6 +20,11 @@ def create_access_token(subject: str | Any, expires_delta: timedelta) -> str:
     return jwt.encode(to_encode, settings.secret_key, algorithm=ALGORITHM)
 
 
+def is_owner(user_id: str) -> bool:
+    """Проверить, что пользователь — владелец бота (``OWNER_ID``)."""
+    return bool(settings.owner_id and user_id == settings.owner_id)
+
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 

@@ -84,7 +84,27 @@ class NewChatMembersPayload(BaseModel):
 
     addedBy: User | None = None
     chat: Chat
-    newMembers: list[User | Bot]
+    newMembers: list[User | Bot] = Field(default_factory=list)
+
+
+class LeftChatMembersPayload(BaseModel):
+    """LeftChatMembersPayload."""
+
+    removedBy: User | None = None
+    chat: Chat
+    leftMembers: list[User | Bot] = Field(default_factory=list)
+
+
+class ChangedChatInfoPayload(BaseModel):
+    """ChangedChatInfoPayload.
+
+    Событие ``changedChatInfo`` в официальной документации отсутствует,
+    поля восстановлены по реальным ответам API — поэтому все, кроме
+    ``chat``, необязательные.
+    """
+
+    chat: Chat
+    title: str | None = None
 
 
 class NewMessageEvent(BaseEvent[NewMessagePayload]):
@@ -126,14 +146,14 @@ class NewChatMembersEvent(BaseEvent[NewChatMembersPayload]):
     type: Literal[EventType.NEW_CHAT_MEMBERS]
 
 
-class LeftChatMembersEvent(BaseEvent[Any]):
-    """Сообщение был изменено."""
+class LeftChatMembersEvent(BaseEvent[LeftChatMembersPayload]):
+    """Участники покинули чат."""
 
     type: Literal[EventType.LEFT_CHAT_MEMBERS]
 
 
-class ChangedChatInfoEvent(BaseEvent[Any]):
-    """Сообщение был изменено."""
+class ChangedChatInfoEvent(BaseEvent[ChangedChatInfoPayload]):
+    """Информация о чате изменилась."""
 
     type: Literal[EventType.CHANGED_CHAT_INFO]
 

@@ -5,9 +5,10 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-import pytest
 
 from vkt_bot.core.models import Role
+from vkt_bot.core.models.log_entry import ActionType, ActorType, EntityType
+from vkt_bot.core.repositories.log_entry import LogEntryRepository
 from vkt_bot.core.repositories.role import RoleRepository
 
 from tests.conftest import auth_headers, table_count
@@ -18,14 +19,6 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from vkt_bot.core.models import ChatUser
-
-# ROADMAP: роутер зовёт AuditLogger с `web_user=`, а метод принимает `user=`.
-BROKEN_AUDIT_KWARG = pytest.mark.xfail(
-    raises=Exception,
-    strict=True,
-    reason="roles.py передаёт AuditLogger.log_* аргумент web_user=, "
-    "которого в сигнатуре нет (принимается user=)",
-)
 
 
 class TestListRoles:
@@ -93,7 +86,6 @@ class TestListRoles:
 class TestCreateRole:
     """``POST /api/roles``."""
 
-    @BROKEN_AUDIT_KWARG
     async def test_creates_role(
         self, client: httpx.AsyncClient, session: AsyncSession, superuser: ChatUser
     ) -> None:
@@ -104,6 +96,21 @@ class TestCreateRole:
         assert response.status_code == 201
         assert response.json()["name"] == "devs"
         assert await table_count(session, Role) == 1
+
+    async def test_creation_is_audited(
+        self, client: httpx.AsyncClient, session: AsyncSession, superuser: ChatUser
+    ) -> None:
+        """Роутер обязан звать AuditLogger аргументом, который тот принимает."""
+        response = await client.post(
+            "/api/roles", json={"name": "devs"}, headers=auth_headers(superuser.id)
+        )
+
+        assert response.status_code == 201
+        entry = (await LogEntryRepository(session).list())[0]
+        assert entry.action_type is ActionType.CREATE
+        assert entry.entity_type is EntityType.ROLE
+        assert entry.actor_type is ActorType.WEB_USER
+        assert entry.actor_id == superuser.id
 
     async def test_duplicate_name_is_rejected(
         self, client: httpx.AsyncClient, session: AsyncSession, superuser: ChatUser
@@ -158,7 +165,6 @@ class TestCreateRole:
 class TestUpdateRole:
     """``PATCH /api/roles/{role_id}``."""
 
-    @BROKEN_AUDIT_KWARG
     async def test_renames_role(
         self, client: httpx.AsyncClient, session: AsyncSession, superuser: ChatUser
     ) -> None:
@@ -172,6 +178,21 @@ class TestUpdateRole:
 
         assert response.status_code == 200
         assert response.json()["name"] == "developers"
+
+    async def test_rename_is_audited(
+        self, client: httpx.AsyncClient, session: AsyncSession, superuser: ChatUser
+    ) -> None:
+        role = await create_role(session, "devs")
+
+        await client.patch(
+            f"/api/roles/{role.id}",
+            json={"name": "developers"},
+            headers=auth_headers(superuser.id),
+        )
+
+        entry = (await LogEntryRepository(session).list())[0]
+        assert entry.action_type is ActionType.UPDATE
+        assert entry.actor_id == superuser.id
 
     async def test_name_none_is_a_noop(
         self, client: httpx.AsyncClient, session: AsyncSession, superuser: ChatUser
@@ -236,7 +257,6 @@ class TestUpdateRole:
 class TestDeleteRole:
     """``DELETE /api/roles/{role_id}``."""
 
-    @BROKEN_AUDIT_KWARG
     async def test_deletes_role(
         self, client: httpx.AsyncClient, session: AsyncSession, superuser: ChatUser
     ) -> None:
@@ -248,6 +268,17 @@ class TestDeleteRole:
 
         assert response.status_code == 204
         assert await table_count(session, Role) == 0
+
+    async def test_deletion_is_audited(
+        self, client: httpx.AsyncClient, session: AsyncSession, superuser: ChatUser
+    ) -> None:
+        role = await create_role(session, "devs")
+
+        await client.delete(f"/api/roles/{role.id}", headers=auth_headers(superuser.id))
+
+        entry = (await LogEntryRepository(session).list())[0]
+        assert entry.action_type is ActionType.DELETE
+        assert entry.actor_id == superuser.id
 
     async def test_unknown_role(
         self, client: httpx.AsyncClient, superuser: ChatUser

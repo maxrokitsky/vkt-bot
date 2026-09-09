@@ -5,8 +5,11 @@ from vkteams_client import VKTeams
 from vkteams_client.types import NewMessageEvent
 from vkt_bot.app import dispatcher
 from vkt_bot.config import settings
+from vkt_bot.core.audit import AuditLogger
+from vkt_bot.core.models.log_entry import EntityType
 from vkt_bot.core.repositories.login_token import LoginTokenRepository
 from vkt_bot.core.repositories.user import ChatUserRepository
+from vkt_bot.core.security import is_owner
 from vkt_bot.db.session import async_session
 from vkt_bot.utils.message import mention
 from vkt_dispatcher.handlers import CommandHandler
@@ -28,7 +31,18 @@ class LoginHandler(CommandHandler):
             user_repo = ChatUserRepository(session)
             token_repo = LoginTokenRepository(session)
 
-            await user_repo.get_or_create(user_id)
+            user = await user_repo.sync_profile(event.payload.sender)
+
+            # Владелец бота — админ по определению; закрепляем это в базе,
+            # чтобы права не зависели от текущего значения OWNER_ID.
+            if is_owner(user_id) and not user.is_superuser:
+                await user_repo.grant_superuser(user)
+                await AuditLogger(session).log_update(
+                    EntityType.CHAT_USER,
+                    user_id,
+                    description="Владелец получил права суперпользователя при входе",
+                )
+                logger.info("Granted superuser to owner %s", user_id)
 
             login_token = await token_repo.create_token(user_id, expires_minutes=5)
             await session.commit()

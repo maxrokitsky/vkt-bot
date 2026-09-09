@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from vkt_bot.config import settings
 from vkt_bot.core.models import ChatUser
 from vkt_bot.core.repositories.user import ChatUserRepository
+from vkt_bot.core.security import is_owner as is_owner_id
 from vkt_bot.db.session import async_session
 
 security = HTTPBearer()
@@ -50,7 +51,7 @@ async def get_current_user(
 
 def is_owner(user: ChatUser) -> bool:
     """Check if user is the owner."""
-    return settings.owner_id is not None and user.id == settings.owner_id
+    return is_owner_id(user.id)
 
 
 def is_admin(user: ChatUser) -> bool:

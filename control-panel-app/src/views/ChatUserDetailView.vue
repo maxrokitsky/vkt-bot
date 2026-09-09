@@ -36,7 +36,7 @@ import {
   TagsInputItemDelete,
   TagsInputItemText,
 } from '@/components/ui/tags-input'
-import { ArrowLeft, Plus, Shield, Crown } from 'lucide-vue-next'
+import { ArrowLeft, Plus, Shield, Crown, Bot } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useAuthStore } from '@/stores/auth'
 import {
@@ -159,7 +159,15 @@ const availableRoles = computed(() => {
         <ArrowLeft class="h-4 w-4 mr-2" />
         Назад
       </Button>
-      <h1 class="text-3xl font-bold">Пользователь: {{ userId }}</h1>
+      <div>
+        <h1 class="text-3xl font-bold">{{ userData?.display_name || userId }}</h1>
+        <p
+          v-if="userData && userData.display_name !== userId"
+          class="text-sm text-muted-foreground"
+        >
+          {{ userId }}
+        </p>
+      </div>
     </div>
 
     <!-- Статус администратора -->
@@ -174,6 +182,10 @@ const availableRoles = computed(() => {
           Админ
         </Badge>
         <span v-else class="text-sm text-muted-foreground">Обычный пользователь</span>
+        <Badge v-if="userData.is_bot" variant="outline" class="gap-1">
+          <Bot class="h-3 w-3" />
+          Бот
+        </Badge>
       </div>
       <div v-if="isOwner && !userData.is_owner" class="flex items-center gap-2 ml-auto">
         <Switch

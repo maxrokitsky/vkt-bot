@@ -314,18 +314,18 @@ SQLite (по умолчанию, без внешних сервисов), и н�
 
 ### 3.5 Полные payload'ы событий
 
-Сейчас `payload: Any` у четырёх событий, хотя спека их полностью описывает:
+Сейчас `payload: Any` у трёх событий, хотя спека их полностью описывает:
 
 - `DeletedMessagePayload` — `msgId`, `chat`, `timestamp`;
 - `PinnedMessagePayload` — `chat`, `from`, `msgId`, `text`, `format`, `timestamp`;
-- `UnpinnedMessagePayload` — `chat`, `msgId`, `timestamp`;
-- `LeftChatMembersPayload` — `chat`, `leftMembers`, `removedBy`.
+- `UnpinnedMessagePayload` — `chat`, `msgId`, `timestamp`.
 
 Плюс: `chat` в `CallbackQueryEventPayload` (в спеке есть, у нас нет),
 `about` и `photo` в `GetSelfResponse`.
 
-`changedChatInfo` в текущей документации отсутствует — оставляем как
-недокументированный, но помечаем комментарием.
+Сделано: `LeftChatMembersPayload` и `ChangedChatInfoPayload` — потребовались
+для учёта состава чатов. `changedChatInfo` в документации отсутствует,
+поля восстановлены по реальным ответам и помечены комментарием.
 
 ### 3.6 Пагинация и мелочи
 
