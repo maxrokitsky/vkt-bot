@@ -3,11 +3,13 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuery } from '@tanstack/vue-query'
 import { useClipboard } from '@vueuse/core'
-import { Bot, Check, Crown, Link2, Send, Shield, Users, Webhook } from 'lucide-vue-next'
+import { Bot, Check, Crown, Link2, ScrollText, Send, Shield, Users, Webhook } from 'lucide-vue-next'
 import {
   getChatApiChatsChatIdGetOptions,
+  listChatEventsApiChatsChatIdEventsGetOptions,
   listChatUsersApiChatUsersGetOptions,
   listChatWebhooksApiChatsChatIdWebhooksGetOptions,
+  listEventTypesApiEventsTypesGetOptions,
 } from '@/client/@tanstack/vue-query.gen'
 import type { ChatResponse } from '@/client'
 import { API_BASE_URL } from '@/hey-api'
@@ -25,7 +27,8 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useListQuery } from '@/composables/useListQuery'
 import { chatTypeLabel } from '@/lib/chats'
-import { formatRelative } from '@/lib/format'
+import { SEVERITY_VARIANTS, SOURCE_LABELS } from '@/lib/events'
+import { formatDateTime, formatRelative } from '@/lib/format'
 import { plural } from '@/lib/plural'
 import { initials } from '@/lib/users'
 
@@ -62,6 +65,21 @@ const { data: webhooks } = useQuery(
   computed(() =>
     listChatWebhooksApiChatsChatIdWebhooksGetOptions({ path: { chat_id: chatId.value } }),
   ),
+)
+
+/** Лента чата: только типы событий, которым место на этой странице. */
+const { data: events } = useQuery(
+  computed(() =>
+    listChatEventsApiChatsChatIdEventsGetOptions({
+      path: { chat_id: chatId.value },
+      query: { page: 1, size: 20 },
+    }),
+  ),
+)
+
+const { data: eventTypes } = useQuery(listEventTypesApiEventsTypesGetOptions())
+const eventTitles = computed(
+  () => new Map((eventTypes.value ?? []).map((item) => [item.type, item.title])),
 )
 
 const membersDescription = computed(() => {
@@ -174,6 +192,45 @@ function webhookUrl(id: string) {
               ? 'Измените запрос — поиск идёт по имени, нику и id.'
               : 'Участники появляются, когда бот видит их в событиях чата.'
           "
+        />
+      </PageSection>
+
+      <PageSection title="Что происходило" description="События этого чата">
+        <template #actions>
+          <Button variant="ghost" size="sm" as-child>
+            <RouterLink :to="{ path: '/events', query: { chat_id: chatId } }">
+              Все события чата
+            </RouterLink>
+          </Button>
+        </template>
+
+        <ul v-if="events?.items.length" class="divide-y rounded-lg border">
+          <li
+            v-for="entry in events.items"
+            :key="entry.id"
+            class="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-2.5 text-sm"
+          >
+            <span
+              class="w-28 shrink-0 tabular-nums text-muted-foreground"
+              :title="formatDateTime(entry.ts)"
+            >
+              {{ formatRelative(entry.ts) }}
+            </span>
+            <Badge :variant="SEVERITY_VARIANTS[entry.severity]">
+              {{ eventTitles.get(entry.type) ?? entry.type }}
+            </Badge>
+            <span class="min-w-0 flex-1">{{ entry.summary }}</span>
+            <span class="shrink-0 text-xs text-muted-foreground">
+              {{ SOURCE_LABELS[entry.source] }}
+            </span>
+          </li>
+        </ul>
+
+        <EmptyState
+          v-else
+          :icon="ScrollText"
+          title="Событий пока нет"
+          description="Здесь появятся вход и уход участников, призывы по ролям, вызовы вебхуков и неудачные отправки."
         />
       </PageSection>
 

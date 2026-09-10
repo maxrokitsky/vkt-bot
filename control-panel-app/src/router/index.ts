@@ -20,7 +20,7 @@ import ChatUsersView from '@/views/ChatUsersView.vue'
 import ChatUserDetailView from '@/views/ChatUserDetailView.vue'
 import GitLabWebhooksView from '@/views/GitLabWebhooksView.vue'
 import BotSettingsView from '@/views/BotSettingsView.vue'
-import LogsView from '@/views/LogsView.vue'
+import EventsView from '@/views/EventsView.vue'
 import WebhooksView from '@/views/WebhooksView.vue'
 import MainLayout from '@/layouts/MainLayout.vue'
 // Расширение RouteMeta живёт здесь же, где описаны группы меню.
@@ -160,19 +160,24 @@ const router = createRouter({
           },
         },
         {
-          path: 'logs',
-          name: 'logs',
-          component: LogsView,
+          path: 'events',
+          name: 'events',
+          component: EventsView,
           meta: {
-            title: 'Журнал действий',
-            description: 'Кто и что менял через панель и бота',
+            title: 'События',
+            description: 'Что делают люди, бот и внешние системы',
             width: 'wide',
             requiresAuth: true,
-            requiresAdmin: true,
-            nav: { group: 'admin', order: 2, icon: ScrollText, keywords: ['аудит', 'логи'] },
+            nav: {
+              group: 'admin',
+              order: 2,
+              icon: ScrollText,
+              keywords: ['аудит', 'логи', 'журнал'],
+            },
           },
         },
         // Старые адреса — на случай сохранённых ссылок.
+        { path: 'logs', redirect: { name: 'events' } },
         { path: 'bot-settings', redirect: { name: 'settings' } },
         { path: 'gitlab/webhooks', redirect: { name: 'gitlab-webhooks' } },
       ],
