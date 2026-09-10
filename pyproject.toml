@@ -7,7 +7,6 @@ requires-python = ">=3.13"
 dependencies = [
     "vkt-dispatcher",
     "vkt-gitlab",
-    "aio-pika>=9.5.5",
     "alembic>=1.16.2",
     "arrow>=1.3.0",
     "fastapi[all,standard]>=0.115.13",
@@ -25,6 +24,7 @@ dependencies = [
     "python-jose[cryptography]>=3.5.0",
     "bcrypt>=4.3.0",
     "typer>=0.16.0",
+    "structlog>=26.1.0",
 ]
 
 [dependency-groups]

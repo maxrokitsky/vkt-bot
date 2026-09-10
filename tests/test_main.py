@@ -45,7 +45,7 @@ class TestMainCoroutine:
         with caplog.at_level("INFO", logger="vkt_bot"):
             await main_module.main()
 
-        assert "Завершение работы" in caplog.text
+        assert "bot.stopped" in caplog.text
 
     async def test_other_errors_propagate(
         self, monkeypatch: pytest.MonkeyPatch

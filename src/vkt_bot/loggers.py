@@ -1,4 +1,4 @@
-import logging
+import structlog
 
 
-main_logger = logging.getLogger("vkt_bot")
+main_logger = structlog.get_logger("vkt_bot")

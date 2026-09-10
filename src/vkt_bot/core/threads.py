@@ -14,8 +14,9 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
+
+import structlog
 
 from vkt_bot.core.constants import THREADS_AUTOSUBSCRIBE_SETTING
 from vkt_bot.core.repositories.bot_settings import BotSettingsRepository
@@ -24,7 +25,7 @@ from vkt_bot.db.session import async_session
 if TYPE_CHECKING:
     from vkteams_client import VKTeams
 
-logger = logging.getLogger("vkt_bot")
+logger = structlog.get_logger("vkt_bot.threads")
 
 
 async def autosubscribe_enabled() -> bool:
@@ -57,18 +58,18 @@ async def set_thread_autosubscribe(
             with_existing=with_existing,
         )
     except Exception:
-        logger.exception("Failed to set thread autosubscribe for chat %s", chat_id)
+        logger.exception("thread.autosubscribe_failed", chat_id=chat_id)
         return False
 
     if response is not None and not response.ok:
-        logger.warning("API refused thread autosubscribe for chat %s", chat_id)
+        logger.warning("thread.autosubscribe_refused", chat_id=chat_id)
         return False
 
     logger.info(
-        "Thread autosubscribe for chat %s: enable=%s, with existing=%s.",
-        chat_id,
-        enable,
-        with_existing,
+        "thread.autosubscribed",
+        chat_id=chat_id,
+        enable=enable,
+        with_existing=with_existing,
     )
     return True
 
@@ -96,22 +97,22 @@ async def get_or_create_thread(
     try:
         response = await bot.threads_add(chat_id=chat_id, msg_id=msg_id)
     except Exception:
-        logger.exception("Failed to get thread for message %s in %s", msg_id, chat_id)
+        logger.exception("thread.add_failed", chat_id=chat_id, msg_id=msg_id)
         return None
 
     if response is None or not response.ok or not response.threadId:
         logger.warning(
-            "API refused thread for message %s in chat %s: %s",
-            msg_id,
-            chat_id,
-            getattr(response, "description", None),
+            "thread.add_refused",
+            chat_id=chat_id,
+            msg_id=msg_id,
+            reason=getattr(response, "description", None),
         )
         return None
 
     logger.info(
-        "Thread %s for message %s in chat %s.",
-        response.threadId,
-        msg_id,
-        chat_id,
+        "thread.resolved",
+        thread_id=response.threadId,
+        chat_id=chat_id,
+        msg_id=msg_id,
     )
     return response.threadId

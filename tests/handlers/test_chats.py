@@ -128,7 +128,7 @@ class TestCreateChatMiddleware:
         with caplog.at_level("INFO", logger="vkt_bot"):
             await middleware.on_event(make_event("new_message"))
 
-        assert "Created chat in database" in caplog.text
+        assert "chat.registered" in caplog.text
 
     async def test_second_message_is_not_logged_as_first(
         self,
@@ -140,7 +140,7 @@ class TestCreateChatMiddleware:
         with caplog.at_level("INFO", logger="vkt_bot"):
             await middleware.on_event(make_event("new_message", text="ещё"))
 
-        assert "Created chat in database" not in caplog.text
+        assert "chat.registered" not in caplog.text
 
     @pytest.mark.parametrize(
         "fixture",
@@ -423,8 +423,8 @@ class TestChatMembersJoined:
         with caplog.at_level("INFO", logger="vkt_bot"):
             await ChatMembersJoinedHandler.handle(bot_added_event(), dispatcher)
 
-        assert "Bot added to chat" in caplog.text
-        assert "2 member(s)" in caplog.text
+        assert "chat.bot_added" in caplog.text
+        assert "members=2" in caplog.text
 
 
 class TestChatMembersLeft:
@@ -484,7 +484,7 @@ class TestChatMembersLeft:
                 make_event("left_chat_members", leftMembers=[BOT_MEMBER]), dispatcher
             )
 
-        assert "Bot removed from chat" in caplog.text
+        assert "chat.bot_removed" in caplog.text
 
 
 class TestChatInfoChanged:
@@ -585,4 +585,4 @@ class TestThreadAutosubscribeOnJoin:
         with caplog.at_level("WARNING", logger="vkt_bot"):
             await ChatMembersJoinedHandler.handle(bot_added_event(), dispatcher)
 
-        assert "refused thread autosubscribe" in caplog.text
+        assert "thread.autosubscribe_refused" in caplog.text

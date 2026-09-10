@@ -52,6 +52,7 @@ class TestGetOrCreateThread:
         with caplog.at_level(logging.WARNING, logger="vkt_bot"):
             assert await get_or_create_thread(fake_bot, THREAD_ID, MSG_ID) is None  # type: ignore[arg-type]
 
+        assert "thread.add_refused" in caplog.text
         assert "Bad request" in caplog.text
 
     async def test_ok_without_thread_id_returns_none(self, fake_bot: FakeBot) -> None:

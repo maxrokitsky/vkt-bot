@@ -5,6 +5,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
+import structlog
 
 from vkt_bot.config import settings
 from vkt_bot.core.models import ChatUser
@@ -46,6 +47,8 @@ async def get_current_user(
     if user is None:
         raise credentials_exception
 
+    # Дальше все строки лога этого запроса будут знать, кто его сделал.
+    structlog.contextvars.bind_contextvars(user_id=user.id)
     return user
 
 

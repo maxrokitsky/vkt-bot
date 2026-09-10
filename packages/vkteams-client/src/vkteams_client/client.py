@@ -1,5 +1,4 @@
 import json
-import logging
 from collections.abc import AsyncIterator
 from typing import Any, Literal
 
@@ -16,9 +15,7 @@ from .types import (
     ThreadAddResponse,
     ThreadSubscribersResponse,
 )
-from .loggers import events_logger, send_message_logger
-
-logger = logging.getLogger("teams_bot.client")
+from .loggers import events_logger, main_logger as logger, send_message_logger
 
 
 class ThreadSubscribersError(RuntimeError):
@@ -72,10 +69,7 @@ class VKTeams:
         ) as response:
             response_body = await response.text()
             result = GetSelfResponse.model_validate_json(response_body)
-            logger.debug(
-                "Информация о боте",
-                extra=await log_response(response),
-            )
+            logger.debug("api.self", **await log_response(response))
             return result
 
     async def send_text(
@@ -124,18 +118,18 @@ class VKTeams:
             extra = await log_response(response)
             if result.ok:
                 send_message_logger.info(
-                    "Сообщение отправлено (chatId: %s, text: %r)",
-                    chat_id,
-                    text[:50],
-                    extra=extra,
+                    "message.sent",
+                    chat_id=chat_id,
+                    text_preview=text[:50],
+                    **extra,
                 )
             else:
                 send_message_logger.error(
-                    "Сообщение НЕ отправлено (chatId: %s, text: %r, причина: %s)",
-                    chat_id,
-                    text[:50],
-                    result.description,
-                    extra=extra,
+                    "message.send_failed",
+                    chat_id=chat_id,
+                    text_preview=text[:50],
+                    reason=result.description,
+                    **extra,
                 )
             return result
 
@@ -170,13 +164,13 @@ class VKTeams:
             result = MsgResponse.model_validate_json(response_body)
             extra = await log_response(response)
             if result.ok:
-                logger.debug("Сообщение отредактировано", extra=extra)
+                logger.debug("message.edited", chat_id=chat_id, **extra)
             else:
                 logger.error(
-                    "Сообщение НЕ отредактировано (chatId: %s, причина: %s)",
-                    chat_id,
-                    result.description,
-                    extra=extra,
+                    "message.edit_failed",
+                    chat_id=chat_id,
+                    reason=result.description,
+                    **extra,
                 )
             return result
 
@@ -207,10 +201,7 @@ class VKTeams:
             params=params,
             timeout=aiohttp.ClientTimeout(30),
         ) as response:
-            logger.debug(
-                "Ответ на callback",
-                extra=await log_response(response),
-            )
+            logger.debug("api.callback_answered", **await log_response(response))
 
     async def get_events(self, last_event_id: int, poll_time: int) -> EventsResponse:
         """Отправить текстовое сообщение."""
@@ -229,7 +220,12 @@ class VKTeams:
             result = EventsResponse.model_validate_json(response_body)
             if result.events:
                 for event in result.events:
-                    events_logger.info("Событие %s", event, extra=event.model_dump())
+                    events_logger.info(
+                        "api.event_received",
+                        event_id=event.eventId,
+                        event_type=str(event.type),
+                        payload=event.payload,
+                    )
             return result
 
     async def get_members(self, chat_id: str) -> GetMembersResponse:
@@ -243,10 +239,7 @@ class VKTeams:
         ) as response:
             response_body = await response.text()
             result = GetMembersResponse.model_validate_json(response_body)
-            logger.debug(
-                "Список пользователей",
-                extra=await log_response(response),
-            )
+            logger.debug("api.members_fetched", **await log_response(response))
             return result
 
     async def threads_add(self, chat_id: str, msg_id: str) -> ThreadAddResponse:
@@ -276,10 +269,7 @@ class VKTeams:
         ) as response:
             response_body = await response.text()
             result = ThreadAddResponse.model_validate_json(response_body)
-            logger.debug(
-                "Обсуждение создано",
-                extra=await log_response(response),
-            )
+            logger.debug("api.thread_added", **await log_response(response))
             return result
 
     async def threads_autosubscribe(
@@ -311,10 +301,7 @@ class VKTeams:
         ) as response:
             response_body = await response.text()
             result = Response.model_validate_json(response_body)
-            logger.debug(
-                "Автоподписка на обсуждения",
-                extra=await log_response(response),
-            )
+            logger.debug("api.thread_autosubscribed", **await log_response(response))
             return result
 
     async def threads_subscribers_get(
@@ -349,10 +336,7 @@ class VKTeams:
         ) as response:
             response_body = await response.text()
             result = ThreadSubscribersResponse.model_validate_json(response_body)
-            logger.debug(
-                "Подписчики обсуждения",
-                extra=await log_response(response),
-            )
+            logger.debug("api.thread_subscribers", **await log_response(response))
             return result
 
     async def iter_thread_subscribers(
@@ -391,10 +375,7 @@ class VKTeams:
         ) as response:
             response_body = await response.text()
             result = Response.model_validate_json(response_body)
-            logger.debug(
-                "Удаление сообщения",
-                extra=await log_response(response),
-            )
+            logger.debug("api.messages_deleted", **await log_response(response))
             return result
 
     async def send_file(
@@ -496,10 +477,10 @@ class VKTeams:
                 response_body = await response.text()
                 result = MsgResponse.model_validate_json(response_body)
                 send_message_logger.info(
-                    "Файл отправлен по file_id (chatId: %s, fileId: %s)",
-                    chat_id,
-                    file_id,
-                    extra=await log_response(response),
+                    "file.sent",
+                    chat_id=chat_id,
+                    file_id=file_id,
+                    **await log_response(response),
                 )
                 return result
         elif file:
@@ -533,10 +514,10 @@ class VKTeams:
                 response_body = await response.text()
                 result = MsgLoadFileResponse.model_validate_json(response_body)
                 send_message_logger.info(
-                    "Файл загружен и отправлен (chatId: %s, filename: %s)",
-                    chat_id,
-                    filename or "unknown",
-                    extra=await log_response(response),
+                    "file.uploaded",
+                    chat_id=chat_id,
+                    filename=filename or "unknown",
+                    **await log_response(response),
                 )
                 return result
         else:

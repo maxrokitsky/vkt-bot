@@ -160,6 +160,7 @@ class TestSendText:
 
         (record,) = caplog.records
         assert record.levelname == "ERROR"
+        assert "message.send_failed" in record.getMessage()
         assert "Chat not found" in record.getMessage()
 
     async def test_logs_truncated_text(
@@ -234,10 +235,11 @@ class TestEditText:
             payload={"ok": False, "description": "Message not found"},
         )
 
-        with caplog.at_level("DEBUG", logger="teams_bot.client"):
+        with caplog.at_level("DEBUG", logger="vkteams_client"):
             result = await vkteams.edit_text("chat", "msg-1", "текст")
 
         assert result.ok is False
+        assert "message.edit_failed" in caplog.text
         assert "Message not found" in caplog.text
 
 

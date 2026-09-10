@@ -1,6 +1,7 @@
 import json
-import logging
 from typing import ClassVar
+
+import structlog
 
 from pydantic import TypeAdapter
 
@@ -14,7 +15,7 @@ from vkt_bot.core.constants import DEFAULT_START_MESSAGE
 
 from .callback import CallbackData, ShowCommandsCallbackData
 
-logger = logging.getLogger("teams_bot.handlers.roles")
+logger = structlog.get_logger("vkt_bot.handlers.help")
 
 
 help_msg = """

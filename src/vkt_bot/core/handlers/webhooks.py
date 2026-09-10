@@ -1,6 +1,7 @@
 import json
-import logging
 from typing import ClassVar
+
+import structlog
 
 from vkteams_client import VKTeams
 from vkteams_client.types import CallbackQueryEvent, NewMessageEvent
@@ -18,7 +19,7 @@ from vkt_bot.core.handlers.callback import CallbackData, WebhookCallbackData
 from vkt_bot.core.handlers.mixins import AdminRequiredMixin
 from vkt_bot.utils.message import mention
 
-logger = logging.getLogger("teams_bot.handlers.webhooks")
+logger = structlog.get_logger("vkt_bot.handlers.webhooks")
 
 
 @dispatcher.register_handler

@@ -1,6 +1,5 @@
 import asyncio
 import json
-import logging
 from pathlib import Path
 import sys
 
@@ -13,8 +12,6 @@ from vkt_bot.db.session import async_session
 from vkt_bot.app import dispatcher
 from vkt_bot.webapp.app import create_app
 from .loggers import main_logger
-
-logging.getLogger("passlib").setLevel(logging.ERROR)
 
 
 def check_settings() -> None:
@@ -35,7 +32,7 @@ async def main() -> None:
         await dispatcher.run()
     except asyncio.CancelledError:
         sys.stdout.write("\r")
-        main_logger.info("Завершение работы")
+        main_logger.info("bot.stopped")
 
 
 def start_bot() -> None:
@@ -46,7 +43,15 @@ def start_bot() -> None:
 
 def start_server() -> None:
     check_settings()
-    uvicorn.run("vkt_bot.webapp.app:create_app", host="0.0.0.0", port=8765, reload=True)
+    uvicorn.run(
+        "vkt_bot.webapp.app:create_app",
+        host="0.0.0.0",
+        port=8765,
+        reload=True,
+        # Свою строку про запрос пишет RequestContextMiddleware — с
+        # request_id и в общем формате.
+        access_log=False,
+    )
 
 
 def export_schema() -> None:

@@ -750,12 +750,12 @@ class TestNotifyRoleIsTagged:
         fake_bot.errors["threads_subscribers_get"] = TimeoutError("нет связи")
         fake_bot.results["send_text"] = MsgResponse(ok=False, description="Bad request")
 
-        with caplog.at_level(logging.WARNING, logger="teams_bot.handlers.roles"):
+        with caplog.at_level(logging.WARNING, logger="vkt_bot.handlers.roles"):
             await NotifyRoleIsTaggedHandler.handle(
                 make_event("new_message", text="секрет #devs"), dispatcher
             )
 
-        assert "Не удалось проверить, обсуждение ли чат" in caplog.text
+        assert "thread.check_failed" in caplog.text
         _, plain = fake_bot.sent
         assert "секрет" not in plain.kwargs["text"]
 
@@ -774,12 +774,12 @@ class TestNotifyRoleIsTagged:
             ok=False, description="Forbidden"
         )
 
-        with caplog.at_level(logging.WARNING, logger="teams_bot.handlers.roles"):
+        with caplog.at_level(logging.WARNING, logger="vkt_bot.handlers.roles"):
             await NotifyRoleIsTaggedHandler.handle(
                 make_event("new_message", text="#devs"), dispatcher
             )
 
-        assert "Проверка обсуждения" in caplog.text
+        assert "thread.check_refused" in caplog.text
 
     async def test_regular_chat_does_not_look_like_a_failure(
         self,
@@ -796,12 +796,12 @@ class TestNotifyRoleIsTagged:
         user = await create_chat_user(session, "u@example.com")
         await assign_role(session, user.id, role.id)
 
-        with caplog.at_level(logging.WARNING, logger="teams_bot.handlers.roles"):
+        with caplog.at_level(logging.WARNING, logger="vkt_bot.handlers.roles"):
             await NotifyRoleIsTaggedHandler.handle(
                 make_event("new_message", text="#devs"), dispatcher
             )
 
-        assert [r for r in caplog.records if r.name == "teams_bot.handlers.roles"] == []
+        assert [r for r in caplog.records if r.name == "vkt_bot.handlers.roles"] == []
 
     async def test_thread_body_goes_to_every_role_holder(
         self, dispatcher: Dispatcher, fake_bot: FakeBot, session: AsyncSession

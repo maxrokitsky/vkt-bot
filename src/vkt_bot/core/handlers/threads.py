@@ -1,5 +1,6 @@
-import logging
 from typing import ClassVar
+
+import structlog
 
 from vkteams_client import VKTeams
 from vkteams_client.types import NewMessageEvent
@@ -10,7 +11,7 @@ from vkt_bot.core.handlers.mixins import AdminRequiredMixin
 from vkt_bot.core.threads import set_thread_autosubscribe
 from vkt_bot.utils.message import mention
 
-logger = logging.getLogger("teams_bot.handlers.threads")
+logger = structlog.get_logger("vkt_bot.handlers.threads")
 
 OFF_ARGS = frozenset({"off", "выкл", "0", "false", "no"})
 

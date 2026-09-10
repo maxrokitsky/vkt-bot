@@ -169,12 +169,12 @@ class TestLoginHandler:
         session_factory: object,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        with caplog.at_level("INFO", logger="vkt_bot.core.handlers.auth"):
+        with caplog.at_level("INFO", logger="vkt_bot.handlers.auth"):
             await LoginHandler.handle(
                 make_event("new_message", text="/login"), dispatcher
             )
 
-        assert "Created login token" in caplog.text
+        assert "auth.login_token_created" in caplog.text
 
 
 def owner_login(owner_id: str) -> Event:
@@ -284,7 +284,7 @@ class TestOwnerPromotion:
         owner_id: str,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        with caplog.at_level("INFO", logger="vkt_bot.core.handlers.auth"):
+        with caplog.at_level("INFO", logger="vkt_bot.handlers.auth"):
             await LoginHandler.handle(owner_login(owner_id), dispatcher)
 
-        assert "Granted superuser to owner" in caplog.text
+        assert "auth.superuser_granted" in caplog.text

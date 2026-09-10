@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.13"
 dependencies = [
     "aiohttp",
+    "structlog>=25.4.0",
     "vkteams_client",
 ]
 

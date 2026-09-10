@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 from fastapi import FastAPI
 
-from vkt_bot.utils.log import init_logging, setup_sentry
+from vkt_bot.logging_setup import init_logging, setup_sentry
 from .config import get_settings
 
 

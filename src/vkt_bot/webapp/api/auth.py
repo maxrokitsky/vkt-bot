@@ -1,8 +1,8 @@
-import logging
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, HTTPException, Request, status
 from jose import jwt
+import structlog
 
 from vkt_bot.config import settings
 from vkt_bot.core.repositories.login_history import LoginHistoryRepository
@@ -11,7 +11,7 @@ from vkt_bot.webapp.dependencies import CurrentUser, SessionDep
 from vkt_bot.webapp.schemas.auth import Token, TokenLoginRequest
 from vkt_bot.webapp.schemas.user import UserResponse
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger("vkt_bot.webapp.auth")
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -39,17 +39,11 @@ async def login(
     history_repo = LoginHistoryRepository(session)
 
     token_value = login_data.token.strip()
-    logger.debug(
-        "Login attempt with token: %s...",
-        token_value[:10] if len(token_value) > 10 else token_value,
-    )
+    logger.debug("auth.login_attempt")
 
     login_token = await token_repo.get_by_token(token_value)
     if not login_token:
-        logger.warning(
-            "Token not found in database: %s...",
-            token_value[:10] if len(token_value) > 10 else token_value,
-        )
+        logger.warning("auth.login_token_unknown")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
         )

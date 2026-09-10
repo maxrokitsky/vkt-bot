@@ -1,0 +1,475 @@
+# События и логирование
+
+План перестройки двух связанных подсистем: **доменных событий** (что произошло
+в системе — хранится в БД, показывается в панели) и **логов приложения**
+(structlog: консоль локально, JSON в Loki на сервере).
+
+Составлен 2026-09-10 по итогам разбора текущего кода. Связанные документы:
+[ROADMAP.md](ROADMAP.md), [CLAUDE.md](CLAUDE.md).
+
+---
+
+## Что есть сейчас
+
+### Аудит (`core/audit.py` + `log_entries`)
+
+`AuditLogger` пишет строки в `log_entries` — 5 типов действий
+(`create/update/delete/assign/unassign`), 7 типов сущностей, актор, описание,
+`details` в JSON. Читается через `/api/logs` (только админ) и агрегируется в
+`/api/overview` (активность по дням).
+
+Что не так:
+
+- **`action_type` — только CRUD.** «Бот запущен», «сообщение отправлено»,
+  «пришёл `newMessage`», «пайплайн упал» в эту модель не ложатся.
+- **Нет `chat_id`.** Именно поэтому события нельзя показать на странице чата —
+  чат не является «сущностью» большинства записей, а привязка к нему нужна.
+- **Три поля на одного актора.** `actor_id`, `web_user_username` и
+  `bot_user_id` в `AuditLogger.log` заполняются одним и тем же `user.id`;
+  `web_user_username` хранит не username, а id.
+- **`EntityType` — закрытый enum в ядре.** Плагин (`vkt-gitlab`) свой тип
+  сущности добавить не может, миграция ради типа события — перебор.
+- **Нет источника действия.** По записи не отличить «роль назначили в панели»
+  от «роль назначили командой в чате» — актор в обоих случаях один и тот же
+  человек.
+- **Покрытие дырявое.** Аудит есть в `webapp/api/roles.py`,
+  `webapp/api/chat_users.py` и `core/handlers/auth.py`. Нет: вебхуки (ни CRUD в
+  панели, ни вызовы), настройки бота, чаты и состав чатов, все команды бота
+  (`/createwebhook`, `/deletewebhook`, роли, `/subscribethreads`), плагин
+  GitLab, отправка сообщений.
+- **Нет связи с логами.** По записи в панели нельзя найти лог-строки, которые
+  её сопровождали, и наоборот.
+
+### Логи
+
+- `utils/logging.yaml` + `logging.config.dictConfig`. Два потока: `stdout`
+  (INFO, формат `compact` — только уровень и текст) и `stderr` (ERROR, формат
+  `standard`). Файловый обработчик подключается при `LOG_FILE` и пишет JSON
+  через самописный `utils/formatters.JsonFormatter`.
+- Логгеры: `vkt_bot`, `vkt_dispatcher`, `vkteams_client` (+ `.events`,
+  `.send_message`, `.api`). Плюс мимо схемы: `client.py:21` заводит
+  `teams_bot.client`, `handlers/webhooks.py:21` — `teams_bot.handlers.webhooks`
+  (префикс `teams_bot` в конфиге не описан вообще, уровень наследуется от root
+  = WARNING, то есть половина отладки просто не видна).
+- Структурные поля уже кое-где передаются через `extra=` (`log_response`,
+  `event.model_dump()`), но видны только в файловом JSON — в stdout формат
+  `compact` их выбрасывает.
+
+Что не так:
+
+- **JSON только в файл.** В stdout — человекочитаемый текст, а в контейнере
+  Loki читает именно stdout. То есть на сервере структурных логов сейчас нет.
+- **Нет сквозного контекста.** В строке «Сообщение отправлено» нет ни id
+  события, ни чата, ни пользователя; связать десяток строк, порождённых одним
+  входящим событием, нечем. Хендлеры внутри одного события работают
+  параллельно в `TaskGroup` — без контекста их вывод перемешан.
+- **Чужие логгеры мимо схемы.** SQLAlchemy, uvicorn, aiohttp, alembic пишут
+  своим форматом; access-логи uvicorn дублируют то, что мы могли бы писать
+  сами, и в JSON не превращаются.
+- **Разделение stdout/stderr по уровню.** В Kubernetes/Docker это только мешает
+  (порядок строк в двух потоках не гарантирован). 12-factor: всё в stdout.
+- **Секреты маскируются только при старте** (`init_logging` печатает настройки
+  через `mask_url`/`mask_string`). Токен, попавший в `extra` из ответа API,
+  уедет в лог как есть.
+- **Многострочные трейсбеки** ломают построчный парсинг в promtail.
+- **Мёртвый груз:** настройка `rabbitmq_logging` и зависимость `aio-pika` — ни
+  одной строчки кода; `mask_settings` маскирует `broker_url`, которого в
+  `VktSettings` нет.
+
+---
+
+## Целевая картина
+
+Один вызов на месте действия порождает **и** запись в БД, **и** структурную
+строку в лог, связанные общим `trace_id`:
+
+```python
+await events.emit(
+    session,
+    EventType.ROLE_ASSIGNED,
+    actor=Actor.from_user(user),
+    chat_id=chat_id,
+    entity=(EntityType.ROLE, role.id),
+    payload={"role": role.name, "target_id": target.id},
+)
+# → строка в events + structlog.info("role.assigned", chat_id=..., trace_id=...)
+```
+
+Логи при этом остаются шире событий: не всякая лог-строка — событие (отладка,
+тайминги), и не всякое событие обязано попадать в БД (см. `persist` ниже).
+
+---
+
+## Фаза A. Логирование на structlog — ✅ сделано
+
+Не требует изменений схемы БД и полезна сама по себе — поэтому делалась
+первой. Итог: `src/vkt_bot/logging_setup.py` (вместо `utils/log.py`,
+`utils/formatters.py` и `utils/logging.yaml`), контекст в диспетчере и
+веб-приложении, документация — [docs/logging.md](docs/logging.md).
+
+Отступление от плана: контекст входящего события привязывается прямо в
+`Dispatcher.trigger`, а не отдельным `LoggingMiddleware`. Порядок
+middleware определяется порядком импортов, поэтому первые строки лога
+рисковали остаться без контекста; в `trigger` привязка гарантированно
+идёт до всех middleware и до `create_task`.
+
+Ещё два решения по ходу:
+
+- `cache_logger_on_first_use=False` — с кэшем `structlog.testing.capture_logs`
+  не видит уже созданные логгеры, а объём логов у бота не тот, чтобы
+  экономить на связывании;
+- поле `message` дублирует `event` в JSON: панель логов Grafana выводит
+  именно `message`, иначе в строке показывается сырой JSON.
+
+### A.1 Конфигурация
+
+Новый модуль `src/vkt_bot/logging_setup.py` (вместо `utils/log.py` +
+`logging.yaml`; `mask_url`/`mask_string` переезжают в него из `utils/log.py`).
+
+Зависимость: `structlog` (в основные зависимости — логируют и `packages/*`).
+Опционально `rich` для красивых трейсбеков локально.
+
+Цепочка процессоров:
+
+```
+merge_contextvars → add_log_level → add_logger_name → TimeStamper(iso, utc)
+→ add_service_context (service, version, env, instance)
+→ mask_secrets (token, api_key, password, authorization, secret_key)
+→ StackInfoRenderer → dict_tracebacks (json) | format_exc_info (console)
+→ ProcessorFormatter.wrap_for_formatter
+```
+
+- **Мост со stdlib обязателен.** `structlog.stdlib.ProcessorFormatter` с
+  `foreign_pre_chain` на единственном handler'е root — тогда SQLAlchemy,
+  uvicorn, aiohttp и alembic попадают в тот же формат. Без этого половина
+  вывода в проде останется неструктурированной.
+- **Два рендерера по `LOG_FORMAT`:** `console` (`structlog.dev.ConsoleRenderer`,
+  цвета, выравнивание) и `json` (`JSONRenderer`). Значение по умолчанию —
+  `console` при TTY, иначе `json`. Самописный `utils/formatters.JsonFormatter`
+  удаляется, `ColorFormatter` тоже (обоих заменяет structlog).
+- Один handler на stdout. Файловый (`LOG_FILE`) остаётся, всегда JSON.
+- `mask_secrets` — процессор, а не хелпер на старте: маскирует по имени ключа
+  на любой глубине словаря, плюс regex по значению для `bot_token`.
+
+### A.2 Настройки
+
+Добавить в `VktSettings`:
+
+| Переменная | Значение | Смысл |
+|---|---|---|
+| `LOG_FORMAT` | `console` / `json` / `auto` | рендерер; по умолчанию `auto` |
+| `LOG_LEVELS` | `sqlalchemy.engine=WARNING,vkteams_client=DEBUG` | точечные уровни без правки yaml |
+| `ENV` | `local` / `stage` / `prod` | поле `env` в каждой строке, метка в Loki |
+| `SERVICE_NAME` | `vkt-bot` | поле `service`; бот и сервер запускаются отдельно (`bot` / `server`) |
+
+Удалить: `rabbitmq_logging`, зависимость `aio-pika` и маскирование
+несуществующего `broker_url` (решение 4) — доставку логов закрывает Loki.
+
+### A.3 Сквозной контекст (`contextvars`)
+
+Главное, ради чего всё затевается: любая строка лога должна отвечать
+«в рамках чего это произошло».
+
+- **Диспетчер.** Новый `LoggingMiddleware` в `vkt_dispatcher`: перед
+  `trigger()` — `clear_contextvars()` и `bind_contextvars(trace_id=uuid4().hex,
+  event_id=..., event_type=..., chat_id=..., user_id=...)`.
+  Подводный камень: хендлеры стартуют в `TaskGroup`, и каждая задача получает
+  **копию** контекста в момент `create_task`. Значит общий контекст надо
+  привязать до создания задач, а `handler=...` — уже внутри задачи (тогда
+  хендлеры не перетирают друг другу контекст). Это работает только при таком
+  порядке, поэтому в коде — комментарий, в тестах — проверка.
+- **FastAPI.** `RequestContextMiddleware`: `request_id` (из `X-Request-Id` или
+  свой), `method`, `path`, после аутентификации — `user_id`. Возвращать
+  `X-Request-Id` в заголовке ответа. Одна строка `http.request` на ответ со
+  `status` и `duration_ms`; штатный access-логгер uvicorn при этом выключается
+  (`access_log=False`), иначе будет дубль.
+- **Вебхуки.** `webhook_id` + `trace_id` в контекст на входящий вызов.
+- `trace_id` кладётся в поле события в БД (фаза B) — из строки в панели можно
+  прыгнуть в Grafana и наоборот.
+
+### A.4 Уборка вызовов
+
+- Убрать `logging.getLogger("teams_bot.*")` в `client.py:21` и
+  `handlers/webhooks.py:21` — на `vkteams_client` и `vkt_bot.handlers.webhooks`.
+- Перевести существующие вызовы на структурные: вместо
+  `"Сообщение отправлено (chatId: %s, text: %r)"` →
+  `log.info("message.sent", chat_id=..., text_preview=..., ok=True)`.
+  Правило: `event` — короткий стабильный идентификатор в `snake_case` через
+  точку, всё переменное — в поля. Ключи полей — `snake_case`, единый словарь на
+  проект (`chat_id`, `user_id`, `msg_id`, `event_id`, `trace_id`,
+  `duration_ms`).
+- `packages/*` не должны зависеть от `vkt_bot`: они только вызывают
+  `structlog.get_logger(...)`, конфигурацию делает приложение. Если конфигурации
+  не было (импорт пакета в чужом коде) — работает дефолтная structlog.
+
+### A.5 Grafana / Loki
+
+Отдельный раздел документации (`docs/logging.md` или секция в README):
+
+- **Одна строка = один JSON.** Трейсбек — поле (`dict_tracebacks`), а не
+  многострочный хвост, иначе promtail разрежет его на десяток «строк».
+- **Кардинальность меток.** В метки Loki — только `service`, `env`, `level`,
+  `logger`. `chat_id`, `user_id`, `trace_id`, `msg_id` — поля внутри JSON,
+  разбираются в запросе (`| json`) или уходят в structured metadata. Метка с
+  `chat_id` убивает Loki на первых тысячах чатов.
+- Готовые LogQL-запросы: все ошибки сервиса, вся история одного `trace_id`, всё
+  по чату, «отправка не прошла» (`event="message.send_failed"`).
+- Пример конфигурации promtail/alloy и docker-compose с драйвером логов.
+- Sentry: `sentry_sdk` уже подключён — привязать контекст (`trace_id`,
+  `chat_id`, `user_id`) как теги и сделать события уровня ERROR
+  breadcrumb'ами, чтобы Sentry и Loki показывали одно и то же.
+
+### A.6 Тесты
+
+- `structlog.testing.capture_logs` — проверка полей у ключевых вызовов.
+- Маскирование: токен и API-ключ не утекают ни в одном рендерере.
+- Контекст: привязывается на событие, изолирован между параллельными
+  хендлерами, очищается после.
+- Оба рендерера конфигурируются и не падают на `exc_info`.
+
+---
+
+## Фаза B. Модель событий
+
+### B.1 Схема
+
+Таблица переименовывается `log_entries` → `events` (решение 1): рядом со
+structlog-логами «log entries» читается как «строки логов», а это не они.
+`/api/logs` сохраняется как алиас на `/api/events` до перевода фронта.
+
+```
+events
+  id           bigint pk
+  ts           timestamptz  index          # было timestamp
+  type         str          index          # 'role.assigned', 'chat.member_joined'
+  source       enum         index          # panel | command | api | bot | webhook | plugin | system
+  severity     enum                        # debug | info | warning | error
+  actor_type   enum                        # user | bot | system | external
+  actor_id     str | null   index          # id ChatUser либо имя интеграции
+  chat_id      str | null   FK chats.id, index
+  entity_type  str | null                  # обычная строка, не enum
+  entity_id    str | null
+  summary      str                         # человекочитаемая строка
+  payload      JSONB                       # структурные детали
+  trace_id     str | null   index          # связь с логами
+```
+
+Изменения относительно `log_entries`:
+
+- `action_type` + `entity_type` → одно поле `type` (`<домен>.<действие>`);
+- добавлены `chat_id` (ради страницы чата), `source`, `severity`, `trace_id`;
+- `web_user_username` и `bot_user_id` убраны, остаётся пара
+  `actor_type` + `actor_id`; FK на `chat_users` вешается на `actor_id`
+  с `ondelete SET NULL`;
+- `entity_type` становится строкой — плагины заводят свои типы без миграций;
+- индексы под запросы панели: `(chat_id, ts desc)`, `(type, ts desc)`,
+  `(actor_id, ts desc)`.
+
+Миграция данных — в той же ревизии: `create` + `role` → `role.created` и так
+далее, таблицей соответствий из 35 пар (5 действий × 7 сущностей),
+`actor_type` маппится один в один, `chat_id` остаётся `NULL` для истории.
+
+### B.2 Реестр типов
+
+`src/vkt_bot/core/events/registry.py`:
+
+```python
+@dataclass(frozen=True)
+class EventSpec:
+    type: str
+    title: str                  # «Роль назначена» — подпись в панели
+    template: str               # «{actor} назначил роль {role} пользователю {target}»
+    source: Source
+    severity: Severity = Severity.INFO
+    persist: bool = True        # писать ли в БД (иначе только лог)
+    chat_scoped: bool = False   # показывать ли на странице чата
+```
+
+- Реестр — словарь `type → EventSpec`, наполняется декларативно; плагины
+  вызывают `events.register(...)` из `install()`.
+- `summary` рендерится из `template` при записи (в БД лежит готовая строка —
+  панель не должна знать про шаблоны и переживает удаление типа).
+- Ручка `GET /api/events/types` отдаёт реестр — фронт строит подписи, иконки и
+  фильтры по нему, без захардкоженных словарей в Vue.
+
+Черновой список типов:
+
+| Домен | Типы |
+|---|---|
+| `bot` | `started`, `stopped`, `polling_failed`, `polling_recovered` |
+| `message` | `sent`, `send_failed`, `edited`, `deleted` |
+| `chat` | `registered`, `bot_added`, `bot_removed`, `member_joined`, `member_left`, `info_changed` |
+| `thread` | `created`, `autosubscribed`, `autosubscribe_changed` |
+| `role` | `created`, `updated`, `deleted`, `assigned`, `unassigned`, `mentioned` |
+| `webhook` | `created`, `updated`, `deleted`, `key_regenerated`, `called`, `delivery_failed` |
+| `auth` | `login_requested`, `login_succeeded`, `login_failed`, `superuser_granted` |
+| `settings` | `changed` |
+| `api` | `event_received` (входящий поток из polling) |
+| `gitlab` (плагин) | `pipeline_succeeded`, `pipeline_failed`, ... |
+
+### B.3 API испускания
+
+`src/vkt_bot/core/events/emit.py`:
+
+- `emit(session, type, *, actor, chat_id=None, entity=None, payload=None,
+  severity=None)` — пишет строку через репозиторий с `commit=False` (в той же
+  транзакции, что и само действие: событие «роль назначена» не должно пережить
+  откат назначения) и одновременно шлёт structlog-строку с теми же полями плюс
+  `trace_id` из контекста.
+- `Actor.from_user(user)` / `Actor.from_event(event)` / `Actor.bot()` /
+  `Actor.system()` / `Actor.external("gitlab")` — чтобы не собирать три поля
+  руками на каждом вызове.
+- Если `spec.persist is False` — только лог, в БД ничего.
+- Ошибка записи события **не должна ронять действие**: `emit` ловит исключение
+  БД, пишет ERROR в лог и возвращает управление.
+- `AuditLogger` остаётся тонкой обёрткой над `emit` с `DeprecationWarning`,
+  чтобы не переписывать всё разом; удаляется в конце фазы C.
+
+### B.4 Хранение и объём
+
+Поток `api.event_received` и `message.sent` быстро раздует таблицу.
+
+- `persist` в спеке решает, что вообще пишется; шумные типы по умолчанию
+  `persist=False` (только лог).
+- **Тексты сообщений в БД не пишем** (решение 3): в `payload` идут `msg_id`,
+  длина, признак команды, наличие вложений. Настройка
+  `events_store_message_text` в `bot_settings` включает хранение для отладки.
+- Retention: `EVENTS_RETENTION_DAYS` (по умолчанию 90) и фоновая чистка раз в
+  сутки — удаление всего, что старше, кроме `severity >= warning`. Партиционирование
+  по месяцам — если и когда таблица перевалит за миллионы строк, не раньше.
+
+---
+
+## Фаза C. Источники событий
+
+Четыре источника, ради которых всё делается.
+
+### C.1 Панель (`source=panel`)
+
+- Перевести существующий аудит (`roles.py`, `chat_users.py`, `auth.py`) на
+  `emit`, проставив `chat_id` там, где действие касается чата (назначение роли
+  в чате, изменение участника).
+- Закрыть дыры: `webhooks.py` (CRUD + регенерация ключа), `bot_settings.py`,
+  `chats.py`, вход/выход из панели, отправка сообщения из панели.
+
+### C.2 Команды бота (`source=command`)
+
+Сейчас не логируется ничего. Добавить `emit` в `/createwebhook`,
+`/deletewebhook`, команды ролей (`roles.py`, 540 строк — там несколько команд),
+`/subscribethreads`, `/login`. Актор — `Actor.from_event(event)`, `chat_id`
+берётся из события всегда. Общий кусок (`actor` + `chat_id` + сессия) вынести в
+миксин рядом с `AdminRequiredMixin`, чтобы не копировать по хендлерам.
+
+### C.3 Входящий поток из polling (`source=api`)
+
+Новый `EventLogMiddleware` (`Middleware.on_event`) рядом с
+`CreateChatMiddleware`: пишет факт получения события с типом, `chat_id`,
+отправителем. По умолчанию `persist=False` (только лог со всем контекстом);
+включается настройкой для отладки конкретного чата.
+
+Важно: middleware пишет **своей** сессией и до запуска хендлеров — событие
+должно остаться в журнале, даже если хендлер упал.
+
+### C.4 Действия самого бота (`source=bot`)
+
+`vkteams_client` не может писать в БД — иначе пакет перестанет быть
+самостоятельным. Решение: у клиента появляется необязательный хук
+
+```python
+client.observer = async_callable  # вызывается после каждого вызова API
+```
+
+`app.py` вешает на него функцию из `vkt_bot.core.events`, которая превращает
+результат в событие: `message.sent` (по умолчанию только лог),
+`message.send_failed` (в БД, severity=error — сейчас такой отказ виден только в
+логах, см. раздел «Ответы API» в CLAUDE.md), `chat.bot_removed` и т. п.
+Жизненный цикл (`bot.started`, `bot.polling_failed`, `bot.polling_recovered`) —
+из `Dispatcher.run`/`start_polling` через тот же хук.
+
+### C.5 Плагины
+
+`vkt-gitlab` регистрирует свои типы в `install()` и вызывает `emit` при
+обработке пайплайнов: события пайплайна привязаны к чату, значит появятся в
+таймлайне чата бесплатно.
+
+---
+
+## Фаза D. Панель управления
+
+- **`GET /api/events`** — фильтры `type` (с префиксом: `role.*`), `source`,
+  `severity`, `actor_id`, `chat_id`, `entity_type`/`entity_id`, диапазон дат,
+  поиск по `summary`. Пагинация — курсорная по `(ts, id)` (страничная на
+  больших таблицах деградирует), `page/size` остаётся для совместимости.
+- **`GET /api/chats/{id}/events`** — таймлайн для страницы чата, только типы с
+  `chat_scoped=True`.
+- **Доступ.** Сейчас журнал целиком админский. Становится: админ видит всё;
+  обычный пользователь — события чатов, в которых состоит (по
+  `chat_memberships`), с вырезанным `payload` в части текстов. Фильтрация — в
+  запросе (`join` с `chat_memberships`), не в Python: иначе пагинация начнёт
+  врать о количестве.
+- **Фронт:** общий компонент `EventTimeline.vue` — таблица в `LogsView`
+  (переименовать в `EventsView`) и компактная лента новой вкладкой в
+  `ChatDetailView` рядом с участниками и вебхуками. Подписи и иконки — из
+  `/api/events/types`, без словарей в коде.
+- `/api/overview`: активность считать по `events`, разбивая по `severity` или
+  `source`, — график станет содержательнее, чем «сколько раз что-то нажали».
+- После правок схем — `make generate_client`, иначе падает
+  `tests/webapp/test_openapi.py`.
+- Позже (не в этой итерации): live-таймлайн через SSE `/api/events/stream`.
+
+---
+
+## Порядок и оценка
+
+| Фаза | Содержание | Зависимости |
+|---|---|---|
+| A | structlog, контекст, документация Loki | нет |
+| B | таблица `events`, реестр, `emit`, миграция | A (нужен `trace_id`) |
+| C | четыре источника + плагин | B |
+| D | API и панель | B, частично C |
+
+Фаза A самодостаточна и не трогает БД — её можно выкатить и жить с ней, даже
+если B–D сдвинутся. Внутри C источники независимы друг от друга и делаются
+параллельно.
+
+---
+
+## Тесты
+
+- **A:** `capture_logs` на ключевых вызовах; маскирование секретов; изоляция
+  контекста между параллельными хендлерами; оба рендерера.
+- **B:** реестр (уникальность типов, у каждого есть `template`, шаблон
+  рендерится на своём `payload`); `emit` пишет строку и лог с одним `trace_id`;
+  откат транзакции убирает событие; сбой записи события не роняет действие;
+  smoke миграции на PostgreSQL (маркер `postgres`) + проверка маппинга старых
+  строк.
+- **C:** по одному тесту на источник — команда/ручка/входящее событие порождает
+  ожидаемый тип с правильными `source`, `chat_id`, `actor`.
+- **D:** фильтры `/api/events`, права на `/api/chats/{id}/events` для админа и
+  обычного пользователя, регенерация OpenAPI.
+
+Порог покрытия (70%) и фактические ~97% удержать; `AuditLogger` до удаления
+остаётся под тестами (`tests/core/test_audit.py`).
+
+---
+
+## Принятые решения
+
+Зафиксировано 2026-09-10, вопросы закрыты — план ниже уже исходит из этих
+ответов.
+
+1. **Таблицу переименовываем `log_entries` → `events`.** Путаница «журнал
+   действий против логов приложения» иначе будет мешать в каждом разговоре, а
+   цена — одна ревизия Alembic, которая всё равно нужна ради новых колонок.
+   `/api/logs` живёт алиасом, пока фронт не переедет на `/api/events`.
+2. **Таймлайн чата видит участник чата** — события своего чата, без `payload`
+   с текстами; админ видит всё. Иначе самая полезная часть страницы чата
+   осталась бы доступна одному человеку.
+3. **Тексты сообщений в БД по умолчанию не пишем** — в `payload` только
+   `msg_id`, длина, признак команды и наличие вложений. Это переписка людей, и
+   ретеншн в 90 дней для неё — не то обязательство, которое стоит брать.
+   Настройка `events_store_message_text` в `bot_settings` включает хранение для
+   разбора инцидентов.
+4. **`rabbitmq_logging` и `aio-pika` удаляем** вместе с маскированием
+   несуществующего `broker_url`. Кода за ними нет, а доставку логов закрывает
+   Loki; понадобится брокер — это отдельная задача с отдельным обоснованием.

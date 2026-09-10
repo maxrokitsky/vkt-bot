@@ -1,7 +1,7 @@
-import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Header, HTTPException, status
+import structlog
 from vkteams_client.types import MsgLoadFileResponse
 
 from vkt_bot.app import bot
@@ -19,7 +19,7 @@ from vkt_bot.webapp.schemas.webhook import (
     WebhookUpdateSchema,
 )
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger("vkt_bot.webapp.webhooks")
 
 router = APIRouter(prefix="/api/webhooks", tags=["webhooks"])
 public_router = APIRouter(prefix="/webhooks", tags=["public-webhooks"])
@@ -61,11 +61,11 @@ async def create_webhook(
     webhook, api_key = await webhook_repo.create_with_api_key(data, current_user.id)
 
     logger.info(
-        "Webhook created: id=%s, name=%s, chat_id=%s, created_by=%s",
-        webhook.id,
-        webhook.name,
-        webhook.chat_id,
-        webhook.created_by,
+        "webhook.created",
+        webhook_id=webhook.id,
+        name=webhook.name,
+        chat_id=webhook.chat_id,
+        created_by=webhook.created_by,
     )
 
     return WebhookCreateResponse(
@@ -129,10 +129,10 @@ async def update_webhook(
     updated_webhook = await webhook_repo.update(webhook_id, data)
 
     logger.info(
-        "Webhook updated: id=%s, name=%s, is_active=%s",
-        updated_webhook.id,
-        updated_webhook.name,
-        updated_webhook.is_active,
+        "webhook.updated",
+        webhook_id=updated_webhook.id,
+        name=updated_webhook.name,
+        is_active=updated_webhook.is_active,
     )
 
     return WebhookResponse.model_validate(updated_webhook)
@@ -164,7 +164,7 @@ async def delete_webhook(
     # Удаление вебхука
     await webhook_repo.delete(webhook_id)
 
-    logger.info("Webhook deleted: id=%s, name=%s", webhook.id, webhook.name)
+    logger.info("webhook.deleted", webhook_id=webhook.id, name=webhook.name)
 
 
 @router.post("/{webhook_id}/regenerate", response_model=WebhookRegenerateResponse)
@@ -194,9 +194,9 @@ async def regenerate_webhook_api_key(
     updated_webhook, new_api_key = await webhook_repo.regenerate_api_key(webhook_id)
 
     logger.info(
-        "Webhook API key regenerated: id=%s, name=%s",
-        updated_webhook.id,
-        updated_webhook.name,
+        "webhook.key_regenerated",
+        webhook_id=updated_webhook.id,
+        name=updated_webhook.name,
     )
 
     return WebhookRegenerateResponse(
@@ -239,6 +239,12 @@ async def handle_webhook(
             detail="Webhook is inactive",
         )
 
+    # Контекст живёт до конца запроса: каждый запрос обрабатывается своей
+    # задачей, а RequestContextMiddleware очищает контекст на входе.
+    structlog.contextvars.bind_contextvars(
+        webhook_id=webhook.id, chat_id=webhook.chat_id
+    )
+
     # 3. Проверка rate limiting
     if not await webhook_repo.check_rate_limit(webhook.id):
         raise HTTPException(
@@ -254,7 +260,7 @@ async def handle_webhook(
 
         msg_id = None
         file_id = None
-        log_message = ""
+        sent: tuple[str, dict[str, object]] | None = None
 
         if request.text is not None:
             # Отправка текста
@@ -264,7 +270,7 @@ async def handle_webhook(
                 text=text,
                 parse_mode=parse_mode,
             )
-            log_message = f"Webhook message sent: webhook_id={webhook.id}, chat_id={webhook.chat_id}, text_length={len(text)}"
+            sent = ("webhook.message_sent", {"text_length": len(text)})
 
         elif request.file:
             # Отправка файла из новой схемы
@@ -281,7 +287,13 @@ async def handle_webhook(
                 # Проверяем наличие fileId в результате
                 if isinstance(result, MsgLoadFileResponse):
                     file_id = result.fileId
-                log_message = f"Webhook file sent: webhook_id={webhook.id}, chat_id={webhook.chat_id}, filename={request.file.filename}, size={len(file_content)}"
+                sent = (
+                    "webhook.file_sent",
+                    {
+                        "filename": request.file.filename,
+                        "size": len(file_content),
+                    },
+                )
             except ValueError as e:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -296,8 +308,9 @@ async def handle_webhook(
             response_data={"status": "sent", "msg_id": msg_id, "file_id": file_id},
         )
 
-        if log_message:
-            logger.info(log_message)
+        if sent:
+            event_name, fields = sent
+            logger.info(event_name, **fields)
 
         return WebhookSendResponse(
             success=True,
@@ -317,12 +330,7 @@ async def handle_webhook(
             response_data={"error": str(e)},
         )
 
-        logger.error(
-            "Failed to send webhook message: webhook_id=%s, chat_id=%s, error=%s",
-            webhook.id,
-            webhook.chat_id,
-            str(e),
-        )
+        logger.error("webhook.send_failed", error=str(e))
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

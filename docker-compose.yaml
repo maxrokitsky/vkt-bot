@@ -1,6 +1,5 @@
 volumes:
   vk-bot-pg:
-  rabbitmq-data:
 
 services:
   postgres-db:
@@ -15,15 +14,3 @@ services:
     #   - "5432"
     ports:
       - "16432:5432"
-
-  # rabbitmq:
-  #   image: bitnami/rabbitmq:latest
-  #   container_name: rabbitmq
-  #   environment:
-  #     - RABBITMQ_MANAGEMENT_ALLOW_WEB_ACCESS=true
-  #   volumes:
-  #     - rabbitmq-data:/bitnami/rabbitmq/mnesia
-  #   env_file: .env
-  #   ports:
-  #     - "15672:15672"
-  #     - "5672:5672"

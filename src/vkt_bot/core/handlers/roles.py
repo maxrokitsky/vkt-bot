@@ -1,7 +1,8 @@
 import json
-import logging
 import re
 from typing import ClassVar
+
+import structlog
 
 from pydantic import TypeAdapter
 
@@ -33,7 +34,7 @@ from vkt_bot.core.handlers.callback import CallbackData, DeleteRoleCallbackData
 from vkt_bot.core.handlers.mixins import AdminRequiredMixin
 from vkt_bot.utils.message import mention, sender_name
 
-logger = logging.getLogger("teams_bot.handlers.roles")
+logger = structlog.get_logger("vkt_bot.handlers.roles")
 
 # Так API отвечает на ``threads/subscribers/get`` для обычного чата.
 NOT_A_THREAD = "incorrect threadid"
@@ -181,9 +182,7 @@ class AssignRoleHandler(AdminRequiredMixin, CommandHandler):
                 )
                 await session.commit()
         except Exception:
-            logger.exception(
-                "Ошибка наначения роли %s пользователю %s", role_name, user_id
-            )
+            logger.exception("role.assign_failed", role=role_name, user_id=user_id)
             await bot.send_text(
                 event.payload.chat.chatId,
                 f"{mention(event.payload.sender.userId)}, ошибка при добавлении роли.",
@@ -239,9 +238,7 @@ class RevokeRoleHandler(AdminRequiredMixin, CommandHandler):
                 await session.delete(role_assignment)
                 await session.commit()
         except Exception:
-            logger.exception(
-                "Ошибка удаления роли %s пользователю %s", role_name, user_id
-            )
+            logger.exception("role.unassign_failed", role=role_name, user_id=user_id)
             await bot.send_text(
                 event.payload.chat.chatId,
                 f"{mention(event.payload.sender.userId)}, ошибка при удалении роли.",
@@ -376,7 +373,7 @@ class NotifyRoleIsTaggedHandler(MessageHandler):
                         may_see_content=audience is None or user.id in audience,
                     )
             except Exception:
-                logger.exception("error")
+                logger.exception("role.notify_failed", user_id=user.id)
 
     async def audience(
         self, bot: VKTeams, session: AsyncSession, chat_id: str
@@ -417,9 +414,7 @@ class NotifyRoleIsTaggedHandler(MessageHandler):
         try:
             page = await bot.threads_subscribers_get(chat_id, page_size=1)
         except Exception:
-            logger.warning(
-                "Не удалось проверить, обсуждение ли чат %s", chat_id, exc_info=True
-            )
+            logger.warning("thread.check_failed", chat_id=chat_id, exc_info=True)
             return False
 
         if page.ok:
@@ -427,11 +422,9 @@ class NotifyRoleIsTaggedHandler(MessageHandler):
 
         description = page.description or ""
         if NOT_A_THREAD in description.lower():
-            logger.debug("Чат %s не обсуждение", chat_id)
+            logger.debug("thread.check_not_a_thread", chat_id=chat_id)
         else:
-            logger.warning(
-                "Проверка обсуждения %s не удалась: %s", chat_id, description
-            )
+            logger.warning("thread.check_refused", chat_id=chat_id, reason=description)
         return False
 
     async def notify(
@@ -463,9 +456,9 @@ class NotifyRoleIsTaggedHandler(MessageHandler):
             return
 
         logger.warning(
-            "Пересылка упоминания из чата %s не прошла (%s). Отправляю текстом.",
-            event.payload.chat.chatId,
-            result.description,
+            "role.mention_forward_failed",
+            chat_id=event.payload.chat.chatId,
+            reason=result.description,
         )
         body = self.quoted_text(text, event) if may_see_content else text
         await bot.send_text(chat_id=user_id, text=body)

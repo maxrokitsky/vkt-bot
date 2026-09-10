@@ -320,16 +320,45 @@ FastAPI. `app.py` собирает роутеры, `api/` — эндпоинты
 
 Необязательно: `OWNER_ID`, `SECRET_KEY` (нужен для JWT веб-API),
 `PUBLIC_URL`, `SENTRY_DSN`, `ACCESS_TOKEN_EXPIRE_MINUTES` (по умолчанию
-8 дней), `LOG_FILE`, `RABBITMQ_LOGGING`, `MAX_FILE_SIZE` и
-`ALLOWED_FILE_TYPES` (50 МБ и белый список MIME по умолчанию).
+8 дней), `LOG_FILE`, `LOG_FORMAT`, `LOG_LEVELS`, `ENV`, `SERVICE_NAME`,
+`MAX_FILE_SIZE` и `ALLOWED_FILE_TYPES` (50 МБ и белый список MIME по
+умолчанию).
 
 ### Логи
 
-Логгеры: `vkt_bot.main` (приложение), `vkt_dispatcher` (фреймворк),
-`vkteams_client` с ветками `.events` и `.send_message` (клиент API).
-Настройка — `src/vkt_bot/loggers.py` и `src/vkt_bot/utils/log.py`; при
-заданном `LOG_FILE` добавляется файловый обработчик, который пишет тела
-ответов API в JSON.
+structlog поверх stdlib, настройка — `src/vkt_bot/logging_setup.py`.
+Подробности и запросы к Loki — в [docs/logging.md](docs/logging.md).
+
+- Первый аргумент вызова — **стабильный идентификатор события**
+  (`message.send_failed`, `chat.bot_added`), всё переменное идёт полями
+  (`chat_id=...`). По идентификатору фильтруют в Grafana, поэтому менять
+  его нельзя так же легко, как текст.
+- Один поток вывода — stdout. `LOG_FORMAT` выбирает рендерер: `console`
+  локально, `json` в контейнере, `auto` (по умолчанию) смотрит на TTY.
+  При `LOG_FILE` добавляется файл с ротацией, всегда JSON.
+- Записи сторонних библиотек (SQLAlchemy, uvicorn, aiohttp, alembic)
+  проходят через ту же цепочку процессоров: мост
+  `structlog.stdlib.ProcessorFormatter` стоит на единственном обработчике
+  root. Уровень root — `WARNING`, логгеры приложения получают `LOGGING`,
+  точечные исключения задаёт `LOG_LEVELS`
+  (`sqlalchemy.engine=INFO,aiohttp=DEBUG`).
+- Секреты снимает процессор `mask_secrets`: по имени поля (`token`,
+  `password`, `secret`, `api_key`, `authorization`, `credential` —
+  только у строковых значений) и по значению в query-строках
+  (`?token=…`). Пароль в DSN маскируется отдельно, хост и база остаются.
+  Локальные переменные в трейсбеках не выгружаются.
+- Контекст (`structlog.contextvars`) привязывается в `Dispatcher.trigger`
+  (`trace_id`, `event_id`, `event_type`, `chat_id`, `user_id`), в
+  `run_handler` (`handler`) и в `RequestContextMiddleware`
+  (`request_id`, `method`, `path`; `user_id` добавляет `get_current_user`).
+  **Порядок важен:** хэндлеры стартуют в `TaskGroup`, и каждая задача
+  получает копию контекста в момент `create_task` — общие поля надо
+  привязать до создания задач, а имя хэндлера уже внутри задачи.
+- Access-лог uvicorn выключен (`access_log=False`): свою строку
+  `http.request` со `status` и `duration_ms` пишет middleware.
+- В тестах `init_logging` подменён, а structlog настраивается фикстурой
+  `_configure_structlog` в `tests/conftest.py` — иначе вывод шёл бы мимо
+  stdlib и `caplog` ничего не видел бы.
 
 ## Точки входа
 
@@ -354,5 +383,5 @@ FastAPI. `app.py` собирает роутеры, `api/` — эндпоинты
 ## Развёртывание
 
 `Dockerfile` и `docker-compose.yaml`; сборка через uv с `--all-packages`
-(монорепозиторий). PostgreSQL на 16432→5432, конфиг RabbitMQ закомментирован.
-Фронтенд собирается в статику через `pnpm build`.
+(монорепозиторий). PostgreSQL на 16432→5432. Фронтенд собирается в статику
+через `pnpm build`.

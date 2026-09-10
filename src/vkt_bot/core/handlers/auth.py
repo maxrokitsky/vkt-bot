@@ -1,5 +1,6 @@
-import logging
 from typing import ClassVar
+
+import structlog
 
 from vkteams_client import VKTeams
 from vkteams_client.types import NewMessageEvent
@@ -14,7 +15,7 @@ from vkt_bot.db.session import async_session
 from vkt_bot.utils.message import mention
 from vkt_dispatcher.handlers import CommandHandler
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger("vkt_bot.handlers.auth")
 
 
 @dispatcher.register_handler
@@ -42,15 +43,16 @@ class LoginHandler(CommandHandler):
                     user_id,
                     description="Владелец получил права суперпользователя при входе",
                 )
-                logger.info("Granted superuser to owner %s", user_id)
+                logger.info("auth.superuser_granted", user_id=user_id)
 
             login_token = await token_repo.create_token(user_id, expires_minutes=5)
             await session.commit()
+            # В лог идёт id строки, а не сам токен: одноразовый он или
+            # нет, в журнале ему не место.
             logger.info(
-                "Created login token for user %s: %s... (id=%s)",
-                user_id,
-                login_token.token[:10],
-                login_token.id,
+                "auth.login_token_created",
+                user_id=user_id,
+                login_token_id=str(login_token.id),
             )
 
         if settings.public_url:

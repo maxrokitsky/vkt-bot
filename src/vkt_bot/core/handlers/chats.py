@@ -1,4 +1,4 @@
-import logging
+import structlog
 
 from vkteams_client import VKTeams
 from vkteams_client.types import (
@@ -21,7 +21,7 @@ from vkt_bot.core.repositories.user import ChatUserRepository
 from vkt_bot.core.threads import autosubscribe_enabled, set_thread_autosubscribe
 from vkt_bot.app import dispatcher
 
-logger = logging.getLogger("vkt_bot")
+logger = structlog.get_logger("vkt_bot.handlers.chats")
 
 
 @dispatcher.register_middleware
@@ -37,10 +37,7 @@ class CreateChatMiddleware(Middleware):
             await ChatUserRepository(session).update_profile(event.payload.sender)
             await session.commit()
             if not known:
-                logger.info(
-                    "First event from chat %s. Created chat in database.",
-                    event.payload.chat.chatId,
-                )
+                logger.info("chat.registered", chat_id=event.payload.chat.chatId)
 
 
 @dispatcher.register_handler
@@ -83,11 +80,7 @@ class ChatMembersJoinedHandler(NewChatMembersHandler):
             await session.commit()
 
         if bots:
-            logger.info(
-                "Bot added to chat %s. Registered chat and %s member(s).",
-                chat_id,
-                len(members),
-            )
+            logger.info("chat.bot_added", chat_id=chat_id, members=len(members))
             # Подписываемся на обсуждения чата, иначе события из тредов
             # до бота не дойдут: у треда собственный chatId.
             if await autosubscribe_enabled():
@@ -98,7 +91,7 @@ class ChatMembersJoinedHandler(NewChatMembersHandler):
         try:
             response = await bot.get_members(chat_id=chat_id)
         except Exception:
-            logger.exception("Failed to fetch members of chat %s", chat_id)
+            logger.exception("chat.members_fetch_failed", chat_id=chat_id)
             return []
         if response is None:
             return []
@@ -120,7 +113,7 @@ class ChatMembersLeftHandler(LeftChatMembersHandler):
             await session.commit()
 
         if any(isinstance(member, Bot) for member in payload.leftMembers):
-            logger.info("Bot removed from chat %s.", chat_id)
+            logger.info("chat.bot_removed", chat_id=chat_id)
 
 
 @dispatcher.register_handler
