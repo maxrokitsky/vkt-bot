@@ -40,7 +40,10 @@ from sqlalchemy.ext.asyncio import (  # noqa: E402
     create_async_engine,
 )
 
-from vkteams_client.types import ThreadSubscribersResponse  # noqa: E402
+from vkteams_client.types import (  # noqa: E402
+    MsgResponse,
+    ThreadSubscribersResponse,
+)
 
 from vkt_bot.db.base import Model  # noqa: E402
 from vkt_bot.db.session import async_session  # noqa: E402
@@ -255,6 +258,12 @@ class FakeBot:
         self.calls: list[BotCall] = []
         self.errors: dict[str, BaseException] = {}
         self.results: dict[str, Any] = {
+            # Настоящий клиент на успешную отправку возвращает msgId, и от
+            # него зависит логика: якорь обсуждения, запись своих
+            # сообщений в историю. Без ответа по умолчанию тесты
+            # проверяли бы поведение при отказе сервера.
+            "send_text": MsgResponse(ok=True, msgId="bot-msg-1"),
+            "edit_text": MsgResponse(ok=True, msgId="bot-msg-1"),
             # Так API отвечает на ``threads/subscribers/get`` для обычного
             # чата. Через эту проверку проходит каждое сообщение: по виду
             # ``chatId`` тред от группы не отличить. Обсуждение задаётся

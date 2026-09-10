@@ -8,6 +8,8 @@ import pytest
 from pydantic_ai.messages import ModelResponse, TextPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
+from vkteams_client.enums import ChatAction
+
 from vkt_agent import AgentRunner
 from vkt_ai import agent as agent_module
 from vkt_ai import handlers as handlers_module
@@ -114,12 +116,17 @@ class TestAskCommand:
         assert "Спроси меня" in fake_bot.texts[0]
         assert asked == []
 
-    async def test_answers_immediately_and_spawns(
+    async def test_spawns_without_answering(
         self, fake_bot: FakeBot, asked: list[SessionRequest]
     ) -> None:
+        """Пока агент думает, в чате висит «печатает…».
+
+        Сообщение-заглушка выглядело бы как ответ, которым не является, —
+        и оставалась бы в переписке навсегда.
+        """
         await AskAgentHandler.callback(fake_bot, ai_event())
 
-        assert fake_bot.texts == ["🤔 думаю…"]
+        assert fake_bot.texts == []
         assert len(asked) == 1
 
     async def test_disabled_agent_says_so(
@@ -163,22 +170,28 @@ async def _always_over(db: Any, user_id: str) -> bool:  # noqa: ARG001
 class TestSession:
     """Фоновая сессия."""
 
-    async def test_answers_by_editing_the_message(
+    async def test_answers_with_a_message(
         self, session: AsyncSession, fake_bot: FakeBot
     ) -> None:
         await run_session(
             fake_bot,
-            SessionRequest(
-                chat_id=CHAT,
-                user_id=USER,
-                question="кто дежурный?",
-                progress_msg_id="msg-1",
-            ),
+            SessionRequest(chat_id=CHAT, user_id=USER, question="кто дежурный?"),
         )
 
-        edits = fake_bot.calls_of("edit_text")
-        assert edits
-        assert edits[-1].kwargs["text"] == "Дежурный — Иван."
+        assert fake_bot.texts == ["Дежурный — Иван."]
+
+    async def test_holds_the_typing_indicator(
+        self, session: AsyncSession, fake_bot: FakeBot
+    ) -> None:
+        """Индикатор поднимается на время работы и гасится после."""
+        await run_session(
+            fake_bot,
+            SessionRequest(chat_id=CHAT, user_id=USER, question="кто дежурный?"),
+        )
+
+        actions = [call.args[1:] for call in fake_bot.calls_of("send_actions")]
+        assert actions[0] == (ChatAction.TYPING,)
+        assert actions[-1] == ()
 
     async def test_writes_session_and_messages(
         self, session: AsyncSession, fake_bot: FakeBot
@@ -218,13 +231,12 @@ class TestSession:
         )
 
         await run_session(
-            fake_bot,
-            SessionRequest(
-                chat_id=CHAT, user_id=USER, question="?", progress_msg_id="msg-1"
-            ),
+            fake_bot, SessionRequest(chat_id=CHAT, user_id=USER, question="?")
         )
 
-        assert fake_bot.calls_of("threads_add")[0].kwargs["msg_id"] == "msg-1"
+        # Якорь — сообщение с ответом: продолжение уходит в обсуждение
+        # под ним, а не отдельной веткой в общем чате.
+        assert fake_bot.calls_of("threads_add")[0].kwargs["msg_id"] == "bot-msg-1"
         row = (await AgentSessionRepository(session).list())[0]
         assert row.thread_id == "999@chat.agent"
 
@@ -235,11 +247,7 @@ class TestSession:
         await run_session(
             fake_bot,
             SessionRequest(
-                chat_id=CHAT,
-                user_id=USER,
-                question="?",
-                progress_msg_id="msg-1",
-                chat_is_thread=True,
+                chat_id=CHAT, user_id=USER, question="?", chat_is_thread=True
             ),
         )
 
@@ -324,7 +332,7 @@ class TestConversation:
             bot_dispatcher,
         )
 
-        assert fake_bot.texts == ["🤔 думаю…"]
+        assert fake_bot.texts == []
         assert len(asked) == 1
 
     async def test_mention_by_nick_starts_a_session(

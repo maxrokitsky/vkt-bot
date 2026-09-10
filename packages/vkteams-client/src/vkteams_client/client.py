@@ -4,6 +4,7 @@ from typing import Any, Literal
 
 import aiohttp
 
+from .enums import ChatAction
 from .types import (
     EventsResponse,
     GetMembersResponse,
@@ -214,6 +215,48 @@ class VKTeams:
                     chat_id=chat_id,
                     reason=result.description,
                     **extra,
+                )
+            return result
+
+    async def send_actions(self, chat_id: str, *actions: ChatAction | str) -> Response:
+        """Показать в чате, что бот занят: «печатает…», «смотрит…».
+
+        Состояние надо повторять: сервер держит его недолго, поэтому
+        вызывать метод нужно при каждой смене действий и не реже раза в
+        10 секунд, пока они не изменились. Пустой список — «всё,
+        закончил»; повторять это уведомление не надо.
+
+        Параметр повторяется по одному значению на действие
+        (``actions=looking&actions=typing``) — так по умолчанию
+        сериализуются массивы в query у OpenAPI 3. Пустой список
+        отправляется как ``actions=``: именно этого просит спека.
+
+        Индикатор — украшение: отказ сервера сюда возвращается флагом и
+        не должен мешать боту ответить.
+        """
+        path = "/chats/sendActions"
+
+        params: list[tuple[str, str]] = [
+            ("token", self.token),
+            ("chatId", chat_id),
+        ]
+        params.extend(("actions", str(action)) for action in actions)
+        if not actions:
+            params.append(("actions", ""))
+
+        async with self.session.get(
+            url=self.base_url + path,
+            params=params,
+            timeout=aiohttp.ClientTimeout(10),
+        ) as response:
+            response_body = await response.text()
+            result = Response.model_validate_json(response_body)
+            if not result.ok:
+                logger.warning(
+                    "chat.actions_refused",
+                    chat_id=chat_id,
+                    actions=[str(action) for action in actions],
+                    reason=result.description,
                 )
             return result
 

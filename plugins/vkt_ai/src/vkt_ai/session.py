@@ -33,7 +33,7 @@ from .agent import get_runner
 from .config import get_ai_settings
 from .context import build_context
 from .models import AgentMessage, AgentSession, SessionStatus
-from .progress import Progress
+from .activity import ChatActivity
 from .prompts import build_prompt
 from .repositories import (
     AgentMessageRepository,
@@ -60,8 +60,6 @@ class SessionRequest:
     #: Кто спрашивает.
     user_id: str
     question: str
-    #: Сообщение «думаю…», которое станет ответом.
-    progress_msg_id: str | None = None
     #: Сообщение с вопросом: из автоконтекста его убираем, чтобы не
     #: дублировать.
     question_msg_id: str | None = None
@@ -94,7 +92,6 @@ async def run_session(bot: VKTeams, request: SessionRequest) -> None:
 
 async def _run(bot: VKTeams, request: SessionRequest) -> None:
     settings = get_ai_settings()
-    progress = Progress(bot, request.chat_id, request.progress_msg_id)
 
     async with async_session() as db:
         sessions = AgentSessionRepository(db)
@@ -131,12 +128,15 @@ async def _run(bot: VKTeams, request: SessionRequest) -> None:
             )
             prompt = build_prompt(request.question, chat_history)
 
-        result = await get_runner().run(
-            deps,
-            prompt,
-            message_history=_restore(history),
-            on_step=progress.on_step,
-        )
+        # Индикатор «печатает…» держится ровно столько, сколько агент
+        # работает, и гаснет сам на выходе из блока.
+        async with ChatActivity(bot, request.chat_id) as activity:
+            result = await get_runner().run(
+                deps,
+                prompt,
+                message_history=_restore(history),
+                on_step=activity.on_step,
+            )
 
         for message in result.messages:
             db.add(_stored(row.id, message))
@@ -177,15 +177,12 @@ async def _run(bot: VKTeams, request: SessionRequest) -> None:
         thread_id = row.thread_id
         session_id = row.id
 
-    if request.progress_msg_id:
-        await progress.edit(result.output)
-    else:
-        await _say(bot, request, result.output)
+    answer_msg_id = await _say(bot, request, result.output)
 
     # Тред заводится на сообщении-ответе: продолжение разговора уходит
     # туда, а в общем чате не появляется вторая ветка обсуждения.
-    if thread_id is None and request.progress_msg_id and not request.chat_is_thread:
-        await _open_thread(bot, request, session_id)
+    if thread_id is None and answer_msg_id and not request.chat_is_thread:
+        await _open_thread(bot, request, session_id, answer_msg_id)
 
 
 async def _session_row(db: AsyncSession, request: SessionRequest) -> AgentSession:
@@ -206,7 +203,6 @@ async def _session_row(db: AsyncSession, request: SessionRequest) -> AgentSessio
             "chat_id": request.chat_id,
             "user_id": request.user_id,
             "thread_id": request.chat_id if request.chat_is_thread else None,
-            "anchor_msg_id": request.progress_msg_id,
         }
     )
     await db.flush()
@@ -291,13 +287,17 @@ def _stored(session_id: uuid.UUID, message: ModelMessage) -> AgentMessage:
     )
 
 
-async def _say(bot: VKTeams, request: SessionRequest, text: str) -> None:
-    """Сказать в чат, когда править нечего."""
-    await bot.send_text(chat_id=request.chat_id, text=text)
+async def _say(bot: VKTeams, request: SessionRequest, text: str) -> str | None:
+    """Ответить в чат. Возвращает id сообщения — он же якорь обсуждения."""
+    response = await bot.send_text(chat_id=request.chat_id, text=text)
+    return response.msgId if response else None
 
 
 async def _open_thread(
-    bot: VKTeams, request: SessionRequest, session_id: uuid.UUID
+    bot: VKTeams,
+    request: SessionRequest,
+    session_id: uuid.UUID,
+    anchor_msg_id: str,
 ) -> None:
     """Завести обсуждение на ответе — там продолжится разговор.
 
@@ -305,17 +305,18 @@ async def _open_thread(
     сообщения без обсуждения он его создаст. Поэтому вызывается он строго
     на нашем сообщении-якоре и ни на каком другом.
     """
-    thread_id = await get_or_create_thread(
-        bot, request.chat_id, request.progress_msg_id or ""
-    )
-    if thread_id is None:
-        return
+    thread_id = await get_or_create_thread(bot, request.chat_id, anchor_msg_id)
     async with async_session() as db:
         row = await AgentSessionRepository(db).get_or_none(session_id)
-        if row is not None:
+        if row is None:
+            return
+        # Якорь запоминаем в любом случае: по нему тред можно завести и
+        # позже, а ``threads/add`` на том же сообщении вернёт тот же id.
+        row.anchor_msg_id = anchor_msg_id
+        if thread_id is not None:
             row.thread_id = thread_id
-            db.add(row)
-            await db.commit()
+        db.add(row)
+        await db.commit()
 
 
 def day_start() -> datetime.datetime:

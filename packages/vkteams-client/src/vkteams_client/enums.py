@@ -18,6 +18,21 @@ class EventType(StrEnum):
 
 
 @unique
+class ChatAction(StrEnum):
+    """Что бот делает в чате прямо сейчас.
+
+    Показывается собеседникам как «печатает…». Держится, пока бот
+    присылает это состояние; сервер сбрасывает его сам, если долго
+    молчать, — см. ``VKTeams.send_actions``.
+    """
+
+    #: Смотрит: так помечаются походы за данными.
+    LOOKING = "looking"
+    #: Печатает: так помечается сочинение ответа.
+    TYPING = "typing"
+
+
+@unique
 class ImageType(StrEnum):
     """ImageType."""
 

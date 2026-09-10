@@ -7,11 +7,12 @@ import datetime
 from typing import TYPE_CHECKING
 
 import pytest
-from vkteams_client.types import MsgResponse
+from vkteams_client.enums import ChatAction
 
 from vkt_agent import Step, StepKind
+from vkt_ai import activity as activity_module
+from vkt_ai.activity import ChatActivity
 from vkt_ai.models import AgentMessage, AgentSession
-from vkt_ai.progress import MIN_INTERVAL, Progress
 from vkt_ai.repositories import AgentSessionRepository
 from vkt_ai.retention import purge_old_sessions
 from vkt_ai.tasks import cancel_all, concurrency_limiter, spawn
@@ -78,52 +79,79 @@ class TestSpawn:
         assert concurrency_limiter(3) is not first
 
 
-class TestProgress:
-    """Правка одного сообщения по ходу работы."""
+class TestActivity:
+    """Индикатор «печатает…» вместо сообщения-заглушки."""
 
-    async def test_first_step_is_shown(self, fake_bot: FakeBot) -> None:
-        progress = Progress(fake_bot, CHAT, "msg-1")
+    async def test_holds_typing_while_working(self, fake_bot: FakeBot) -> None:
+        async with ChatActivity(fake_bot, CHAT):
+            await _tick()
 
-        await progress.on_step(Step(kind=StepKind.TOOL_CALL, tool="chat_messages"))
+        calls = fake_bot.calls_of("send_actions")
+        assert calls[0].args[1:] == (ChatAction.TYPING,)
 
-        assert "читаю переписку" in fake_bot.calls_of("edit_text")[0].kwargs["text"]
+    async def test_clears_actions_on_exit(self, fake_bot: FakeBot) -> None:
+        """Пустые действия — «закончил». Спека просит сказать это один раз."""
+        async with ChatActivity(fake_bot, CHAT):
+            await _tick()
 
-    async def test_edits_are_throttled(self, fake_bot: FakeBot) -> None:
-        """Чаще раза в две секунды правка упрётся в лимиты API."""
-        progress = Progress(fake_bot, CHAT, "msg-1")
+        last = fake_bot.calls_of("send_actions")[-1]
+        assert last.args[1:] == ()
+        assert [c.args[1:] for c in fake_bot.calls_of("send_actions")].count(()) == 1
 
-        await progress.on_step(Step(kind=StepKind.TOOL_CALL, tool="user_roles"))
-        await progress.on_step(Step(kind=StepKind.TOOL_CALL, tool="find_chats"))
+    async def test_switches_to_looking_on_tool_call(self, fake_bot: FakeBot) -> None:
+        """`looking` — пока агент ходит за данными, `typing` — пока отвечает."""
+        async with ChatActivity(fake_bot, CHAT) as activity:
+            await _tick()
+            await activity.on_step(Step(kind=StepKind.TOOL_CALL, tool="user_roles"))
+            await activity.on_step(Step(kind=StepKind.TOOL_RESULT, tool="user_roles"))
 
-        assert len(fake_bot.calls_of("edit_text")) == 1
-        assert MIN_INTERVAL > 0
+        sent = [c.args[1:] for c in fake_bot.calls_of("send_actions")]
+        assert (ChatAction.LOOKING,) in sent
+        assert sent.index((ChatAction.LOOKING,)) < sent.index(())
 
-    async def test_results_do_not_trigger_edits(self, fake_bot: FakeBot) -> None:
-        progress = Progress(fake_bot, CHAT, "msg-1")
-
-        await progress.on_step(Step(kind=StepKind.TOOL_RESULT, tool="user_roles"))
-
-        assert fake_bot.calls_of("edit_text") == []
-
-    async def test_without_message_nothing_is_edited(self, fake_bot: FakeBot) -> None:
-        """Отправить «думаю…» могло не получиться — править тогда нечего."""
-        progress = Progress(fake_bot, CHAT, None)
-
-        await progress.edit("ответ")
-
-        assert fake_bot.calls == []
-
-    async def test_refusal_is_logged(
-        self, fake_bot: FakeBot, caplog: pytest.LogCaptureFixture
+    async def test_same_action_is_not_resent_immediately(
+        self, fake_bot: FakeBot
     ) -> None:
-        """``ok: false`` исключением не является — в логах это был бы успех."""
-        fake_bot.results["edit_text"] = MsgResponse(ok=False, description="too old")
-        progress = Progress(fake_bot, CHAT, "msg-1")
+        """Спека просит слать при смене действия — а не на каждый шаг."""
+        async with ChatActivity(fake_bot, CHAT) as activity:
+            await _tick()
+            before = len(fake_bot.calls_of("send_actions"))
+            await activity.on_step(Step(kind=StepKind.TOOL_CALL, tool="a"))
+            await activity.on_step(Step(kind=StepKind.TOOL_CALL, tool="b"))
 
-        with caplog.at_level("WARNING", logger="vkt_ai.progress"):
-            await progress.edit("ответ")
+        during = len(fake_bot.calls_of("send_actions")) - before
+        # Одна смена на `looking` и одно гашение на выходе.
+        assert during == 2
 
-        assert "agent.progress_edit_refused" in caplog.text
+    async def test_repeats_while_working(
+        self, fake_bot: FakeBot, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Сервер держит состояние недолго — его надо повторять."""
+        monkeypatch.setattr(activity_module, "INTERVAL", 0)
+
+        async with ChatActivity(fake_bot, CHAT):
+            for _ in range(20):
+                await asyncio.sleep(0)
+
+        assert len(fake_bot.calls_of("send_actions")) > 2
+
+    async def test_api_failure_does_not_break_the_session(
+        self, fake_bot: FakeBot
+    ) -> None:
+        """Индикатор — украшение: не показать его хуже, чем не ответить."""
+        fake_bot.errors["send_actions"] = RuntimeError("сеть")
+
+        async with ChatActivity(fake_bot, CHAT) as activity:
+            await _tick()
+            await activity.on_step(Step(kind=StepKind.TOOL_CALL, tool="a"))
+
+        assert fake_bot.calls_of("send_actions")
+
+
+async def _tick() -> None:
+    """Дать фоновой задаче индикатора отправить первое состояние."""
+    for _ in range(5):
+        await asyncio.sleep(0)
 
 
 class TestRetention:

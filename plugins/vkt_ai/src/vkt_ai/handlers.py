@@ -35,8 +35,6 @@ from .tasks import spawn
 
 logger = structlog.get_logger("vkt_ai.handlers")
 
-THINKING = "🤔 думаю…"
-
 HELP = """
 Спроси меня о том, что бот знает: роли, состав чатов, журнал событий,
 переписка этого чата.
@@ -106,7 +104,9 @@ class AskAgentHandler(CommandHandler):
         # от неё зависит, можно ли вообще выходить за пределы этого чата.
         chat_is_thread = await is_thread(bot, chat_id)
 
-        response = await bot.send_text(chat_id, THINKING)
+        # Ничего не отвечаем: пока агент думает, в чате висит
+        # «печатает…». Сообщение-заглушка выглядело бы как ответ,
+        # которым не является.
         spawn(
             run_session(
                 bot,
@@ -114,7 +114,6 @@ class AskAgentHandler(CommandHandler):
                     chat_id=chat_id,
                     user_id=payload.sender.userId,
                     question=question,
-                    progress_msg_id=response.msgId if response else None,
                     question_msg_id=payload.msgId,
                     chat_is_thread=chat_is_thread,
                     trace_id=structlog.contextvars.get_contextvars().get("trace_id"),
@@ -189,7 +188,6 @@ class AgentConversationHandler(MessageHandler):
             await bot.send_text(payload.chat.chatId, HELP, parse_mode="MarkdownV2")
             return
 
-        response = await bot.send_text(payload.chat.chatId, THINKING)
         spawn(
             run_session(
                 bot,
@@ -197,7 +195,6 @@ class AgentConversationHandler(MessageHandler):
                     chat_id=payload.chat.chatId,
                     user_id=payload.sender.userId,
                     question=question,
-                    progress_msg_id=response.msgId if response else None,
                     question_msg_id=payload.msgId,
                     # Продолжение всегда идёт в треде; новый вопрос по
                     # упоминанию — там, где его задали.
