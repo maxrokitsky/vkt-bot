@@ -13,7 +13,7 @@ from vkt_ai import agent as agent_module
 from vkt_ai import handlers as handlers_module
 from vkt_ai import session as session_module
 from vkt_ai.events import install_events
-from vkt_ai.handlers import AgentReplyHandler, AskAgentHandler
+from vkt_ai.handlers import AgentConversationHandler, AskAgentHandler
 from vkt_ai.models import AgentMessage, AgentSession, SessionStatus
 from vkt_ai.repositories import AgentSessionRepository
 from vkt_ai.session import SessionRequest, run_session
@@ -35,6 +35,7 @@ if TYPE_CHECKING:
 
 CHAT = "681869378@chat.agent"
 USER = "1234567890"
+BOT_ID = "1011835311"
 
 
 def answering(text: str = "Дежурный — Иван.") -> AgentRunner:
@@ -58,15 +59,29 @@ def answering(text: str = "Дежурный — Иван.") -> AgentRunner:
 
 
 @pytest.fixture
-def spawned(monkeypatch: pytest.MonkeyPatch) -> list[Coroutine[Any, Any, Any]]:
-    """Перехватить фоновые задачи: хендлер обязан только их ставить.
+def asked(monkeypatch: pytest.MonkeyPatch) -> list[SessionRequest]:
+    """Что хендлер отправил в фоновую задачу.
 
-    Ждать задачу внутри хендлера нельзя — пока агент думает, опрос
-    событий стоит, и бот молчит во всех чатах.
+    Сама задача не запускается: хендлер отвечает за решение — кому, о чём
+    и продолжаем ли начатое, — а не за сессию. Запустить её здесь и нельзя:
+    тестовая сессия сидит на одном соединении с внешней транзакцией, и
+    второй параллельный запрос по нему вешает тест.
+
+    Заодно проверяется главное: ждать задачу внутри хендлера нельзя — пока
+    агент думает, опрос событий стоит и бот молчит во всех чатах.
     """
-    tasks: list[Coroutine[Any, Any, Any]] = []
-    monkeypatch.setattr(handlers_module, "spawn", tasks.append)
-    return tasks
+    captured: list[SessionRequest] = []
+
+    def record(bot: Any, request: SessionRequest) -> Coroutine[Any, Any, None]:  # noqa: ARG001
+        captured.append(request)
+
+        async def noop() -> None: ...
+
+        return noop()
+
+    monkeypatch.setattr(handlers_module, "run_session", record)
+    monkeypatch.setattr(handlers_module, "spawn", lambda coro: coro.close())
+    return captured
 
 
 @pytest.fixture
@@ -92,26 +107,25 @@ class TestAskCommand:
     """``/ai``."""
 
     async def test_without_question_shows_help(
-        self, fake_bot: FakeBot, spawned: list[Any]
+        self, fake_bot: FakeBot, asked: list[SessionRequest]
     ) -> None:
         await AskAgentHandler.callback(fake_bot, ai_event("/ai"))
 
         assert "Спроси меня" in fake_bot.texts[0]
-        assert spawned == []
+        assert asked == []
 
     async def test_answers_immediately_and_spawns(
-        self, fake_bot: FakeBot, spawned: list[Any]
+        self, fake_bot: FakeBot, asked: list[SessionRequest]
     ) -> None:
         await AskAgentHandler.callback(fake_bot, ai_event())
 
         assert fake_bot.texts == ["🤔 думаю…"]
-        assert len(spawned) == 1
-        spawned[0].close()
+        assert len(asked) == 1
 
     async def test_disabled_agent_says_so(
         self,
         fake_bot: FakeBot,
-        spawned: list[Any],
+        asked: list[SessionRequest],
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.setattr(agent_module, "configured", lambda: False)
@@ -119,31 +133,29 @@ class TestAskCommand:
         await AskAgentHandler.callback(fake_bot, ai_event())
 
         assert "выключен" in fake_bot.texts[0]
-        assert spawned == []
+        assert asked == []
 
     async def test_daily_budget_refuses(
         self,
         session: AsyncSession,
         fake_bot: FakeBot,
-        spawned: list[Any],
+        asked: list[SessionRequest],
         monkeypatch: pytest.MonkeyPatch,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         """Превышение суточного бюджета — отказ и предупреждение в журнал."""
-        monkeypatch.setattr(
-            handlers_module.AskAgentHandler, "over_budget", _always_over
-        )
+        monkeypatch.setattr(handlers_module, "over_budget", _always_over)
 
         with caplog.at_level("WARNING", logger="vkt_bot.events"):
             await AskAgentHandler.callback(fake_bot, ai_event())
 
         assert "лимит" in fake_bot.texts[0]
-        assert spawned == []
+        assert asked == []
         assert "agent.limit_exceeded" in caplog.text
 
 
 async def _always_over(db: Any, user_id: str) -> bool:  # noqa: ARG001
-    """Бюджет исчерпан. Подменяется у экземпляра, поэтому без ``self``."""
+    """Бюджет исчерпан."""
     return True
 
 
@@ -254,12 +266,32 @@ class TestSession:
         assert any("ошибка" in text for text in fake_bot.texts)
 
 
+@pytest.fixture
+def bot_dispatcher(fake_bot: FakeBot) -> Any:
+    """Диспетчер, знающий, как зовут самого бота.
+
+    Без ``info`` упоминание не с чем сравнивать: там лежат ``userId`` и
+    ``nick``, которые бот узнаёт у API при старте.
+    """
+    from vkteams_client.types import GetSelfResponse
+    from vkt_dispatcher import Dispatcher
+
+    dispatcher = Dispatcher(bot=fake_bot)  # type: ignore[arg-type]
+    dispatcher.info = GetSelfResponse(
+        ok=True, firstName="Бот", nick="max_test_bot", userId=BOT_ID
+    )
+    return dispatcher
+
+
 @pytest.mark.usefixtures("enabled", "runner", "session_factory")
-class TestReplyInThread:
-    """Продолжение диалога."""
+class TestConversation:
+    """Разговор без команды: продолжение в треде и обращение по упоминанию."""
 
     async def test_message_in_active_thread_continues(
-        self, session: AsyncSession, fake_bot: FakeBot, spawned: list[Any]
+        self,
+        session: AsyncSession,
+        bot_dispatcher: Any,
+        asked: list[SessionRequest],
     ) -> None:
         await create_chat_user(session, USER)
         row = await AgentSessionRepository(session).create(
@@ -267,35 +299,185 @@ class TestReplyInThread:
         )
         await session.commit()
 
-        await AgentReplyHandler.callback(
-            fake_bot,
+        await AgentConversationHandler.handle(
             make_event("new_message", chat={"chatId": "999@chat.agent"}, text="а ещё?"),
+            bot_dispatcher,
         )
 
-        assert len(spawned) == 1
-        spawned[0].close()
+        assert len(asked) == 1
         assert row.id is not None
 
-    async def test_message_elsewhere_is_ignored(
-        self, session: AsyncSession, fake_bot: FakeBot, spawned: list[Any]
+    async def test_plain_message_elsewhere_is_ignored(
+        self, bot_dispatcher: Any, fake_bot: FakeBot, asked: list[SessionRequest]
     ) -> None:
-        await AgentReplyHandler.callback(fake_bot, make_event("new_message"))
+        await AgentConversationHandler.handle(make_event("new_message"), bot_dispatcher)
 
-        assert spawned == []
+        assert asked == []
         assert fake_bot.calls == []
 
-    async def test_commands_are_left_to_their_handlers(
-        self, session: AsyncSession, fake_bot: FakeBot, spawned: list[Any]
+    async def test_mention_by_id_starts_a_session(
+        self, bot_dispatcher: Any, fake_bot: FakeBot, asked: list[SessionRequest]
     ) -> None:
+        """Команда — барьер: боту пишут как человеку, через `@`."""
+        await AgentConversationHandler.handle(
+            make_event("new_message", text=f"@[{BOT_ID}] кто дежурный?"),
+            bot_dispatcher,
+        )
+
+        assert fake_bot.texts == ["🤔 думаю…"]
+        assert len(asked) == 1
+
+    async def test_mention_by_nick_starts_a_session(
+        self, bot_dispatcher: Any, asked: list[SessionRequest]
+    ) -> None:
+        """Ник печатают руками, не выбирая из списка — скобок тогда нет."""
+        await AgentConversationHandler.handle(
+            make_event("new_message", text="@max_test_bot, кто дежурный?"),
+            bot_dispatcher,
+        )
+
+        assert len(asked) == 1
+
+    async def test_mention_by_markup_starts_a_session(
+        self, bot_dispatcher: Any, asked: list[SessionRequest]
+    ) -> None:
+        """Разметка `format.mention` не зависит от вида упоминания в тексте."""
+        await AgentConversationHandler.handle(
+            make_event(
+                "new_message",
+                text="Бот Ассистент, кто дежурный?",
+                format={"mention": [{"offset": 0, "length": 13}]},
+            ),
+            bot_dispatcher,
+        )
+
+        assert len(asked) == 1
+        assert asked[0].question == "кто дежурный?"
+
+    async def test_mention_of_a_similar_nick_is_not_ours(
+        self, bot_dispatcher: Any, asked: list[SessionRequest]
+    ) -> None:
+        """`@max_test_bot2` — сосед, а не мы."""
+        await AgentConversationHandler.handle(
+            make_event("new_message", text="@max_test_bot2 привет"), bot_dispatcher
+        )
+
+        assert asked == []
+
+    async def test_mention_is_stripped_from_the_question(
+        self, bot_dispatcher: Any, asked: list[SessionRequest]
+    ) -> None:
+        """Модель не должна разбираться, что значит `@[1011835311]`."""
+        await AgentConversationHandler.handle(
+            make_event("new_message", text=f"@[{BOT_ID}], кто дежурный?"),
+            bot_dispatcher,
+        )
+
+        assert asked[0].question == "кто дежурный?"
+
+    async def test_mention_without_a_question_shows_help(
+        self, bot_dispatcher: Any, fake_bot: FakeBot, asked: list[SessionRequest]
+    ) -> None:
+        """Позвали и ничего не спросили — рассказываем, о чём можно."""
+        await AgentConversationHandler.handle(
+            make_event("new_message", text=f"@[{BOT_ID}]"), bot_dispatcher
+        )
+
+        assert "Спроси меня" in fake_bot.texts[0]
+        assert asked == []
+
+    async def test_commands_are_left_to_their_handlers(
+        self,
+        session: AsyncSession,
+        bot_dispatcher: Any,
+        asked: list[SessionRequest],
+    ) -> None:
+        """Команда внутри треда сессии — команда, а не реплика агенту."""
         await create_chat_user(session, USER)
         await AgentSessionRepository(session).create(
             {"chat_id": CHAT, "user_id": USER, "thread_id": "999@chat.agent"}
         )
         await session.commit()
 
-        await AgentReplyHandler.callback(
-            fake_bot,
+        await AgentConversationHandler.handle(
             make_event("new_message", chat={"chatId": "999@chat.agent"}, text="/help"),
+            bot_dispatcher,
         )
 
-        assert spawned == []
+        assert asked == []
+
+    async def test_other_bots_are_ignored(
+        self, bot_dispatcher: Any, asked: list[SessionRequest]
+    ) -> None:
+        """Два бота, упомянувшие друг друга, переписывались бы вечно."""
+        await AgentConversationHandler.handle(
+            make_event("new_message_from_bot", text=f"@[{BOT_ID}] кто дежурный?"),
+            bot_dispatcher,
+        )
+
+        assert asked == []
+
+    async def test_private_chat_is_off_by_default(
+        self, bot_dispatcher: Any, asked: list[SessionRequest]
+    ) -> None:
+        """Иначе каждая реплика в личке — оплаченный вызов модели."""
+        await AgentConversationHandler.handle(
+            make_event("new_message_private", text="просто вопрос"), bot_dispatcher
+        )
+
+        assert asked == []
+
+    async def test_private_chat_when_enabled(
+        self,
+        bot_dispatcher: Any,
+        asked: list[SessionRequest],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from vkt_ai import config
+
+        settings = config.get_ai_settings().model_copy(
+            update={"reply_in_private": True}
+        )
+        monkeypatch.setattr(handlers_module, "get_ai_settings", lambda: settings)
+
+        await AgentConversationHandler.handle(
+            make_event("new_message_private", text="просто вопрос"), bot_dispatcher
+        )
+
+        assert len(asked) == 1
+
+    async def test_mention_ignored_when_agent_disabled(
+        self,
+        bot_dispatcher: Any,
+        asked: list[SessionRequest],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Выключенный агент молчит, а не отвечает «выключен» на каждый `@`."""
+        monkeypatch.setattr(agent_module, "configured", lambda: False)
+
+        await AgentConversationHandler.handle(
+            make_event("new_message", text=f"@[{BOT_ID}] кто дежурный?"),
+            bot_dispatcher,
+        )
+
+        assert asked == []
+
+    async def test_budget_refuses(
+        self,
+        bot_dispatcher: Any,
+        fake_bot: FakeBot,
+        asked: list[SessionRequest],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        async def spent(db: Any, user_id: str) -> bool:  # noqa: ARG001
+            return True
+
+        monkeypatch.setattr(handlers_module, "over_budget", spent)
+
+        await AgentConversationHandler.handle(
+            make_event("new_message", text=f"@[{BOT_ID}] кто дежурный?"),
+            bot_dispatcher,
+        )
+
+        assert "лимит" in fake_bot.texts[0]
+        assert asked == []

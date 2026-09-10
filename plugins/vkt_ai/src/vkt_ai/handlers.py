@@ -1,4 +1,4 @@
-"""Команды и продолжение диалога.
+"""Как с агентом заговаривают: команда, упоминание, продолжение.
 
 Хендлеры делают только дешёвую часть: проверяют, что агент включён и что
 лимит не исчерпан, отвечают «думаю…» и ставят фоновую задачу. Ждать
@@ -8,23 +8,27 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import Any, ClassVar
 
 import structlog
 
 from vkteams_client import VKTeams
-from vkteams_client.types import NewMessageEvent
+from vkteams_client.enums import ChatType
+from vkteams_client.types import Bot, Event, GetSelfResponse, NewMessageEvent
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from vkt_bot.app import dispatcher
 from vkt_bot.core.events import Actor, emit
-from vkt_bot.core.repositories.user import ChatUserRepository
 from vkt_bot.core.threads import is_thread
 from vkt_bot.db.session import async_session
 from vkt_bot.utils.message import mention
+from vkt_dispatcher import Dispatcher
 from vkt_dispatcher.handlers import CommandHandler, MessageHandler
 
 from . import events as ai_events
 from .agent import agent_enabled, configured
-from .config import get_ai_settings
+from .config import AiSettings, get_ai_settings
+from .mentions import mentions_bot, spans_of, strip_mention
 from .repositories import AgentSessionRepository
 from .session import SessionRequest, day_start, run_session
 from .tasks import spawn
@@ -38,15 +42,27 @@ HELP = """
 переписка этого чата.
 
 `/ai кто дежурный и в каких он чатах?`
-`/ai о чём тут договорились?`
+`о чём тут договорились?` — с упоминанием бота, команда не нужна
 `/ai что происходило в этом чате вчера?`
 
-Отвечаю в обсуждении под своим сообщением — там же можно продолжить
-разговор, уже без команды. Чужую переписку не покажу: вижу только чаты,
-где ты состоишь.
+Обращаться можно и без команды — просто упомяни меня. Отвечаю в
+обсуждении под своим сообщением, там же можно продолжить разговор.
+Чужую переписку не покажу: вижу только чаты, где ты состоишь.
 """.strip()
 
 DISABLED = "Агент сейчас выключен."
+
+
+async def over_budget(db: AsyncSession, user_id: str) -> bool:
+    """Исчерпан ли суточный бюджет токенов у этого участника.
+
+    Считается по обоим направлениям сразу: платят и за вход, и за выход.
+    """
+    budget = get_ai_settings().daily_token_budget
+    if budget <= 0:
+        return False
+    spent = await AgentSessionRepository(db).tokens_since(user_id, day_start())
+    return spent >= budget
 
 
 @dispatcher.register_handler
@@ -69,8 +85,8 @@ class AskAgentHandler(CommandHandler):
             if not await agent_enabled(db):
                 await bot.send_text(chat_id, DISABLED)
                 return
-            over_budget = await self.over_budget(db, payload.sender.userId)
-            if over_budget:
+            exhausted = await over_budget(db, payload.sender.userId)
+            if exhausted:
                 await emit(
                     db,
                     ai_events.LIMIT_EXCEEDED,
@@ -106,43 +122,72 @@ class AskAgentHandler(CommandHandler):
             )
         )
 
-    async def over_budget(self, db, user_id: str) -> bool:  # noqa: ANN001
-        """Исчерпан ли суточный бюджет токенов у этого пользователя."""
-        budget = get_ai_settings().daily_token_budget
-        if budget <= 0:
-            return False
-        spent = await AgentSessionRepository(db).tokens_since(user_id, day_start())
-        return spent >= budget
-
 
 @dispatcher.register_handler
-class AgentReplyHandler(MessageHandler):
-    """Сообщение в обсуждении активной сессии продолжает разговор.
+class AgentConversationHandler(MessageHandler):
+    """Разговор с агентом без команды.
 
-    Фильтр дешёвый — один запрос по индексу ``thread_id``, — в отличие от
-    ``threads/subscribers/get``, который стоил бы запроса к API на каждое
-    сообщение в любом чате.
+    Три повода ответить, в порядке проверки:
+
+    1. сообщение в обсуждении активной сессии — продолжение диалога;
+    2. бота упомянули (`@бот`) — новый вопрос;
+    3. личка, если включено `AI_REPLY_IN_PRIVATE`, — там собеседник один.
+
+    Поводы объединены в один обработчик намеренно. Двумя они срабатывали
+    бы оба на «@бот» внутри треда сессии: два вопроса, два ответа, двойной
+    расход. Заодно на каждое сообщение чата приходится один запрос к базе,
+    а не два.
+
+    ``handle`` переопределён вместо ``callback``: нужен ``dispatcher`` —
+    в нём лежит ``info`` с идентификатором и ником самого бота, а без них
+    упоминание не с чем сравнивать.
     """
 
-    async def callback(self, bot: VKTeams, event: NewMessageEvent) -> None:
+    async def handle(self, event: Event, dispatcher: Dispatcher) -> None:
+        if not isinstance(event, NewMessageEvent):
+            return
         payload = event.payload
         text = (payload.text or "").strip()
+        # Команды разбирают свои обработчики; пустое сообщение — вложение.
         if not text or text.startswith("/"):
             return
+        # Своим и чужим ботам не отвечаем: два бота, упомянувшие друг
+        # друга, устроят бесконечную переписку за наш счёт.
+        if isinstance(payload.sender, Bot):
+            return
+
+        bot = dispatcher.bot
+        me = dispatcher.info
+        settings = get_ai_settings()
 
         async with async_session() as db:
             session_row = await AgentSessionRepository(db).active_by_thread(
                 payload.chat.chatId
             )
-            if session_row is None:
-                return
-            # Свои же сообщения в тред не должны заводить новый круг.
-            author = await ChatUserRepository(db).get_or_none(payload.sender.userId)
-            if author is not None and author.is_bot:
+            if session_row is None and not self.addressed(event, me, settings):
                 return
             if not await agent_enabled(db):
                 return
-            session_id = session_row.id
+            session_id = session_row.id if session_row else None
+            exhausted = await over_budget(db, payload.sender.userId)
+
+        if exhausted:
+            await bot.send_text(
+                payload.chat.chatId,
+                f"{mention(payload.sender.userId)}, на сегодня лимит запросов "
+                "к агенту исчерпан. Попробуй завтра.",
+            )
+            return
+
+        question = (
+            strip_mention(text, **self.identity(event, me))
+            if session_id is None
+            else text
+        )
+        if not question:
+            # Позвали, но ничего не спросили — рассказываем, о чём можно.
+            await bot.send_text(payload.chat.chatId, HELP, parse_mode="MarkdownV2")
+            return
 
         response = await bot.send_text(payload.chat.chatId, THINKING)
         spawn(
@@ -151,15 +196,49 @@ class AgentReplyHandler(MessageHandler):
                 SessionRequest(
                     chat_id=payload.chat.chatId,
                     user_id=payload.sender.userId,
-                    question=text,
+                    question=question,
                     progress_msg_id=response.msgId if response else None,
                     question_msg_id=payload.msgId,
-                    chat_is_thread=True,
+                    # Продолжение всегда идёт в треде; новый вопрос по
+                    # упоминанию — там, где его задали.
+                    chat_is_thread=session_id is not None,
                     session_id=session_id,
                     trace_id=structlog.contextvars.get_contextvars().get("trace_id"),
                 ),
             )
         )
+
+    def identity(
+        self, event: NewMessageEvent, me: GetSelfResponse | None
+    ) -> dict[str, Any]:
+        """По чему бот узнаёт обращение к себе.
+
+        Разметка сообщения идёт первой: она не зависит от того, как сервер
+        отрисовал упоминание в тексте.
+        """
+        return {
+            "user_id": me.userId if me else None,
+            "nick": me.nick if me else None,
+            "first_name": me.firstName if me else None,
+            "spans": spans_of(event.payload.format),
+        }
+
+    def addressed(
+        self,
+        event: NewMessageEvent,
+        me: GetSelfResponse | None,
+        settings: AiSettings,
+    ) -> bool:
+        """Обращаются ли к боту.
+
+        Проверка дешёвая и без сети: идентификатор и ник бота уже лежат в
+        ``dispatcher.info`` с момента старта.
+        """
+        if settings.reply_in_private and event.payload.chat.type is ChatType.PRIVATE:
+            return True
+        if not settings.reply_on_mention or me is None:
+            return False
+        return mentions_bot(event.payload.text or "", **self.identity(event, me))
 
 
 def install_handlers() -> None:
