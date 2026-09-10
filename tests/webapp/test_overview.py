@@ -5,7 +5,12 @@ from __future__ import annotations
 import datetime
 from typing import TYPE_CHECKING
 
-from vkt_bot.core.models.log_entry import ActionType, ActorType, EntityType, LogEntry
+from vkt_bot.core.models.event import (
+    ActorType,
+    EntityType,
+    EventRecord,
+    EventSource,
+)
 
 from tests.conftest import auth_headers
 from tests.factories import create_chat, create_chat_user, create_role
@@ -20,14 +25,16 @@ if TYPE_CHECKING:
 async def add_log(
     session: AsyncSession, *, timestamp: datetime.datetime, entity_id: str = "x"
 ) -> None:
-    """Запись аудита с заданным временем."""
+    """Событие с заданным временем."""
     session.add(
-        LogEntry(
-            timestamp=timestamp,
+        EventRecord(
+            ts=timestamp,
+            type="role.created",
+            source=EventSource.PANEL,
             actor_type=ActorType.SYSTEM,
-            action_type=ActionType.CREATE,
             entity_type=EntityType.ROLE,
             entity_id=entity_id,
+            summary="Создана роль",
         )
     )
     await session.commit()

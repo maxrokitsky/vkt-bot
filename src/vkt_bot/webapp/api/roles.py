@@ -6,8 +6,8 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from vkt_bot.core.audit import AuditLogger
-from vkt_bot.core.models.log_entry import EntityType
+from vkt_bot.core.events import Actor, EventType, emit
+from vkt_bot.core.models.event import EntityType
 from vkt_bot.core.models.role import Role, RoleAssignment
 from vkt_bot.core.repositories.role import (
     CreateRoleAssignmentSchema,
@@ -132,7 +132,6 @@ async def create_role(
 ) -> RoleResponse:
     """Create new role. Admin only."""
     role_repo = RoleRepository(session)
-    audit = AuditLogger(session)
 
     # Check if role with this name already exists
     try:
@@ -151,13 +150,12 @@ async def create_role(
     # id проставляется только на flush: без него в аудит уходит "None".
     await session.flush()
 
-    # Audit log
-    await audit.log_create(
-        entity_type=EntityType.ROLE,
-        entity_id=str(role.id),
-        user=current_admin,
-        description=f"Created role {role.name}",
-        details={"name": role.name},
+    await emit(
+        session,
+        EventType.ROLE_CREATED,
+        actor=Actor.from_user(current_admin),
+        entity=(EntityType.ROLE, str(role.id)),
+        payload={"role": role.name},
     )
 
     await session.commit()
@@ -175,7 +173,6 @@ async def update_role(
 ) -> RoleResponse:
     """Update role. Admin only."""
     role_repo = RoleRepository(session)
-    audit = AuditLogger(session)
 
     # Check if role exists
     role = await role_repo.get_or_none(role_id)
@@ -202,13 +199,14 @@ async def update_role(
         role.name = role_data.name
         session.add(role)
 
-        # Audit log
-        await audit.log_update(
-            entity_type=EntityType.ROLE,
-            entity_id=str(role_id),
-            user=current_admin,
-            description=f"Updated role {old_name} to {role.name}",
-            details={"old_name": old_name, "new_name": role.name},
+        await emit(
+            session,
+            EventType.ROLE_UPDATED,
+            actor=Actor.from_user(current_admin),
+            entity=(EntityType.ROLE, str(role_id)),
+            payload={"role": role.name, "old_name": old_name},
+            summary=f"{current_admin.display_name} переименовал роль "
+            f"{old_name} в {role.name}",
         )
 
         await session.commit()
@@ -225,7 +223,6 @@ async def delete_role(
 ) -> None:
     """Delete role. Admin only."""
     role_repo = RoleRepository(session)
-    audit = AuditLogger(session)
 
     # Check if role exists
     role = await role_repo.get_or_none(role_id)
@@ -238,13 +235,12 @@ async def delete_role(
     role_name = role.name
     await role_repo.delete(role_id, commit=False)
 
-    # Audit log
-    await audit.log_delete(
-        entity_type=EntityType.ROLE,
-        entity_id=str(role_id),
-        user=current_admin,
-        description=f"Deleted role {role_name}",
-        details={"name": role_name},
+    await emit(
+        session,
+        EventType.ROLE_DELETED,
+        actor=Actor.from_user(current_admin),
+        entity=(EntityType.ROLE, str(role_id)),
+        payload={"role": role_name},
     )
 
     await session.commit()
@@ -261,7 +257,6 @@ async def add_role_member(
     role_repo = RoleRepository(session)
     user_repo = ChatUserRepository(session)
     assignment_repo = RoleAssignmentRepository(session)
-    audit = AuditLogger(session)
 
     role = await role_repo.get_or_none(role_id)
     if not role:
@@ -294,12 +289,17 @@ async def add_role_member(
     )
     await session.flush()
 
-    await audit.log_assign(
-        entity_type=EntityType.ROLE_ASSIGNMENT,
-        entity_id=str(assignment.id),
-        user=current_admin,
-        description=f"Assigned role {role.name} to user {user.id}",
-        details={"role_id": str(role_id), "role_name": role.name, "user_id": user.id},
+    await emit(
+        session,
+        EventType.ROLE_ASSIGNED,
+        actor=Actor.from_user(current_admin),
+        entity=(EntityType.ROLE_ASSIGNMENT, str(assignment.id)),
+        payload={
+            "role": role.name,
+            "role_id": str(role_id),
+            "target": user.display_name,
+            "target_id": user.id,
+        },
     )
 
     await session.commit()
@@ -319,8 +319,6 @@ async def remove_role_member(
     current_admin: CurrentAdminUser,
 ) -> None:
     """Remove member from role. Admin only."""
-    audit = AuditLogger(session)
-
     stmt = (
         sa.select(RoleAssignment)
         .where(
@@ -342,12 +340,12 @@ async def remove_role_member(
 
     await session.delete(assignment)
 
-    await audit.log_unassign(
-        entity_type=EntityType.ROLE_ASSIGNMENT,
-        entity_id=str(assignment_id),
-        user=current_admin,
-        description=f"Removed role {role_name} from user {user_id}",
-        details={"role_id": str(role_id), "role_name": role_name, "user_id": user_id},
+    await emit(
+        session,
+        EventType.ROLE_UNASSIGNED,
+        actor=Actor.from_user(current_admin),
+        entity=(EntityType.ROLE_ASSIGNMENT, str(assignment_id)),
+        payload={"role": role_name, "role_id": str(role_id), "target_id": user_id},
     )
 
     await session.commit()

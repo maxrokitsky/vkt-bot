@@ -21,6 +21,8 @@ from vkt_bot.webapp.schemas.chat import (
     SendMessageRequest,
     SendMessageResponse,
 )
+from vkt_bot.webapp.api.events import chat_events
+from vkt_bot.webapp.schemas.event import PaginatedEventsResponse
 from vkt_bot.webapp.schemas.webhook import WebhookListResponse, WebhookResponse
 
 router = APIRouter(prefix="/api/chats", tags=["chats"])
@@ -127,6 +129,47 @@ async def list_chat_webhooks(
         webhooks=[WebhookResponse.model_validate(webhook) for webhook in webhooks],
         total=len(webhooks),
     )
+
+
+@router.get("/{chat_id}/events", response_model=PaginatedEventsResponse)
+async def list_chat_events(
+    chat_id: str,
+    session: SessionDep,
+    current_user: CurrentUser,
+    page: int = 1,
+    size: int = 20,
+) -> PaginatedEventsResponse:
+    """Лента событий чата.
+
+    Админ видит всё, участник — то же, но без текстов сообщений.
+    Посторонний не видит ничего: ответ такой же, как для несуществующего
+    чата, иначе по кодам ответа можно перебирать чужие чаты.
+    """
+    if not await ChatRepository(session).get_or_none(chat_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chat not found",
+        )
+
+    admin = is_admin(current_user)
+    if not admin and not await is_member(session, chat_id, current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chat not found",
+        )
+
+    return await chat_events(session, chat_id, with_texts=admin, page=page, size=size)
+
+
+async def is_member(session: SessionDep, chat_id: str, user_id: str) -> bool:
+    """Состоит ли пользователь в чате."""
+    found = await session.scalar(
+        sa.select(ChatMembership.id).where(
+            ChatMembership.chat_id == chat_id,
+            ChatMembership.user_id == user_id,
+        )
+    )
+    return found is not None
 
 
 @router.post("/{chat_id}/send-message", response_model=SendMessageResponse)

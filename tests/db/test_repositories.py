@@ -13,10 +13,7 @@ from vkt_bot.core.repositories.bot_settings import (
     BotSettingsRepository,
     CreateBotSettingsSchema,
 )
-from vkt_bot.core.repositories.log_entry import (
-    CreateLogEntrySchema,
-    LogEntryRepository,
-)
+from vkt_bot.core.repositories.event import EventRepository
 from vkt_bot.core.repositories.login_history import LoginHistoryRepository
 from vkt_bot.core.repositories.login_token import LoginTokenRepository
 from vkt_bot.core.repositories.role import CreateRoleSchema, RoleRepository
@@ -319,42 +316,51 @@ class TestLoginHistoryRepository:
         assert record.ip_address is None
 
 
-class TestLogEntryRepository:
-    """``LogEntryRepository``."""
+class TestEventRepository:
+    """``EventRepository``."""
 
-    async def test_create_with_json_details(self, session: AsyncSession) -> None:
-        from vkt_bot.core.models.log_entry import ActionType, ActorType, EntityType
+    async def test_reads_events(self, session: AsyncSession) -> None:
+        from vkt_bot.core.models.event import (
+            ActorType,
+            EntityType,
+            EventRecord,
+            EventSource,
+        )
 
-        entry = await LogEntryRepository(session).create(
-            CreateLogEntrySchema(
-                actor_type=ActorType.WEB_USER,
+        session.add(
+            EventRecord(
+                type="role.created",
+                source=EventSource.PANEL,
+                actor_type=ActorType.USER,
                 actor_id="admin@example.com",
-                action_type=ActionType.CREATE,
                 entity_type=EntityType.ROLE,
                 entity_id="role-1",
-                description="Создана роль",
-                details={"name": "devs", "nested": {"a": 1}},
-            ),
-            commit=True,
+                summary="Создана роль devs",
+                payload={"role": "devs", "nested": {"a": 1}},
+            )
         )
+        await session.commit()
 
-        assert entry.details == {"name": "devs", "nested": {"a": 1}}
-        assert entry.timestamp is not None
+        (entry,) = await EventRepository(session).list()
 
-    async def test_details_can_be_none(self, session: AsyncSession) -> None:
-        from vkt_bot.core.models.log_entry import ActionType, ActorType, EntityType
+        assert entry.payload == {"role": "devs", "nested": {"a": 1}}
+        assert entry.ts is not None
 
-        entry = await LogEntryRepository(session).create(
-            CreateLogEntrySchema(
-                actor_type=ActorType.SYSTEM,
-                actor_id=None,
-                action_type=ActionType.UPDATE,
-                entity_type=EntityType.CHAT,
-                entity_id="chat-1",
-            ),
-            commit=True,
+    async def test_payload_can_be_none(self, session: AsyncSession) -> None:
+        from vkt_bot.core.models.event import ActorType, EventRecord, EventSource
+
+        session.add(
+            EventRecord(
+                type="bot.started",
+                source=EventSource.BOT,
+                actor_type=ActorType.BOT,
+                summary="Бот запущен",
+            )
         )
-        assert entry.details is None
+        await session.commit()
+
+        (entry,) = await EventRepository(session).list()
+        assert entry.payload is None
 
 
 class TestWebhookRepository:

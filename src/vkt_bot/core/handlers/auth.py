@@ -6,8 +6,8 @@ from vkteams_client import VKTeams
 from vkteams_client.types import NewMessageEvent
 from vkt_bot.app import dispatcher
 from vkt_bot.config import settings
-from vkt_bot.core.audit import AuditLogger
-from vkt_bot.core.models.log_entry import EntityType
+from vkt_bot.core.events import Actor, EventType, emit
+from vkt_bot.core.models.event import EntityType
 from vkt_bot.core.repositories.login_token import LoginTokenRepository
 from vkt_bot.core.repositories.user import ChatUserRepository
 from vkt_bot.core.security import is_owner
@@ -38,10 +38,12 @@ class LoginHandler(CommandHandler):
             # чтобы права не зависели от текущего значения OWNER_ID.
             if is_owner(user_id) and not user.is_superuser:
                 await user_repo.grant_superuser(user)
-                await AuditLogger(session).log_update(
-                    EntityType.CHAT_USER,
-                    user_id,
-                    description="Владелец получил права суперпользователя при входе",
+                await emit(
+                    session,
+                    EventType.AUTH_SUPERUSER_GRANTED,
+                    actor=Actor.from_event(event),
+                    entity=(EntityType.CHAT_USER, user_id),
+                    summary=("Владелец получил права администратора при входе"),
                 )
                 logger.info("auth.superuser_granted", user_id=user_id)
 

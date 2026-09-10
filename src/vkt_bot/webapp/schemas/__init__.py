@@ -2,7 +2,7 @@ from .auth import Token, TokenLoginRequest
 from .bot_settings import BotSettingsResponse, UpdateBotSettingsRequest
 from .chat import ChatResponse
 from .chat_user import ChatUserResponse
-from .log_entry import LogEntryResponse
+from .event import EventResponse
 from .role import RoleCreate, RoleResponse, RoleUpdate
 from .user import UserResponse
 from .webhook import (
@@ -27,7 +27,7 @@ __all__ = (
     "UserResponse",
     "BotSettingsResponse",
     "UpdateBotSettingsRequest",
-    "LogEntryResponse",
+    "EventResponse",
     "WebhookCreateSchema",
     "WebhookUpdateSchema",
     "WebhookSendRequest",

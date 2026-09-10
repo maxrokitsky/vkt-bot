@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING
 
 
 from vkt_bot.core.models import Role, RoleAssignment
-from vkt_bot.core.models.log_entry import ActionType, ActorType, EntityType
-from vkt_bot.core.repositories.log_entry import LogEntryRepository
+from vkt_bot.core.models.event import ActorType, EntityType, EventSource
+from vkt_bot.core.repositories.event import EventRepository
 from vkt_bot.core.repositories.role import RoleRepository
 
 from tests.conftest import auth_headers, table_count
@@ -100,17 +100,19 @@ class TestCreateRole:
     async def test_creation_is_audited(
         self, client: httpx.AsyncClient, session: AsyncSession, superuser: ChatUser
     ) -> None:
-        """Роутер обязан звать AuditLogger аргументом, который тот принимает."""
+        """Создание роли попадает в журнал событий."""
         response = await client.post(
             "/api/roles", json={"name": "devs"}, headers=auth_headers(superuser.id)
         )
 
         assert response.status_code == 201
-        entry = (await LogEntryRepository(session).list())[0]
-        assert entry.action_type is ActionType.CREATE
-        assert entry.entity_type is EntityType.ROLE
-        assert entry.actor_type is ActorType.WEB_USER
+        entry = (await EventRepository(session).list())[0]
+        assert entry.type == "role.created"
+        assert entry.entity_type == EntityType.ROLE
+        assert entry.actor_type is ActorType.USER
+        assert entry.source is EventSource.PANEL
         assert entry.actor_id == superuser.id
+        assert entry.summary == f"{superuser.display_name} создал роль devs"
         # Запись должна указывать на созданную роль, а не на "None".
         assert entry.entity_id == response.json()["id"]
 
@@ -192,9 +194,10 @@ class TestUpdateRole:
             headers=auth_headers(superuser.id),
         )
 
-        entry = (await LogEntryRepository(session).list())[0]
-        assert entry.action_type is ActionType.UPDATE
+        entry = (await EventRepository(session).list())[0]
+        assert entry.type == "role.updated"
         assert entry.actor_id == superuser.id
+        assert entry.payload["old_name"] == "devs"
 
     async def test_name_none_is_a_noop(
         self, client: httpx.AsyncClient, session: AsyncSession, superuser: ChatUser
@@ -278,8 +281,8 @@ class TestDeleteRole:
 
         await client.delete(f"/api/roles/{role.id}", headers=auth_headers(superuser.id))
 
-        entry = (await LogEntryRepository(session).list())[0]
-        assert entry.action_type is ActionType.DELETE
+        entry = (await EventRepository(session).list())[0]
+        assert entry.type == "role.deleted"
         assert entry.actor_id == superuser.id
 
     async def test_unknown_role(
@@ -447,12 +450,13 @@ class TestAddRoleMember:
             headers=auth_headers(superuser.id),
         )
 
-        entries = await LogEntryRepository(session).list()
-        assert [entry.action_type for entry in entries] == [ActionType.ASSIGN]
+        entries = await EventRepository(session).list()
+        assert [entry.type for entry in entries] == ["role.assigned"]
         entry = entries[0]
-        assert entry.entity_type is EntityType.ROLE_ASSIGNMENT
-        assert entry.actor_type is ActorType.WEB_USER
-        assert entry.details["role_name"] == "devs"
+        assert entry.entity_type == EntityType.ROLE_ASSIGNMENT
+        assert entry.actor_type is ActorType.USER
+        assert entry.payload["role"] == "devs"
+        assert entry.payload["target_id"] == member.id
         # id назначения известен только после flush — иначе в журнале "None".
         assert entry.entity_id != "None"
 
@@ -543,8 +547,8 @@ class TestRemoveRoleMember:
             headers=auth_headers(superuser.id),
         )
 
-        entries = await LogEntryRepository(session).list()
-        assert [entry.action_type for entry in entries] == [ActionType.UNASSIGN]
+        entries = await EventRepository(session).list()
+        assert [entry.type for entry in entries] == ["role.unassigned"]
 
     async def test_member_without_role(
         self, client: httpx.AsyncClient, session: AsyncSession, superuser: ChatUser

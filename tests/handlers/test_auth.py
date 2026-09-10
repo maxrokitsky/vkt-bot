@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING
 import pytest
 
 from vkt_bot.core.handlers.auth import LoginHandler
-from vkt_bot.core.models import ChatUser, LogEntry, LoginToken
-from vkt_bot.core.repositories.log_entry import LogEntryRepository
+from vkt_bot.core.models import ChatUser, EventRecord, LoginToken
+from vkt_bot.core.repositories.event import EventRepository
 from vkt_bot.core.repositories.login_token import LoginTokenRepository
 from vkt_bot.core.repositories.user import ChatUserRepository
 
@@ -244,9 +244,9 @@ class TestOwnerPromotion:
     ) -> None:
         await LoginHandler.handle(owner_login(owner_id), dispatcher)
 
-        entries = await LogEntryRepository(session).list()
-        assert [(e.entity_id, e.action_type.value) for e in entries] == [
-            (owner_id, "update")
+        entries = await EventRepository(session).list()
+        assert [(e.entity_id, e.type) for e in entries] == [
+            (owner_id, "auth.superuser_granted")
         ]
 
     async def test_repeated_login_does_not_re_audit(
@@ -261,7 +261,7 @@ class TestOwnerPromotion:
         await LoginHandler.handle(event, dispatcher)
         await LoginHandler.handle(event, dispatcher)
 
-        assert await table_count(session, LogEntry) == 1
+        assert await table_count(session, EventRecord) == 1
 
     async def test_no_audit_when_already_superuser(
         self,
@@ -274,7 +274,7 @@ class TestOwnerPromotion:
 
         await LoginHandler.handle(owner_login(owner_id), dispatcher)
 
-        assert await table_count(session, LogEntry) == 0
+        assert await table_count(session, EventRecord) == 0
 
     async def test_logs_promotion(
         self,

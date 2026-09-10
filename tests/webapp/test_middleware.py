@@ -59,8 +59,9 @@ class TestRequestLog:
     async def test_failed_request_is_logged_too(
         self, client: httpx.AsyncClient, caplog: pytest.LogCaptureFixture
     ) -> None:
+        """Ответ без авторизации тоже попадает в лог."""
         with caplog.at_level("INFO", logger="vkt_bot.webapp.http"):
-            await client.get("/api/logs")
+            await client.get("/api/events")
 
         (record,) = [r for r in caplog.records if r.name == "vkt_bot.webapp.http"]
         assert "status=403" in record.getMessage()
@@ -73,7 +74,7 @@ class TestRequestLog:
     ) -> None:
         """``user_id`` привязывается зависимостью и доживает до строки ответа."""
         with caplog.at_level("INFO", logger="vkt_bot.webapp.http"):
-            await client.get("/api/logs", headers=auth_headers(superuser.id))
+            await client.get("/api/events", headers=auth_headers(superuser.id))
 
         (record,) = [r for r in caplog.records if r.name == "vkt_bot.webapp.http"]
         assert superuser.id in record.getMessage()

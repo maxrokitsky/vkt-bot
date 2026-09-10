@@ -12,7 +12,7 @@ from .api import (
     roles,
     chat_users,
     bot_settings,
-    logs,
+    events,
     overview,
     webhooks,
 )
@@ -39,7 +39,7 @@ def create_app(*args, **kwargs) -> FastAPI:  # noqa: ARG001
     app.include_router(roles.router)
     app.include_router(chat_users.router)
     app.include_router(bot_settings.router)
-    app.include_router(logs.router)
+    app.include_router(events.router)
     app.include_router(overview.router)
     app.include_router(webhooks.router)
     app.include_router(webhooks.public_router)

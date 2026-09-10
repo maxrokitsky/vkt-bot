@@ -43,9 +43,14 @@ class QueryResult[T: Model]:
         statement = self.statement
 
         page = max(page, 1)
+        # Считать надо по тому же запросу с фильтрами: ``statement.froms[0]``
+        # — это просто таблица, и total получался «сколько всего строк»,
+        # а не «сколько нашлось». Сортировка в подзапросе не нужна.
         total = (
             await self.session.scalar(
-                sa.select(sa.func.count()).select_from(statement.froms[0])
+                sa.select(sa.func.count()).select_from(
+                    statement.order_by(None).subquery()
+                )
             )
             or 0
         )
