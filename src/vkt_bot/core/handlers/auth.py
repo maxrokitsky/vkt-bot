@@ -1,12 +1,13 @@
-import logging
 from typing import ClassVar
+
+import structlog
 
 from vkteams_client import VKTeams
 from vkteams_client.types import NewMessageEvent
 from vkt_bot.app import dispatcher
 from vkt_bot.config import settings
-from vkt_bot.core.audit import AuditLogger
-from vkt_bot.core.models.log_entry import EntityType
+from vkt_bot.core.events import Actor, EventType, emit
+from vkt_bot.core.models.event import EntityType, EventSource
 from vkt_bot.core.repositories.login_token import LoginTokenRepository
 from vkt_bot.core.repositories.user import ChatUserRepository
 from vkt_bot.core.security import is_owner
@@ -14,7 +15,7 @@ from vkt_bot.db.session import async_session
 from vkt_bot.utils.message import mention
 from vkt_dispatcher.handlers import CommandHandler
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger("vkt_bot.handlers.auth")
 
 
 @dispatcher.register_handler
@@ -37,20 +38,31 @@ class LoginHandler(CommandHandler):
             # чтобы права не зависели от текущего значения OWNER_ID.
             if is_owner(user_id) and not user.is_superuser:
                 await user_repo.grant_superuser(user)
-                await AuditLogger(session).log_update(
-                    EntityType.CHAT_USER,
-                    user_id,
-                    description="Владелец получил права суперпользователя при входе",
+                await emit(
+                    session,
+                    EventType.AUTH_SUPERUSER_GRANTED,
+                    actor=Actor.from_event(event),
+                    entity=(EntityType.CHAT_USER, user_id),
+                    summary=("Владелец получил права администратора при входе"),
                 )
-                logger.info("Granted superuser to owner %s", user_id)
+                logger.info("auth.superuser_granted", user_id=user_id)
 
             login_token = await token_repo.create_token(user_id, expires_minutes=5)
+            await emit(
+                session,
+                EventType.AUTH_LOGIN_REQUESTED,
+                actor=Actor.from_event(event),
+                source=EventSource.COMMAND,
+                chat_id=event.payload.chat.chatId,
+                entity=(EntityType.CHAT_USER, user_id),
+            )
             await session.commit()
+            # В лог идёт id строки, а не сам токен: одноразовый он или
+            # нет, в журнале ему не место.
             logger.info(
-                "Created login token for user %s: %s... (id=%s)",
-                user_id,
-                login_token.token[:10],
-                login_token.id,
+                "auth.login_token_created",
+                user_id=user_id,
+                login_token_id=str(login_token.id),
             )
 
         if settings.public_url:

@@ -1,3 +1,3 @@
-import logging
+import structlog
 
-main_logger = logging.getLogger("vkt_dispatcher")
+main_logger = structlog.get_logger("vkt_dispatcher")

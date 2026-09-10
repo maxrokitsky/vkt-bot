@@ -1,12 +1,15 @@
 import asyncio
 import contextlib
 import inspect
+import time
 from collections.abc import AsyncGenerator, Callable, Coroutine, Generator
 from typing import Any, ClassVar
 
 import aiohttp
+import structlog
 
 from .handlers import HandlerBase
+from .log_context import event_context
 from .middleware import Middleware
 
 from vkteams_client.client import VKTeams
@@ -46,7 +49,10 @@ class Dispatcher:
         try:
             self.info = await self.bot.get_self()
             self.inited = True
-            main_logger.info("Бот запущен под именем %s", self.info.nick)
+            main_logger.info("bot.started", nick=self.info.nick)
+            # Приложение превратит это в запись журнала: перезапуски бота
+            # видно в панели, а не только в логах.
+            await self.bot.notify("bot.started", nick=self.info.nick)
             await self.start_polling()
         finally:
             await self.bot.close()
@@ -69,43 +75,69 @@ class Dispatcher:
                 delay = self.RETRY_DELAYS[min(failures, len(self.RETRY_DELAYS) - 1)]
                 failures += 1
                 main_logger.warning(
-                    "Опрос событий не удался (попытка %s). Повтор через %s с.",
-                    failures,
-                    delay,
+                    "bot.polling_failed",
+                    attempt=failures,
+                    retry_in=delay,
                     exc_info=True,
                 )
+                # Единичный обрыв long-poll — обычное дело, поэтому в
+                # журнал уходит только затяжной сбой.
+                if failures == len(self.RETRY_DELAYS):
+                    await self.bot.notify(
+                        "bot.polling_failed", attempt=failures, retry_in=delay
+                    )
                 await asyncio.sleep(delay)
                 continue
 
+            if failures:
+                main_logger.info("bot.polling_recovered", after_attempts=failures)
             failures = 0
             for event in response.events:
                 await self.trigger(event)
                 self.last_event_id = max(self.last_event_id, event.eventId)
 
     async def trigger(self, event: Event) -> None:
-        """Вызывает хэндлеры для события."""
-        async with (
-            self.apply_middlewares(event, [mw.on_event for mw in self.middlewares]),
-            asyncio.TaskGroup() as tg,
-        ):
-            for handler in (
-                h for h in self.handlers if h.check(event=event, dispatcher=self)
+        """Вызывает хэндлеры для события.
+
+        Контекст логирования привязывается здесь, а не отдельным middleware:
+        порядок middleware определяется порядком импортов, и первая же
+        строка лога рискует остаться без контекста. Привязка обязана быть
+        до ``create_task`` — задача получает **копию** контекста в момент
+        создания, поэтому поля, привязанные позже, до хэндлеров не дойдут.
+        """
+        with structlog.contextvars.bound_contextvars(**event_context(event)):
+            main_logger.debug("event.received")
+            async with (
+                self.apply_middlewares(event, [mw.on_event for mw in self.middlewares]),
+                asyncio.TaskGroup() as tg,
             ):
-                tg.create_task(self.run_handler(handler, event))
+                for handler in (
+                    h for h in self.handlers if h.check(event=event, dispatcher=self)
+                ):
+                    tg.create_task(self.run_handler(handler, event))
 
     async def run_handler(self, handler: HandlerBase, event: Event) -> None:
-        try:
-            async with self.apply_middlewares(
-                event, [mw.on_callback for mw in self.middlewares]
-            ):
-                if inspect.iscoroutinefunction(handler.handle):
-                    await handler.handle(event, self)
-                else:
-                    await asyncio.to_thread(
-                        self.wrap_handler(handler.handle, event, self)
-                    )
-        except Exception:
-            main_logger.exception("Ошибка при обработке хэндлера")
+        # Своя задача — своя копия контекста, поэтому имя хэндлера здесь
+        # не перетирается соседними хэндлерами того же события.
+        with structlog.contextvars.bound_contextvars(handler=type(handler).__name__):
+            started = time.perf_counter()
+            try:
+                async with self.apply_middlewares(
+                    event, [mw.on_callback for mw in self.middlewares]
+                ):
+                    if inspect.iscoroutinefunction(handler.handle):
+                        await handler.handle(event, self)
+                    else:
+                        await asyncio.to_thread(
+                            self.wrap_handler(handler.handle, event, self)
+                        )
+            except Exception:
+                main_logger.exception("handler.failed")
+            else:
+                main_logger.debug(
+                    "handler.finished",
+                    duration_ms=round((time.perf_counter() - started) * 1000, 1),
+                )
 
     @contextlib.asynccontextmanager
     async def apply_middlewares(
@@ -153,7 +185,7 @@ class Dispatcher:
             try:
                 return func(*args, **kwargs)
             except Exception:
-                main_logger.exception("Ошибка при обработке хэндлера")
+                main_logger.exception("handler.failed")
 
         return wrapper
 

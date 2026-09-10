@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from vkt_bot.core.models import ChatMembership, LogEntry, RoleAssignment
-from vkt_bot.core.repositories.log_entry import LogEntryRepository
+from vkt_bot.core.models import ChatMembership, EventRecord, RoleAssignment
+from vkt_bot.core.repositories.event import EventRepository
 from vkt_bot.core.repositories.user import ChatUserRepository
 
 from tests.conftest import auth_headers, table_count
@@ -264,7 +264,7 @@ class TestUpdateChatUser:
             headers=auth_headers(owner.id),
         )
 
-        assert await table_count(session, LogEntry) == 1
+        assert await table_count(session, EventRecord) == 1
 
     async def test_same_value_is_a_noop(
         self,
@@ -280,7 +280,7 @@ class TestUpdateChatUser:
         )
 
         assert response.status_code == 200
-        assert await table_count(session, LogEntry) == 0
+        assert await table_count(session, EventRecord) == 0
 
     async def test_owner_cannot_be_modified(
         self, client: httpx.AsyncClient, owner: ChatUser
@@ -373,11 +373,12 @@ class TestAssignRole:
             f"/api/chat-users/{user.id}/roles/{role.id}",
             headers=auth_headers(superuser.id),
         )
-        assert await table_count(session, LogEntry) == 1
-        entry = (await LogEntryRepository(session).list())[0]
+        assert await table_count(session, EventRecord) == 1
+        entry = (await EventRepository(session).list())[0]
+        assert entry.type == "role.assigned"
         # id назначения известен только после flush — иначе в журнале "None".
         assert entry.entity_id != "None"
-        assert entry.details["role_name"] == "devs"
+        assert entry.payload["role"] == "devs"
 
     async def test_duplicate_assignment_is_rejected(
         self,
@@ -494,7 +495,7 @@ class TestRemoveRole:
             headers=auth_headers(superuser.id),
         )
 
-        assert await table_count(session, LogEntry) == 1
+        assert await table_count(session, EventRecord) == 1
 
     async def test_missing_assignment(
         self, client: httpx.AsyncClient, session: AsyncSession, superuser: ChatUser

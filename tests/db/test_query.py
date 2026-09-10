@@ -8,18 +8,24 @@ from typing import TYPE_CHECKING, Any
 import pytest
 import sqlalchemy as sa
 
-from vkt_bot.core.models.log_entry import ActionType, ActorType, EntityType, LogEntry
+from vkt_bot.core.models.event import (
+    ActorType,
+    EntityType,
+    EventRecord,
+    EventSource,
+)
 from vkt_bot.core.models.role import Role
 from vkt_bot.core.queries.chat import ChatByIdQuery
-from vkt_bot.core.queries.log_entry import (
-    FilterByActionType,
+from vkt_bot.core.queries.event import (
     FilterByActorId,
-    FilterByActorType,
+    FilterByChatId,
     FilterByDateRange,
-    FilterByEntityId,
-    FilterByEntityType,
-    OrderByTimestamp,
-    SearchByDescription,
+    FilterByEntity,
+    FilterBySource,
+    FilterByType,
+    OrderByTs,
+    SearchBySummary,
+    VisibleToUser,
 )
 from vkt_bot.core.queries.roles import (
     RoleAssignmentByUserAndRoleQuery,
@@ -27,8 +33,8 @@ from vkt_bot.core.queries.roles import (
     RoleByUserQuery,
 )
 from vkt_bot.core.queries.user import ChatUserHasRoleQuery
-from vkt_bot.core.repositories.chat import ChatRepository
-from vkt_bot.core.repositories.log_entry import LogEntryRepository
+from vkt_bot.core.repositories.chat import ChatMembershipRepository, ChatRepository
+from vkt_bot.core.repositories.event import EventRepository
 from vkt_bot.core.repositories.role import RoleAssignmentRepository, RoleRepository
 from vkt_bot.core.repositories.user import ChatUserRepository
 from vkt_bot.db.exceptions import NotFoundError
@@ -199,18 +205,18 @@ class TestPagination:
     """``QueryResult.paginate``."""
 
     @pytest.fixture
-    async def log_entries(self, session: AsyncSession) -> list[LogEntry]:
+    async def log_entries(self, session: AsyncSession) -> list[EventRecord]:
         entries = []
         base = datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC)
         for i in range(7):
-            entry = LogEntry(
-                timestamp=base + datetime.timedelta(hours=i),
+            entry = EventRecord(
+                ts=base + datetime.timedelta(hours=i),
+                type="role.created",
+                source=EventSource.PANEL,
                 actor_type=ActorType.SYSTEM,
-                actor_id=None,
-                action_type=ActionType.CREATE,
                 entity_type=EntityType.ROLE,
                 entity_id=f"role-{i}",
-                description=f"Создана роль {i}",
+                summary=f"Создана роль {i}",
             )
             session.add(entry)
             entries.append(entry)
@@ -218,9 +224,9 @@ class TestPagination:
         return entries
 
     async def test_first_page(
-        self, session: AsyncSession, log_entries: list[LogEntry]
+        self, session: AsyncSession, log_entries: list[EventRecord]
     ) -> None:
-        page = await LogEntryRepository(session).query().paginate(page=1, size=3)
+        page = await EventRepository(session).query().paginate(page=1, size=3)
 
         assert isinstance(page, Page)
         assert page.total == len(log_entries)
@@ -228,99 +234,97 @@ class TestPagination:
         assert len(page.results) == 3
 
     async def test_second_page(
-        self, session: AsyncSession, log_entries: list[LogEntry]
+        self, session: AsyncSession, log_entries: list[EventRecord]
     ) -> None:
-        page = await LogEntryRepository(session).query().paginate(page=3, size=3)
+        page = await EventRepository(session).query().paginate(page=3, size=3)
         assert len(page.results) == 1
 
     async def test_page_below_one_is_clamped(
-        self, session: AsyncSession, log_entries: list[LogEntry]
+        self, session: AsyncSession, log_entries: list[EventRecord]
     ) -> None:
-        page = await LogEntryRepository(session).query().paginate(page=0, size=3)
+        page = await EventRepository(session).query().paginate(page=0, size=3)
         assert page.page == 1
 
     async def test_page_above_max_is_clamped(
-        self, session: AsyncSession, log_entries: list[LogEntry]
+        self, session: AsyncSession, log_entries: list[EventRecord]
     ) -> None:
-        page = await LogEntryRepository(session).query().paginate(page=99, size=3)
+        page = await EventRepository(session).query().paginate(page=99, size=3)
         assert page.page == 3
         assert len(page.results) == 1
 
     async def test_empty_table_gives_page_one(self, session: AsyncSession) -> None:
-        page = await LogEntryRepository(session).query().paginate(page=5, size=10)
+        page = await EventRepository(session).query().paginate(page=5, size=10)
         assert (page.total, page.page, page.results) == (0, 1, [])
 
     async def test_ordering_is_applied(
-        self, session: AsyncSession, log_entries: list[LogEntry]
+        self, session: AsyncSession, log_entries: list[EventRecord]
     ) -> None:
         page = (
-            await LogEntryRepository(session)
-            .query(OrderByTimestamp(descending=True))
+            await EventRepository(session)
+            .query(OrderByTs(descending=True))
             .paginate(page=1, size=2)
         )
         assert [e.entity_id for e in page.results] == ["role-6", "role-5"]
 
     async def test_ascending_ordering(
-        self, session: AsyncSession, log_entries: list[LogEntry]
+        self, session: AsyncSession, log_entries: list[EventRecord]
     ) -> None:
         page = (
-            await LogEntryRepository(session)
-            .query(OrderByTimestamp(descending=False))
+            await EventRepository(session)
+            .query(OrderByTs(descending=False))
             .paginate(page=1, size=2)
         )
         assert [e.entity_id for e in page.results] == ["role-0", "role-1"]
 
-    async def test_total_ignores_filters(
-        self, session: AsyncSession, log_entries: list[LogEntry]
+    async def test_total_counts_only_matching_rows(
+        self,
+        session: AsyncSession,
+        log_entries: list[EventRecord],  # noqa: ARG002
     ) -> None:
-        """Известное поведение: ``total`` считается по таблице, не по фильтру.
-
-        ``paginate`` берёт ``statement.froms[0]``, поэтому ``where`` в подсчёт
-        не попадает — итог расходится с реальным числом строк.
-        """
+        """``total`` считается по тому же запросу, что и страница."""
         page = (
-            await LogEntryRepository(session)
-            .query(FilterByEntityId(entity_id="role-1"))
+            await EventRepository(session)
+            .query(FilterByEntity(entity_id="role-1"))
             .paginate(page=1, size=10)
         )
         assert len(page.results) == 1
-        assert page.total == len(log_entries)
+        assert page.total == 1
 
 
-class TestLogEntryQueries:
-    """Фильтры логов."""
+class TestEventQueries:
+    """Фильтры журнала событий."""
 
     @pytest.fixture
     async def entries(self, session: AsyncSession) -> None:
         rows = [
-            LogEntry(
-                timestamp=datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC),
-                actor_type=ActorType.WEB_USER,
+            EventRecord(
+                ts=datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC),
+                type="role.created",
+                source=EventSource.PANEL,
+                actor_type=ActorType.USER,
                 actor_id="admin@example.com",
-                action_type=ActionType.CREATE,
+                chat_id="chat-1",
                 entity_type=EntityType.ROLE,
                 entity_id="role-1",
-                description="Создана роль devs",
+                summary="Создана роль devs",
             ),
-            LogEntry(
-                timestamp=datetime.datetime(2026, 2, 1, tzinfo=datetime.UTC),
+            EventRecord(
+                ts=datetime.datetime(2026, 2, 1, tzinfo=datetime.UTC),
+                type="chat_user.deleted",
+                source=EventSource.SYSTEM,
                 actor_type=ActorType.SYSTEM,
-                actor_id=None,
-                action_type=ActionType.DELETE,
                 entity_type=EntityType.CHAT_USER,
                 entity_id="user-1",
-                description="Удалён пользователь",
+                summary="Удалён пользователь",
             ),
         ]
         session.add_all(rows)
         await session.commit()
 
-    async def test_filter_by_actor_type(
-        self, session: AsyncSession, entries: None
-    ) -> None:
+    async def test_filter_by_source(self, session: AsyncSession, entries: None) -> None:
         result = (
-            await LogEntryRepository(session)
-            .query(FilterByActorType(actor_type=ActorType.SYSTEM))
+            await EventRepository(session)
+            .query(FilterBySource(source=EventSource.SYSTEM))
             .list()
         )
         assert [e.entity_id for e in result] == ["user-1"]
@@ -329,51 +333,93 @@ class TestLogEntryQueries:
         self, session: AsyncSession, entries: None
     ) -> None:
         result = (
-            await LogEntryRepository(session)
+            await EventRepository(session)
             .query(FilterByActorId(actor_id="admin@example.com"))
             .list()
         )
         assert [e.entity_id for e in result] == ["role-1"]
 
-    async def test_filter_by_action_type(
-        self, session: AsyncSession, entries: None
-    ) -> None:
+    async def test_filter_by_type(self, session: AsyncSession, entries: None) -> None:
         result = (
-            await LogEntryRepository(session)
-            .query(FilterByActionType(action_type=ActionType.DELETE))
+            await EventRepository(session)
+            .query(FilterByType(type="chat_user.deleted"))
             .list()
         )
         assert [e.entity_id for e in result] == ["user-1"]
+
+    async def test_filter_by_type_prefix(
+        self, session: AsyncSession, entries: None
+    ) -> None:
+        """``role.*`` отбирает домен целиком."""
+        result = (
+            await EventRepository(session).query(FilterByType(type="role.*")).list()
+        )
+        assert [e.entity_id for e in result] == ["role-1"]
+
+    async def test_filter_by_chat(self, session: AsyncSession, entries: None) -> None:
+        result = (
+            await EventRepository(session)
+            .query(FilterByChatId(chat_id="chat-1"))
+            .list()
+        )
+        assert [e.entity_id for e in result] == ["role-1"]
 
     async def test_filter_by_entity_type(
         self, session: AsyncSession, entries: None
     ) -> None:
         result = (
-            await LogEntryRepository(session)
-            .query(FilterByEntityType(entity_type=EntityType.ROLE))
+            await EventRepository(session)
+            .query(FilterByEntity(entity_type=EntityType.ROLE))
             .list()
         )
         assert [e.entity_id for e in result] == ["role-1"]
 
-    async def test_search_by_description_matches_substring(
+    async def test_visible_to_user_needs_membership(
+        self, session: AsyncSession, entries: None
+    ) -> None:
+        """Обычный пользователь видит только события своих чатов."""
+        user = await create_chat_user(session, "member@example.com")
+        await create_chat(session, "chat-1")
+        await ChatMembershipRepository(session).add("chat-1", user.id)
+        await session.commit()
+
+        result = (
+            await EventRepository(session).query(VisibleToUser(user_id=user.id)).list()
+        )
+        assert [e.entity_id for e in result] == ["role-1"]
+
+    async def test_visible_to_user_hides_events_without_a_chat(
+        self, session: AsyncSession, entries: None
+    ) -> None:
+        stranger = await create_chat_user(session, "stranger@example.com")
+        await session.commit()
+
+        result = (
+            await EventRepository(session)
+            .query(VisibleToUser(user_id=stranger.id))
+            .list()
+        )
+        assert list(result) == []
+
+    async def test_search_by_summary_matches_substring(
         self, session: AsyncSession, entries: None
     ) -> None:
         result = (
-            await LogEntryRepository(session)
-            .query(SearchByDescription(search_query="роль devs"))
+            await EventRepository(session)
+            .query(SearchBySummary(search_query="роль devs"))
             .list()
         )
         assert [e.entity_id for e in result] == ["role-1"]
 
-    async def test_search_by_description_is_case_insensitive(
+    async def test_search_by_summary_is_case_insensitive(
         self, session: AsyncSession, entries: None, is_postgres: bool
     ) -> None:
         """``ilike`` игнорирует регистр; для кириллицы это требует PostgreSQL."""
         if not is_postgres:
             pytest.skip("SQLite не приводит регистр кириллицы в LIKE")
         result = (
-            await LogEntryRepository(session)
-            .query(SearchByDescription(search_query="СОЗДАНА РОЛЬ"))
+            await EventRepository(session)
+            .query(SearchBySummary(search_query="СОЗДАНА РОЛЬ"))
             .list()
         )
         assert [e.entity_id for e in result] == ["role-1"]
@@ -382,7 +428,7 @@ class TestLogEntryQueries:
         self, session: AsyncSession, entries: None
     ) -> None:
         result = (
-            await LogEntryRepository(session)
+            await EventRepository(session)
             .query(
                 FilterByDateRange(
                     start_date=datetime.datetime(2026, 1, 15, tzinfo=datetime.UTC)
@@ -396,7 +442,7 @@ class TestLogEntryQueries:
         self, session: AsyncSession, entries: None
     ) -> None:
         result = (
-            await LogEntryRepository(session)
+            await EventRepository(session)
             .query(
                 FilterByDateRange(
                     end_date=datetime.datetime(2026, 1, 15, tzinfo=datetime.UTC)
@@ -409,16 +455,16 @@ class TestLogEntryQueries:
     async def test_empty_date_range_matches_everything(
         self, session: AsyncSession, entries: None
     ) -> None:
-        result = await LogEntryRepository(session).query(FilterByDateRange()).list()
+        result = await EventRepository(session).query(FilterByDateRange()).list()
         assert len(result) == 2
 
     async def test_combined_filters(self, session: AsyncSession, entries: None) -> None:
         result = (
-            await LogEntryRepository(session)
+            await EventRepository(session)
             .query(
-                FilterByActorType(actor_type=ActorType.WEB_USER),
-                FilterByEntityType(entity_type=EntityType.ROLE),
-                OrderByTimestamp(),
+                FilterBySource(source=EventSource.PANEL),
+                FilterByEntity(entity_type=EntityType.ROLE),
+                OrderByTs(),
             )
             .list()
         )
@@ -428,10 +474,10 @@ class TestLogEntryQueries:
         self, session: AsyncSession, entries: None
     ) -> None:
         result = (
-            await LogEntryRepository(session)
+            await EventRepository(session)
             .query(
-                FilterByActorType(actor_type=ActorType.SYSTEM),
-                FilterByEntityType(entity_type=EntityType.ROLE),
+                FilterBySource(source=EventSource.SYSTEM),
+                FilterByEntity(entity_type=EntityType.ROLE),
             )
             .list()
         )

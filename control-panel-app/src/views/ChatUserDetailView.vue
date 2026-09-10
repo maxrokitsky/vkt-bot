@@ -8,7 +8,8 @@ import {
   assignRoleToUserApiChatUsersUserIdRolesRoleIdPostMutation,
   getChatUserApiChatUsersUserIdGetOptions,
   getChatUserApiChatUsersUserIdGetQueryKey,
-  listLogsApiLogsGetOptions,
+  listEventsApiEventsGetOptions,
+  listEventTypesApiEventsTypesGetOptions,
   listRolesApiRolesGetOptions,
   removeRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteMutation,
   updateChatUserApiChatUsersUserIdPatchMutation,
@@ -42,7 +43,7 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { ACTION_LABELS, ACTION_VARIANTS } from '@/lib/audit'
+import { SEVERITY_VARIANTS } from '@/lib/events'
 import { chatTypeLabel } from '@/lib/chats'
 import { formatRelative } from '@/lib/format'
 import { plural } from '@/lib/plural'
@@ -63,9 +64,7 @@ const {
 } = useConfirm<{ id: string; name: string }>()
 
 const { data: user, isPending } = useQuery(
-  computed(() =>
-    getChatUserApiChatUsersUserIdGetOptions({ path: { user_id: userId.value } }),
-  ),
+  computed(() => getChatUserApiChatUsersUserIdGetOptions({ path: { user_id: userId.value } })),
 )
 
 const { data: roles } = useQuery(
@@ -78,11 +77,16 @@ const { data: roles } = useQuery(
 /** Что этот участник делал в панели — журнал уже умеет фильтровать по актору. */
 const { data: history } = useQuery(
   computed(() => ({
-    ...listLogsApiLogsGetOptions({
+    ...listEventsApiEventsGetOptions({
       query: { page: 1, size: 5, actor_id: userId.value },
     }),
     enabled: isAdmin.value,
   })),
+)
+
+const { data: eventTypes } = useQuery(listEventTypesApiEventsTypesGetOptions())
+const eventTitles = computed(
+  () => new Map((eventTypes.value ?? []).map((item) => [item.type, item.title])),
 )
 
 const availableRoles = computed(() => {
@@ -272,7 +276,7 @@ function confirmRemoveRole() {
       <PageSection v-if="isAdmin" title="Последние действия">
         <template #actions>
           <Button variant="ghost" size="sm" as-child>
-            <RouterLink :to="{ path: '/logs', query: { actor_id: userId } }">
+            <RouterLink :to="{ path: '/events', query: { actor_id: userId } }">
               В журнале
             </RouterLink>
           </Button>
@@ -284,12 +288,12 @@ function confirmRemoveRole() {
             class="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-2.5 text-sm"
           >
             <span class="w-28 shrink-0 tabular-nums text-muted-foreground">
-              {{ formatRelative(entry.timestamp) }}
+              {{ formatRelative(entry.ts) }}
             </span>
-            <Badge :variant="ACTION_VARIANTS[entry.action_type]">
-              {{ ACTION_LABELS[entry.action_type] }}
+            <Badge :variant="SEVERITY_VARIANTS[entry.severity]">
+              {{ eventTitles.get(entry.type) ?? entry.type }}
             </Badge>
-            <span class="min-w-0 flex-1">{{ entry.description ?? entry.entity_id }}</span>
+            <span class="min-w-0 flex-1">{{ entry.summary }}</span>
           </li>
         </ul>
         <p v-else class="text-sm text-muted-foreground">Через панель ничего не менял.</p>
@@ -301,8 +305,8 @@ function confirmRemoveRole() {
         <AlertDialogHeader>
           <AlertDialogTitle>Снять роль «{{ roleToRemove?.name }}»?</AlertDialogTitle>
           <AlertDialogDescription>
-            Участник перестанет получать призывы по этой роли. Назначить её снова можно
-            в любой момент.
+            Участник перестанет получать призывы по этой роли. Назначить её снова можно в любой
+            момент.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

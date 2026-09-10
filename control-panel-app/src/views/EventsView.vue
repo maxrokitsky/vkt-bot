@@ -3,8 +3,11 @@ import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useQuery } from '@tanstack/vue-query'
 import { ScrollText, SlidersHorizontal, X } from 'lucide-vue-next'
-import type { ActionType, ActorType, EntityType, LogEntryResponse } from '@/client'
-import { listLogsApiLogsGetOptions } from '@/client/@tanstack/vue-query.gen'
+import type { EventResponse, EventSeverity, EventSource } from '@/client'
+import {
+  listEventsApiEventsGetOptions,
+  listEventTypesApiEventsTypesGetOptions,
+} from '@/client/@tanstack/vue-query.gen'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import DataToolbar from '@/components/data/DataToolbar.vue'
 import DataTableShell from '@/components/data/DataTableShell.vue'
@@ -33,11 +36,12 @@ import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/compon
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useListQuery } from '@/composables/useListQuery'
 import {
-  ACTION_LABELS,
-  ACTION_VARIANTS,
   ACTOR_LABELS,
-  ENTITY_LABELS,
-} from '@/lib/audit'
+  SEVERITY_LABELS,
+  SEVERITY_VARIANTS,
+  SOURCE_LABELS,
+  eventDomain,
+} from '@/lib/events'
 import { formatDateTime, formatRelative } from '@/lib/format'
 
 const ALL = 'all'
@@ -45,12 +49,27 @@ const ALL = 'all'
 const route = useRoute()
 const { page, pageSize, searchInput, search } = useListQuery({ size: 25 })
 
-const actorType = ref<ActorType | typeof ALL>(ALL)
-const actionType = ref<ActionType | typeof ALL>(ALL)
-const entityType = ref<EntityType | typeof ALL>(ALL)
+const source = ref<EventSource | typeof ALL>(ALL)
+const severity = ref<EventSeverity | typeof ALL>(ALL)
+const domain = ref<string>(ALL)
 const actorId = ref('')
-const entityId = ref('')
-const selected = ref<LogEntryResponse | null>(null)
+const chatId = ref('')
+const selected = ref<EventResponse | null>(null)
+
+/** Реестр типов приходит с бэкенда: подписи и фильтры не дублируются здесь. */
+const { data: types } = useQuery(listEventTypesApiEventsTypesGetOptions())
+
+const titles = computed(() => new Map((types.value ?? []).map((item) => [item.type, item.title])))
+
+/** Фильтр по домену (`role.*`), а не по каждому типу: типов десятки. */
+const domains = computed(() => {
+  const found = new Map<string, string>()
+  for (const item of types.value ?? []) {
+    const name = eventDomain(item.type)
+    if (!found.has(name)) found.set(name, name)
+  }
+  return [...found.keys()].sort()
+})
 
 /** Ссылка «в журнале» из карточки участника приходит с готовым фильтром. */
 watch(
@@ -61,12 +80,20 @@ watch(
   { immediate: true },
 )
 
+watch(
+  () => route.query.chat_id,
+  (value) => {
+    chatId.value = typeof value === 'string' ? value : ''
+  },
+  { immediate: true },
+)
+
 const filters = computed(() => ({
-  actor_type: actorType.value === ALL ? undefined : actorType.value,
-  action_type: actionType.value === ALL ? undefined : actionType.value,
-  entity_type: entityType.value === ALL ? undefined : entityType.value,
+  type: domain.value === ALL ? undefined : `${domain.value}.*`,
+  source: source.value === ALL ? undefined : source.value,
+  severity: severity.value === ALL ? undefined : severity.value,
   actor_id: actorId.value || undefined,
-  entity_id: entityId.value || undefined,
+  chat_id: chatId.value || undefined,
   search_query: search.value || undefined,
 }))
 
@@ -76,32 +103,36 @@ watch(filters, () => {
 
 const { data, isPending, isError, refetch } = useQuery(
   computed(() =>
-    listLogsApiLogsGetOptions({
+    listEventsApiEventsGetOptions({
       query: { page: page.value, size: pageSize.value, ...filters.value },
     }),
   ),
 )
 
+function eventTitle(type: string) {
+  return titles.value.get(type) ?? type
+}
+
 /** Активные фильтры показываем чипами: иначе непонятно, почему список короткий. */
 const chips = computed(() => {
   const items: { key: string; label: string; clear: () => void }[] = []
-  if (actorType.value !== ALL)
+  if (domain.value !== ALL)
     items.push({
-      key: 'actor_type',
-      label: `Источник: ${ACTOR_LABELS[actorType.value]}`,
-      clear: () => (actorType.value = ALL),
+      key: 'type',
+      label: `Раздел: ${domain.value}`,
+      clear: () => (domain.value = ALL),
     })
-  if (actionType.value !== ALL)
+  if (source.value !== ALL)
     items.push({
-      key: 'action_type',
-      label: `Действие: ${ACTION_LABELS[actionType.value]}`,
-      clear: () => (actionType.value = ALL),
+      key: 'source',
+      label: `Источник: ${SOURCE_LABELS[source.value]}`,
+      clear: () => (source.value = ALL),
     })
-  if (entityType.value !== ALL)
+  if (severity.value !== ALL)
     items.push({
-      key: 'entity_type',
-      label: `Объект: ${ENTITY_LABELS[entityType.value]}`,
-      clear: () => (entityType.value = ALL),
+      key: 'severity',
+      label: `Уровень: ${SEVERITY_LABELS[severity.value]}`,
+      clear: () => (severity.value = ALL),
     })
   if (actorId.value)
     items.push({
@@ -109,26 +140,26 @@ const chips = computed(() => {
       label: `Кто: ${actorId.value}`,
       clear: () => (actorId.value = ''),
     })
-  if (entityId.value)
+  if (chatId.value)
     items.push({
-      key: 'entity_id',
-      label: `Объект: ${entityId.value}`,
-      clear: () => (entityId.value = ''),
+      key: 'chat_id',
+      label: `Чат: ${chatId.value}`,
+      clear: () => (chatId.value = ''),
     })
   return items
 })
 
 function clearAll() {
-  actorType.value = ALL
-  actionType.value = ALL
-  entityType.value = ALL
+  domain.value = ALL
+  source.value = ALL
+  severity.value = ALL
   actorId.value = ''
-  entityId.value = ''
+  chatId.value = ''
   searchInput.value = ''
 }
 
-function prettyDetails(details: unknown) {
-  return JSON.stringify(details, null, 2)
+function prettyPayload(payload: unknown) {
+  return JSON.stringify(payload, null, 2)
 }
 </script>
 
@@ -136,42 +167,39 @@ function prettyDetails(details: unknown) {
   <div>
     <PageHeader />
 
-    <DataToolbar
-      v-model:search="searchInput"
-      placeholder="Поиск по описанию"
-    >
+    <DataToolbar v-model:search="searchInput" placeholder="Поиск по описанию">
       <template #filters>
-        <Select v-model="actorType">
+        <Select v-model="domain">
+          <SelectTrigger size="sm" class="w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem :value="ALL">Любой раздел</SelectItem>
+            <SelectItem v-for="name in domains" :key="name" :value="name">
+              {{ name }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select v-model="source">
           <SelectTrigger size="sm" class="w-44">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem :value="ALL">Любой источник</SelectItem>
-            <SelectItem v-for="(label, value) in ACTOR_LABELS" :key="value" :value="value">
+            <SelectItem v-for="(label, value) in SOURCE_LABELS" :key="value" :value="value">
               {{ label }}
             </SelectItem>
           </SelectContent>
         </Select>
 
-        <Select v-model="actionType">
+        <Select v-model="severity">
           <SelectTrigger size="sm" class="w-44">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem :value="ALL">Любое действие</SelectItem>
-            <SelectItem v-for="(label, value) in ACTION_LABELS" :key="value" :value="value">
-              {{ label }}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select v-model="entityType">
-          <SelectTrigger size="sm" class="w-44">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem :value="ALL">Любой объект</SelectItem>
-            <SelectItem v-for="(label, value) in ENTITY_LABELS" :key="value" :value="value">
+            <SelectItem :value="ALL">Любой уровень</SelectItem>
+            <SelectItem v-for="(label, value) in SEVERITY_LABELS" :key="value" :value="value">
               {{ label }}
             </SelectItem>
           </SelectContent>
@@ -190,8 +218,8 @@ function prettyDetails(details: unknown) {
               <Input id="actor-id" v-model="actorId" placeholder="user@example.com" />
             </div>
             <div class="space-y-1.5">
-              <Label for="entity-id">Объект (id)</Label>
-              <Input id="entity-id" v-model="entityId" placeholder="id роли, чата, участника" />
+              <Label for="chat-id">Чат (id)</Label>
+              <Input id="chat-id" v-model="chatId" placeholder="123456@chat.agent" />
             </div>
           </PopoverContent>
         </Popover>
@@ -221,11 +249,11 @@ function prettyDetails(details: unknown) {
       :columns="4"
       :rows="8"
       :empty-icon="ScrollText"
-      :empty-title="chips.length || search ? 'Под фильтры ничего не подошло' : 'Записей пока нет'"
+      :empty-title="chips.length || search ? 'Под фильтры ничего не подошло' : 'Событий пока нет'"
       :empty-description="
         chips.length || search
           ? 'Сбросьте часть фильтров или измените запрос.'
-          : 'Здесь появятся изменения, сделанные через панель и бота.'
+          : 'Здесь появится всё, что делают люди, бот и внешние системы.'
       "
       @retry="refetch()"
     >
@@ -233,7 +261,7 @@ function prettyDetails(details: unknown) {
         <TableHeader>
           <TableRow>
             <TableHead class="w-36">Когда</TableHead>
-            <TableHead class="w-32">Действие</TableHead>
+            <TableHead class="w-44">Событие</TableHead>
             <TableHead>Что произошло</TableHead>
             <TableHead class="w-44">Кто</TableHead>
           </TableRow>
@@ -250,20 +278,20 @@ function prettyDetails(details: unknown) {
           >
             <TableCell class="whitespace-nowrap text-muted-foreground">
               <Tooltip :delay-duration="400">
-                <TooltipTrigger as="span">{{ formatRelative(entry.timestamp) }}</TooltipTrigger>
-                <TooltipContent>{{ formatDateTime(entry.timestamp) }}</TooltipContent>
+                <TooltipTrigger as="span">{{ formatRelative(entry.ts) }}</TooltipTrigger>
+                <TooltipContent>{{ formatDateTime(entry.ts) }}</TooltipContent>
               </Tooltip>
             </TableCell>
             <TableCell>
-              <Badge :variant="ACTION_VARIANTS[entry.action_type]">
-                {{ ACTION_LABELS[entry.action_type] }}
+              <Badge :variant="SEVERITY_VARIANTS[entry.severity]">
+                {{ eventTitle(entry.type) }}
               </Badge>
             </TableCell>
             <TableCell>
-              <div class="truncate">{{ entry.description ?? '—' }}</div>
+              <div class="truncate">{{ entry.summary }}</div>
               <div class="flex items-center gap-1.5 text-xs text-muted-foreground">
-                {{ ENTITY_LABELS[entry.entity_type] }}
-                <CopyableId :value="entry.entity_id" :max="24" />
+                {{ SOURCE_LABELS[entry.source] }}
+                <CopyableId v-if="entry.chat_id" :value="entry.chat_id" :max="24" />
               </div>
             </TableCell>
             <TableCell>
@@ -281,34 +309,54 @@ function prettyDetails(details: unknown) {
       :size="pageSize"
       :total="data.total"
       :pages="data.pages"
-      items-label="записей"
+      items-label="событий"
       @update:page="page = $event"
     />
 
     <Sheet :open="selected !== null" @update:open="selected = null">
       <SheetContent class="w-full gap-0 sm:max-w-lg">
         <SheetHeader>
-          <SheetTitle>{{ selected?.description ?? 'Запись журнала' }}</SheetTitle>
+          <SheetTitle>{{ selected?.summary }}</SheetTitle>
           <SheetDescription>
-            {{ selected ? formatDateTime(selected.timestamp) : '' }}
+            {{ selected ? formatDateTime(selected.ts) : '' }}
           </SheetDescription>
         </SheetHeader>
         <div v-if="selected" class="space-y-4 overflow-y-auto px-4 pb-6 text-sm">
           <dl class="divide-y">
             <div class="flex justify-between gap-4 py-2">
-              <dt class="text-muted-foreground">Действие</dt>
-              <dd>{{ ACTION_LABELS[selected.action_type] }}</dd>
-            </div>
-            <div class="flex justify-between gap-4 py-2">
-              <dt class="text-muted-foreground">Объект</dt>
+              <dt class="text-muted-foreground">Событие</dt>
               <dd class="text-right">
-                {{ ENTITY_LABELS[selected.entity_type] }}
-                <CopyableId :value="selected.entity_id" :max="30" class="block" />
+                {{ eventTitle(selected.type) }}
+                <span class="block font-mono text-xs text-muted-foreground">
+                  {{ selected.type }}
+                </span>
               </dd>
             </div>
             <div class="flex justify-between gap-4 py-2">
               <dt class="text-muted-foreground">Источник</dt>
-              <dd>{{ ACTOR_LABELS[selected.actor_type] }}</dd>
+              <dd>{{ SOURCE_LABELS[selected.source] }}</dd>
+            </div>
+            <div class="flex justify-between gap-4 py-2">
+              <dt class="text-muted-foreground">Уровень</dt>
+              <dd>{{ SEVERITY_LABELS[selected.severity] }}</dd>
+            </div>
+            <div v-if="selected.entity_id" class="flex justify-between gap-4 py-2">
+              <dt class="text-muted-foreground">Объект</dt>
+              <dd class="text-right">
+                {{ selected.entity_type }}
+                <CopyableId :value="selected.entity_id" :max="30" class="block" />
+              </dd>
+            </div>
+            <div v-if="selected.chat_id" class="flex justify-between gap-4 py-2">
+              <dt class="text-muted-foreground">Чат</dt>
+              <dd>
+                <RouterLink
+                  :to="`/chats/${selected.chat_id}`"
+                  class="font-mono text-xs hover:underline"
+                >
+                  {{ selected.chat_id }}
+                </RouterLink>
+              </dd>
             </div>
             <div v-if="selected.actor_id" class="flex justify-between gap-4 py-2">
               <dt class="text-muted-foreground">Кто</dt>
@@ -321,12 +369,19 @@ function prettyDetails(details: unknown) {
                 </RouterLink>
               </dd>
             </div>
+            <div v-if="selected.trace_id" class="flex justify-between gap-4 py-2">
+              <dt class="text-muted-foreground">Трассировка</dt>
+              <dd>
+                <!-- По этому идентификатору находятся строки логов в Grafana. -->
+                <CopyableId :value="selected.trace_id" :max="24" />
+              </dd>
+            </div>
           </dl>
-          <div v-if="selected.details">
+          <div v-if="selected.payload">
             <p class="mb-1.5 text-xs text-muted-foreground">Подробности</p>
-            <pre
-              class="overflow-x-auto rounded-lg border bg-muted/40 p-3 font-mono text-xs"
-            >{{ prettyDetails(selected.details) }}</pre>
+            <pre class="overflow-x-auto rounded-lg border bg-muted/40 p-3 font-mono text-xs">{{
+              prettyPayload(selected.payload)
+            }}</pre>
           </div>
         </div>
       </SheetContent>

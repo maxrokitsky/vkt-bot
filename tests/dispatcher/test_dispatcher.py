@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 import aiohttp
 import pytest
+import structlog
 from vkt_dispatcher import Dispatcher
 from vkt_dispatcher.filters import Filter
 from vkt_dispatcher.handlers import (
@@ -135,7 +136,7 @@ class TestTrigger:
             await dispatcher.trigger(make_event("new_message"))
 
         assert log == ["survivor"]
-        assert "Ошибка при обработке хэндлера" in caplog.text
+        assert "handler.failed" in caplog.text
 
     async def test_stop_dispatching_is_swallowed(
         self, dispatcher: Dispatcher, caplog: pytest.LogCaptureFixture
@@ -144,7 +145,7 @@ class TestTrigger:
         dispatcher.register_handler(DefaultHandler())
         with caplog.at_level("ERROR", logger="vkt_dispatcher"):
             await dispatcher.trigger(make_event("new_message"))
-        assert "Ошибка при обработке хэндлера" in caplog.text
+        assert "handler.failed" in caplog.text
 
     async def test_sync_handler_runs_in_thread(self, dispatcher: Dispatcher) -> None:
         seen: list[str] = []
@@ -168,7 +169,7 @@ class TestTrigger:
         dispatcher.register_handler(SyncBoom())
         with caplog.at_level("ERROR", logger="vkt_dispatcher"):
             await dispatcher.trigger(make_event("new_message"))
-        assert "Ошибка при обработке хэндлера" in caplog.text
+        assert "handler.failed" in caplog.text
 
     async def test_no_handlers_is_a_noop(self, dispatcher: Dispatcher) -> None:
         await dispatcher.trigger(make_event("new_message"))
@@ -204,7 +205,7 @@ class TestWrapHandler:
 
         with caplog.at_level("ERROR", logger="vkt_dispatcher"):
             assert dispatcher.wrap_handler(boom)() is None
-        assert "Ошибка при обработке хэндлера" in caplog.text
+        assert "handler.failed" in caplog.text
 
     def test_passes_kwargs(self, dispatcher: Dispatcher) -> None:
         wrapped = dispatcher.wrap_handler(lambda *, x: x * 2, x=21)
@@ -481,3 +482,117 @@ class TestPolling:
             await dispatcher.start_polling()
 
         assert calls == [{"last_event_id": 0, "poll_time": 20}]
+
+
+class TestLogContext:
+    """Контекст логирования вокруг обработки события."""
+
+    async def test_context_is_bound_for_handlers(self, dispatcher: Dispatcher) -> None:
+        """Поля события видны любому коду, который вызвал хэндлер."""
+        seen: dict[str, Any] = {}
+
+        class Peeker(HandlerBase):
+            async def handle(self, event: Event, dispatcher: Dispatcher) -> None:  # noqa: ARG002
+                seen.update(structlog.contextvars.get_contextvars())
+
+        dispatcher.register_handler(Peeker())
+        event = make_event("new_message")
+
+        await dispatcher.trigger(event)
+
+        assert seen["event_id"] == event.eventId
+        assert seen["event_type"] == "newMessage"
+        assert seen["chat_id"] == event.payload.chat.chatId
+        assert seen["user_id"] == event.payload.sender.userId
+        assert seen["trace_id"]
+        assert seen["handler"] == "Peeker"
+
+    async def test_parallel_handlers_do_not_share_handler_field(
+        self, dispatcher: Dispatcher
+    ) -> None:
+        """Своя задача — своя копия контекста, имена не перетираются."""
+        seen: dict[str, str] = {}
+
+        class Slow(HandlerBase):
+            def __init__(self, name: str, delay: float) -> None:
+                super().__init__()
+                self.name = name
+                self.delay = delay
+                type(self).__name__ = name
+
+            async def handle(self, event: Event, dispatcher: Dispatcher) -> None:  # noqa: ARG002
+                await asyncio.sleep(self.delay)
+                seen[self.name] = structlog.contextvars.get_contextvars()["handler"]
+
+        # Разные классы: имя хэндлера берётся из типа.
+        first = type("First", (Slow,), {})("First", 0.02)
+        second = type("Second", (Slow,), {})("Second", 0.0)
+        dispatcher.register_handler(first)
+        dispatcher.register_handler(second)
+
+        await dispatcher.trigger(make_event("new_message"))
+
+        assert seen == {"First": "First", "Second": "Second"}
+
+    async def test_context_does_not_leak_after_event(
+        self, dispatcher: Dispatcher
+    ) -> None:
+        await dispatcher.trigger(make_event("new_message"))
+
+        assert "trace_id" not in structlog.contextvars.get_contextvars()
+
+    async def test_trace_id_is_new_for_every_event(
+        self, dispatcher: Dispatcher
+    ) -> None:
+        traces: list[str] = []
+
+        class Peeker(HandlerBase):
+            async def handle(self, event: Event, dispatcher: Dispatcher) -> None:  # noqa: ARG002
+                traces.append(structlog.contextvars.get_contextvars()["trace_id"])
+
+        dispatcher.register_handler(Peeker())
+
+        await dispatcher.trigger(make_event("new_message"))
+        await dispatcher.trigger(make_event("new_message"))
+
+        assert len(set(traces)) == 2
+
+    async def test_failed_handler_logs_with_context(
+        self, dispatcher: Dispatcher, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Строка об ошибке несёт чат и хэндлер — иначе её не привязать."""
+
+        class Boom(HandlerBase):
+            async def handle(self, event: Event, dispatcher: Dispatcher) -> None:  # noqa: ARG002
+                msg = "боом"
+                raise RuntimeError(msg)
+
+        dispatcher.register_handler(Boom())
+        event = make_event("new_message")
+
+        with caplog.at_level("ERROR", logger="vkt_dispatcher"):
+            await dispatcher.trigger(event)
+
+        (record,) = [r for r in caplog.records if r.name == "vkt_dispatcher"]
+        assert "handler.failed" in record.getMessage()
+        assert event.payload.chat.chatId in record.getMessage()
+        assert "Boom" in record.getMessage()
+
+
+class TestCallbackQueryContext:
+    """У callbackQuery чат лежит внутри сообщения, а не в payload."""
+
+    async def test_chat_and_user_are_found(self, dispatcher: Dispatcher) -> None:
+        seen: dict[str, Any] = {}
+
+        class Peeker(HandlerBase):
+            async def handle(self, event: Event, dispatcher: Dispatcher) -> None:  # noqa: ARG002
+                seen.update(structlog.contextvars.get_contextvars())
+
+        dispatcher.register_handler(Peeker())
+        event = make_event("callback_query")
+
+        await dispatcher.trigger(event)
+
+        assert seen["chat_id"] == event.payload.message.chat.chatId
+        assert seen["user_id"] == event.payload.sender.userId

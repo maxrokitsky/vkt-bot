@@ -292,4 +292,8 @@ class TestGetEvents:
         mock_api.get(url_for("/events/get"), payload=events_response("new_message"))
         with caplog.at_level("INFO", logger="vkteams_client.events"):
             await vkteams.get_events(last_event_id=0, poll_time=1)
-        assert any("newMessage" in record.getMessage() for record in caplog.records)
+        assert any(
+            "api.event_received" in record.getMessage()
+            and "newMessage" in record.getMessage()
+            for record in caplog.records
+        )

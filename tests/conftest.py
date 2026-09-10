@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, Any
 
 TEST_ENV = {
     "LOGGING": "DEBUG",
-    "RABBITMQ_LOGGING": "INFO",
     "BOT_TOKEN": "001.0000000000.0000000000:000000000",
     "DB_URL": "postgresql+psycopg://postgres:postgres@localhost:5432/vkt_bot_test",
     "SECRET_KEY": "test-secret-key",
@@ -28,6 +27,7 @@ for _key in ("SENTRY_DSN", "LOG_FILE"):
 
 import pytest  # noqa: E402
 import sqlalchemy as sa  # noqa: E402
+import structlog  # noqa: E402
 from sqlalchemy.ext.asyncio import (  # noqa: E402
     AsyncSession,
     async_sessionmaker,
@@ -45,6 +45,40 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 pytest_plugins = ("tests.factories",)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _configure_structlog() -> None:
+    """Направить structlog в стандартный ``logging``.
+
+    В приложении это делает ``init_logging``, но в тестах он подменён:
+    перенастройка logging сломала бы вывод pytest. Без конфигурации
+    structlog пишет своим ``PrintLogger`` мимо stdlib — и ни ``caplog``,
+    ни уровни логгеров не работают.
+
+    Рендерер здесь ``KeyValueRenderer``, а не боевой ``ProcessorFormatter``:
+    тогда ``caplog.text`` — это строка, в которой видно и имя события, и
+    поля. Боевую цепочку проверяет ``tests/utils/test_logging.py``.
+    """
+    structlog.configure(
+        processors=[
+            structlog.contextvars.merge_contextvars,
+            structlog.stdlib.PositionalArgumentsFormatter(),
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.KeyValueRenderer(key_order=["event"]),
+        ],
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=False,
+    )
+
+
+@pytest.fixture(autouse=True)
+def _clear_log_context() -> Iterator[None]:
+    """Не давать контексту логирования протекать между тестами."""
+    structlog.contextvars.clear_contextvars()
+    yield
+    structlog.contextvars.clear_contextvars()
 
 
 def pytest_configure(config: pytest.Config) -> None:  # noqa: ARG001

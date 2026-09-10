@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException, status
 
 from vkt_bot.core.repositories.bot_settings import BotSettingsRepository
 from vkt_bot.core.constants import DEFAULT_START_MESSAGE
+from vkt_bot.core.events import Actor, EventType, emit
+from vkt_bot.core.models.event import EntityType
 from vkt_bot.webapp.dependencies import CurrentAdminUser, SessionDep
 from vkt_bot.webapp.schemas.bot_settings import (
     BotSettingsResponse,
@@ -45,7 +47,7 @@ async def update_bot_setting(
     key: str,
     request: UpdateBotSettingsRequest,
     session: SessionDep,
-    _: CurrentAdminUser,
+    current_admin: CurrentAdminUser,
 ) -> BotSettingsResponse:
     """Update or create bot setting. Admin only."""
     repo = BotSettingsRepository(session)
@@ -55,10 +57,20 @@ async def update_bot_setting(
     if not value.strip() and key == "start_message":
         value = DEFAULT_START_MESSAGE
 
+    previous = await repo.get_by_key(key)
+    old_value = previous.value if previous else None
+
     setting = await repo.set_value(
         key=key,
         value=value,
         description=request.description,
+    )
+    await emit(
+        session,
+        EventType.SETTINGS_CHANGED,
+        actor=Actor.from_user(current_admin),
+        entity=(EntityType.BOT_SETTINGS, key),
+        payload={"key": key, "value": value, "old_value": old_value},
     )
     await session.commit()
     await session.refresh(setting)

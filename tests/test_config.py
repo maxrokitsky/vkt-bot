@@ -58,8 +58,12 @@ class TestSettingsSchema:
         assert settings.log_file is None
         assert settings.sentry_dsn is None
         assert settings.public_url is None
-        assert settings.rabbitmq_logging == "INFO"
         assert settings.access_token_expire_minutes == 60 * 24 * 8
+        assert settings.log_format == "auto"
+        assert settings.log_levels == ""
+        assert settings.env == "local"
+        assert settings.service_name == "vkt-bot"
+        assert settings.events_retention_days == 90
         assert settings.max_file_size == 50 * 1024 * 1024
 
     @pytest.mark.parametrize("field", ["logging", "bot_token", "db_url", "secret_key"])

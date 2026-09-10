@@ -1,7 +1,8 @@
-import logging
 from typing import ClassVar
 from urllib.parse import urljoin
 import uuid
+import structlog
+
 from vkt_bot.db.exceptions import NotFoundError
 from vkt_gitlab.models import GlWebhook
 from vkt_gitlab.queries import GlWebhookByChatId
@@ -23,7 +24,7 @@ from vkt_bot.core.handlers.mixins import AdminRequiredMixin
 from vkt_bot.utils.message import mention
 from vkt_bot.utils.datetime import localize_datetime
 
-logger = logging.getLogger("teams_bot.handlers.roles")
+logger = structlog.get_logger("vkt_gitlab.handlers")
 
 
 @dispatcher.register_handler

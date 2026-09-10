@@ -1,6 +1,7 @@
 import json
-import logging
 from typing import ClassVar
+
+import structlog
 
 from vkteams_client import VKTeams
 from vkteams_client.types import CallbackQueryEvent, NewMessageEvent
@@ -14,11 +15,13 @@ from vkt_bot.db.repository import NotFoundError
 from vkt_bot.core.repositories.webhook import WebhookRepository
 from vkt_bot.core.repositories.user import ChatUserRepository
 from vkt_bot.app import dispatcher
+from vkt_bot.core.events import Actor, EventType, emit
+from vkt_bot.core.models.event import EntityType, EventSource
 from vkt_bot.core.handlers.callback import CallbackData, WebhookCallbackData
 from vkt_bot.core.handlers.mixins import AdminRequiredMixin
 from vkt_bot.utils.message import mention
 
-logger = logging.getLogger("teams_bot.handlers.webhooks")
+logger = structlog.get_logger("vkt_bot.handlers.webhooks")
 
 
 @dispatcher.register_handler
@@ -68,6 +71,15 @@ class CreateWebhookHandler(AdminRequiredMixin, CommandHandler):
 
             webhook, api_key = await webhook_repository.create_with_api_key(
                 webhook_data, creator_id=user_id
+            )
+            await emit(
+                session,
+                EventType.WEBHOOK_CREATED,
+                actor=Actor.from_event(event),
+                source=EventSource.COMMAND,
+                chat_id=chat_id,
+                entity=(EntityType.WEBHOOK, webhook.id),
+                payload={"name": webhook_name},
             )
 
             await session.commit()
@@ -305,7 +317,21 @@ class ToggleWebhookHandler(AdminRequiredMixin, CommandHandler):
             from vkt_bot.webapp.schemas.webhook import WebhookUpdateSchema
 
             update_data = WebhookUpdateSchema(is_active=not webhook.is_active)
-            updated_webhook = await webhook_repository.update(webhook_id, update_data)
+            updated_webhook = await webhook_repository.update(
+                webhook_id, update_data.model_dump(exclude_unset=True)
+            )
+            await emit(
+                session,
+                EventType.WEBHOOK_UPDATED,
+                actor=Actor.from_event(event),
+                source=EventSource.COMMAND,
+                chat_id=chat_id,
+                entity=(EntityType.WEBHOOK, webhook_id),
+                payload={
+                    "name": webhook.name,
+                    "is_active": updated_webhook.is_active,
+                },
+            )
             await session.commit()
 
             status = "включен" if updated_webhook.is_active else "выключен"
@@ -414,6 +440,15 @@ class WebhookConfirmationHandler(BotButtonCommandHandler):
 
             if data.command == "deletewebhook":
                 await session.delete(webhook)
+                await emit(
+                    session,
+                    EventType.WEBHOOK_DELETED,
+                    actor=Actor.from_event(event),
+                    source=EventSource.COMMAND,
+                    chat_id=webhook.chat_id,
+                    entity=(EntityType.WEBHOOK, data.webhook_id),
+                    payload={"name": data.webhook_name},
+                )
                 await session.commit()
 
                 await bot.answer_callback_query(
@@ -431,6 +466,15 @@ class WebhookConfirmationHandler(BotButtonCommandHandler):
                     updated_webhook,
                     new_api_key,
                 ) = await webhook_repository.regenerate_api_key(data.webhook_id)
+                await emit(
+                    session,
+                    EventType.WEBHOOK_KEY_REGENERATED,
+                    actor=Actor.from_event(event),
+                    source=EventSource.COMMAND,
+                    chat_id=updated_webhook.chat_id,
+                    entity=(EntityType.WEBHOOK, data.webhook_id),
+                    payload={"name": data.webhook_name},
+                )
                 await session.commit()
 
                 base_url = settings.public_url or "http://localhost:8765"

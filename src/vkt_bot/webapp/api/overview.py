@@ -6,7 +6,7 @@ import sqlalchemy as sa
 from fastapi import APIRouter, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from vkt_bot.core.models import Chat, ChatUser, LogEntry, Role, Webhook
+from vkt_bot.core.models import Chat, ChatUser, EventRecord, Role, Webhook
 from vkt_bot.webapp.dependencies import CurrentUser, SessionDep, is_admin
 from vkt_bot.webapp.schemas.overview import (
     ActivityPoint,
@@ -40,16 +40,15 @@ def as_date(value: object) -> datetime.date:
 
 
 async def activity_by_day(session: AsyncSession, days: int) -> list[ActivityPoint]:
-    """Число записей аудита по дням, включая дни без действий."""
+    """Число событий по дням, включая дни без событий."""
     today = datetime.date.today()
     first_day = today - datetime.timedelta(days=days - 1)
 
-    day = sa.func.date(LogEntry.timestamp)
+    day = sa.func.date(EventRecord.ts)
     stmt = (
         sa.select(day, sa.func.count())
         .where(
-            LogEntry.timestamp
-            >= datetime.datetime.combine(first_day, datetime.time.min)
+            EventRecord.ts >= datetime.datetime.combine(first_day, datetime.time.min)
         )
         .group_by(day)
     )

@@ -5,13 +5,14 @@ from fastapi.staticfiles import StaticFiles
 
 from vkt_bot import setup
 
+from .middleware import RequestContextMiddleware
 from .api import (
     auth,
     chats,
     roles,
     chat_users,
     bot_settings,
-    logs,
+    events,
     overview,
     webhooks,
 )
@@ -19,8 +20,7 @@ from .api import (
 STATIC_DIR = "./static"
 
 
-def create_app(*args, **kwargs) -> FastAPI:
-    print(*args, **kwargs)
+def create_app(*args, **kwargs) -> FastAPI:  # noqa: ARG001
     app = FastAPI(title="VKT Bot API", version="1.0.0")
 
     app.add_middleware(
@@ -30,13 +30,16 @@ def create_app(*args, **kwargs) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    # Добавляется последним — значит, оказывается снаружи CORS: контекст
+    # нужен и для ответов, которые CORS формирует сам.
+    app.add_middleware(RequestContextMiddleware)
 
     app.include_router(auth.router)
     app.include_router(chats.router)
     app.include_router(roles.router)
     app.include_router(chat_users.router)
     app.include_router(bot_settings.router)
-    app.include_router(logs.router)
+    app.include_router(events.router)
     app.include_router(overview.router)
     app.include_router(webhooks.router)
     app.include_router(webhooks.public_router)

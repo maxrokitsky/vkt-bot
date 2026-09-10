@@ -285,9 +285,9 @@ FastAPI. `app.py` собирает роутеры, `api/` — эндпоинты
 Из неочевидного:
 
 - `api/overview.py` — счётчики и активность по дням для главной страницы.
-  Активность собирается из `log_entries` группировкой по `date(timestamp)`
-  (работает и в SQLite, и в PostgreSQL — типы возврата разные, приводятся в
-  `as_date`) и отдаётся только админам: журнал остальным недоступен.
+  Активность собирается из `events` группировкой по `date(ts)` (работает и в
+  SQLite, и в PostgreSQL — типы возврата разные, приводятся в `as_date`) и
+  отдаётся только админам.
 - `api/webhooks.py` — CRUD плюс отдельный публичный роутер для входящих
   вызовов.
 - `api/chats.py` — у детали чата есть счётчики участников и вебхуков, а
@@ -299,6 +299,51 @@ FastAPI. `app.py` собирает роутеры, `api/` — эндпоинты
   `ChatUser` остаются.
 - Зависимости доступа: `CurrentUser`, `CurrentAdminUser`, `CurrentOwnerUser`,
   `SessionDep`.
+
+### События (`core/events/`, таблица `events`)
+
+Журнал того, что произошло: он показывается в панели, в отличие от логов
+приложения. Связывает их `trace_id`. План — [EVENTS.md](EVENTS.md).
+
+- **Один вызов на оба журнала:** `await emit(session, EventType.ROLE_ASSIGNED,
+  actor=..., chat_id=..., entity=(EntityType.ROLE, id), payload={...})` пишет
+  строку в `events` и строку в лог с теми же полями.
+- Запись идёт в **сессию действия без `commit`**: событие не должно пережить
+  откат того, о чём рассказывает. Поэтому запись сделана неспособной упасть —
+  шаблон рендерится через `SafeFormatMap` (недостающее поле даёт «—»),
+  `payload` приводится к JSON-совместимому виду, `summary` обрезается.
+  Помнить про `flush()` перед `emit`, если нужен автоинкрементный `entity_id`.
+- **Тип события** — строка `<домен>.<действие>` из реестра
+  (`core/events/registry.py`): у каждого типа есть подпись, шаблон, источник
+  по умолчанию, значимость, `persist` и `chat_scoped`. Плагины добавляют свои
+  типы через `register()` из `install()` — колонка хранит строку, миграции для
+  этого не нужны. Незарегистрированный тип пишется как есть с warning в логе:
+  терять событие хуже.
+- `persist=False` — событие живёт только в логах (`message.sent`,
+  `api.event_received`): поток сообщений раздул бы таблицу быстрее всего
+  остального.
+- **`summary` рендерится при записи** — в базе лежит готовый текст, поэтому
+  старые события переживают переименование и удаление типа.
+- `source` (`panel` / `command` / `api` / `bot` / `webhook` / `plugin` /
+  `system`) отвечает на вопрос, которого не знает актор: один и тот же человек
+  назначает роль и кнопкой в панели, и командой в чате.
+- **Внешних ключей у `chat_id` и `actor_id` нет намеренно:** у обсуждения свой
+  `chatId`, которого нет в `chats`, а актором бывает внешняя система
+  (`Actor.external("gitlab")`).
+- Перечисления хранятся как VARCHAR со **значениями** (`values_callable`), а не
+  нативным типом PostgreSQL: `ALTER TYPE` умеет мало, а в базе должно лежать
+  то же, что отдаёт API.
+- Модель называется `EventRecord`, а не `Event`, — иначе путалась бы с
+  событием VK Teams в тех же модулях.
+- Чистка: раз в сутки фоновая задача (`core/events/retention.py`,
+  запускается из `main.main`) удаляет рутинные события старше
+  `EVENTS_RETENTION_DAYS`. Предупреждения и ошибки не удаляются никогда —
+  именно их ищут, разбирая старый инцидент; `0` выключает чистку.
+- Доступ: `/api/events` админу отдаёт всё, обычному участнику — события его
+  чатов (`VisibleToUser`, подзапросом, иначе `total` в пагинации врёт) и без
+  текстов сообщений (`TEXT_FIELDS`). `/api/chats/{id}/events` — лента чата,
+  только типы с `chat_scoped`. `/api/events/types` отдаёт реестр, чтобы фронт
+  не держал свой словарь названий.
 
 ### Вход в панель и права
 
@@ -320,16 +365,45 @@ FastAPI. `app.py` собирает роутеры, `api/` — эндпоинты
 
 Необязательно: `OWNER_ID`, `SECRET_KEY` (нужен для JWT веб-API),
 `PUBLIC_URL`, `SENTRY_DSN`, `ACCESS_TOKEN_EXPIRE_MINUTES` (по умолчанию
-8 дней), `LOG_FILE`, `RABBITMQ_LOGGING`, `MAX_FILE_SIZE` и
-`ALLOWED_FILE_TYPES` (50 МБ и белый список MIME по умолчанию).
+8 дней), `LOG_FILE`, `LOG_FORMAT`, `LOG_LEVELS`, `ENV`, `SERVICE_NAME`,
+`EVENTS_RETENTION_DAYS` (90), `MAX_FILE_SIZE` и `ALLOWED_FILE_TYPES`
+(50 МБ и белый список MIME по умолчанию).
 
 ### Логи
 
-Логгеры: `vkt_bot.main` (приложение), `vkt_dispatcher` (фреймворк),
-`vkteams_client` с ветками `.events` и `.send_message` (клиент API).
-Настройка — `src/vkt_bot/loggers.py` и `src/vkt_bot/utils/log.py`; при
-заданном `LOG_FILE` добавляется файловый обработчик, который пишет тела
-ответов API в JSON.
+structlog поверх stdlib, настройка — `src/vkt_bot/logging_setup.py`.
+Подробности и запросы к Loki — в [docs/logging.md](docs/logging.md).
+
+- Первый аргумент вызова — **стабильный идентификатор события**
+  (`message.send_failed`, `chat.bot_added`), всё переменное идёт полями
+  (`chat_id=...`). По идентификатору фильтруют в Grafana, поэтому менять
+  его нельзя так же легко, как текст.
+- Один поток вывода — stdout. `LOG_FORMAT` выбирает рендерер: `console`
+  локально, `json` в контейнере, `auto` (по умолчанию) смотрит на TTY.
+  При `LOG_FILE` добавляется файл с ротацией, всегда JSON.
+- Записи сторонних библиотек (SQLAlchemy, uvicorn, aiohttp, alembic)
+  проходят через ту же цепочку процессоров: мост
+  `structlog.stdlib.ProcessorFormatter` стоит на единственном обработчике
+  root. Уровень root — `WARNING`, логгеры приложения получают `LOGGING`,
+  точечные исключения задаёт `LOG_LEVELS`
+  (`sqlalchemy.engine=INFO,aiohttp=DEBUG`).
+- Секреты снимает процессор `mask_secrets`: по имени поля (`token`,
+  `password`, `secret`, `api_key`, `authorization`, `credential` —
+  только у строковых значений) и по значению в query-строках
+  (`?token=…`). Пароль в DSN маскируется отдельно, хост и база остаются.
+  Локальные переменные в трейсбеках не выгружаются.
+- Контекст (`structlog.contextvars`) привязывается в `Dispatcher.trigger`
+  (`trace_id`, `event_id`, `event_type`, `chat_id`, `user_id`), в
+  `run_handler` (`handler`) и в `RequestContextMiddleware`
+  (`request_id`, `method`, `path`; `user_id` добавляет `get_current_user`).
+  **Порядок важен:** хэндлеры стартуют в `TaskGroup`, и каждая задача
+  получает копию контекста в момент `create_task` — общие поля надо
+  привязать до создания задач, а имя хэндлера уже внутри задачи.
+- Access-лог uvicorn выключен (`access_log=False`): свою строку
+  `http.request` со `status` и `duration_ms` пишет middleware.
+- В тестах `init_logging` подменён, а structlog настраивается фикстурой
+  `_configure_structlog` в `tests/conftest.py` — иначе вывод шёл бы мимо
+  stdlib и `caplog` ничего не видел бы.
 
 ## Точки входа
 
@@ -354,5 +428,5 @@ FastAPI. `app.py` собирает роутеры, `api/` — эндпоинты
 ## Развёртывание
 
 `Dockerfile` и `docker-compose.yaml`; сборка через uv с `--all-packages`
-(монорепозиторий). PostgreSQL на 16432→5432, конфиг RabbitMQ закомментирован.
-Фронтенд собирается в статику через `pnpm build`.
+(монорепозиторий). PostgreSQL на 16432→5432. Фронтенд собирается в статику
+через `pnpm build`.

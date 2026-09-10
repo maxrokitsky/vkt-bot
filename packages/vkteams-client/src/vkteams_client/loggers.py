@@ -1,6 +1,6 @@
-import logging
+import structlog
 
-main_logger = logging.getLogger("vkteams_client")
-api_logger = logging.getLogger("vkteams_client.api")
-events_logger = logging.getLogger("vkteams_client.events")
-send_message_logger = logging.getLogger("vkteams_client.send_message")
+main_logger = structlog.get_logger("vkteams_client")
+api_logger = structlog.get_logger("vkteams_client.api")
+events_logger = structlog.get_logger("vkteams_client.events")
+send_message_logger = structlog.get_logger("vkteams_client.send_message")

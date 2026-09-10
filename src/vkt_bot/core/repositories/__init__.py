@@ -1,6 +1,6 @@
 from .bot_settings import BotSettingsRepository
 from .chat import ChatRepository
-from .log_entry import LogEntryRepository
+from .event import EventRepository
 from .login_history import LoginHistoryRepository
 from .login_token import LoginTokenRepository
 from .role import RoleRepository
@@ -12,7 +12,7 @@ __all__ = (
     "ChatUserRepository",
     "ChatRepository",
     "BotSettingsRepository",
-    "LogEntryRepository",
+    "EventRepository",
     "LoginTokenRepository",
     "LoginHistoryRepository",
     "WebhookRepository",

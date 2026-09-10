@@ -10,7 +10,17 @@ class VktSettings(BaseSettings):
     """Конфигурация."""
 
     logging: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]  # = 'INFO'
-    rabbitmq_logging: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
+    #: Рендерер логов. ``auto`` — ``console`` при TTY, иначе ``json``.
+    log_format: Literal["auto", "console", "json"] = "auto"
+    #: Точечные уровни логгеров: ``"sqlalchemy.engine=WARNING,aiohttp=DEBUG"``.
+    #: Строка, а не словарь: pydantic-settings разбирает сложные типы через
+    #: ``json.loads`` и падает на человеческой записи. Разбор — в
+    #: ``logging_setup.parse_log_levels``.
+    log_levels: str = ""
+    #: Окружение: попадает в каждую строку лога и в метку Loki.
+    env: Literal["local", "stage", "prod"] = "local"
+    #: Имя сервиса в логах: бот и веб-сервер запускаются отдельно.
+    service_name: str = "vkt-bot"
     bot_token: str
     db_url: PostgresDsn
     owner_id: str | None = None
@@ -19,6 +29,9 @@ class VktSettings(BaseSettings):
     public_url: str | None = None
     sentry_dsn: str | None = None
     access_token_expire_minutes: int = 60 * 24 * 8
+    #: Сколько дней хранить рутинные события журнала. Предупреждения и
+    #: ошибки не удаляются никогда; ``0`` выключает чистку.
+    events_retention_days: int = 90
 
     # Настройки для загрузки файлов
     max_file_size: int = 50 * 1024 * 1024  # 50 MB по умолчанию

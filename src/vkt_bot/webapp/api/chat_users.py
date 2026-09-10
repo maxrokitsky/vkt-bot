@@ -5,9 +5,9 @@ import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy.orm import selectinload
 
-from vkt_bot.core.audit import AuditLogger
+from vkt_bot.core.events import Actor, EventType, emit
 from vkt_bot.core.models import ChatMembership, ChatUser, RoleAssignment
-from vkt_bot.core.models.log_entry import EntityType
+from vkt_bot.core.models.event import EntityType
 from vkt_bot.core.queries.user import ChatUserInChatQuery, ChatUserSearchQuery
 from vkt_bot.core.repositories.role import (
     CreateRoleAssignmentSchema,
@@ -120,8 +120,6 @@ async def update_chat_user(
             detail="Cannot modify owner's admin status. Owner is always admin.",
         )
 
-    audit = AuditLogger(session)
-
     # Check if user exists
     user = await session.scalar(
         sa.select(ChatUser).where(ChatUser.id == user_id).options(WITH_ROLES)
@@ -141,23 +139,23 @@ async def update_chat_user(
         user.is_superuser = new_status
         session.add(user)
 
-        # Audit log
-        action_description = (
-            f"Granted admin status to user {user_id}"
-            if new_status
-            else f"Revoked admin status from user {user_id}"
-        )
-
-        await audit.log_update(
-            entity_type=EntityType.CHAT_USER,
-            entity_id=user_id,
-            user=current_owner,
-            description=action_description,
-            details={
+        granted = "выдал" if new_status else "снял"
+        await emit(
+            session,
+            EventType.CHAT_USER_UPDATED,
+            actor=Actor.from_user(current_owner),
+            entity=(EntityType.CHAT_USER, user_id),
+            payload={
+                "target": user.display_name,
+                "target_id": user_id,
                 "field": "is_superuser",
                 "old_value": old_status,
                 "new_value": new_status,
             },
+            summary=(
+                f"{current_owner.display_name} {granted} права администратора "
+                f"участнику {user.display_name}"
+            ),
         )
 
         # Без refresh: ``expire_on_commit=False``, а refresh сбросил бы
@@ -181,7 +179,6 @@ async def assign_role_to_user(
     user_repo = ChatUserRepository(session)
     role_repo = RoleRepository(session)
     assignment_repo = RoleAssignmentRepository(session)
-    audit = AuditLogger(session)
 
     # Check if user exists
     user = await user_repo.get_or_none(user_id)
@@ -220,13 +217,17 @@ async def assign_role_to_user(
     # id проставляется только на flush: без него в аудит уходит "None".
     await session.flush()
 
-    # Audit log
-    await audit.log_assign(
-        entity_type=EntityType.ROLE_ASSIGNMENT,
-        entity_id=str(assignment.id),
-        user=current_admin,
-        description=f"Assigned role {role.name} to user {user_id}",
-        details={"role_id": str(role_id), "role_name": role.name, "user_id": user_id},
+    await emit(
+        session,
+        EventType.ROLE_ASSIGNED,
+        actor=Actor.from_user(current_admin),
+        entity=(EntityType.ROLE_ASSIGNMENT, str(assignment.id)),
+        payload={
+            "role": role.name,
+            "role_id": str(role_id),
+            "target": user.display_name,
+            "target_id": user_id,
+        },
     )
 
     await session.commit()
@@ -242,8 +243,6 @@ async def remove_role_from_user(
     current_admin: CurrentAdminUser,
 ) -> None:
     """Remove role from chat user. Admin only."""
-    audit = AuditLogger(session)
-
     # Find assignment with role eagerly loaded
     stmt = (
         sa.select(RoleAssignment)
@@ -267,13 +266,12 @@ async def remove_role_from_user(
     # Delete assignment
     await session.delete(assignment)
 
-    # Audit log
-    await audit.log_unassign(
-        entity_type=EntityType.ROLE_ASSIGNMENT,
-        entity_id=str(assignment_id),
-        user=current_admin,
-        description=f"Removed role {role_name} from user {user_id}",
-        details={"role_id": str(role_id), "role_name": role_name, "user_id": user_id},
+    await emit(
+        session,
+        EventType.ROLE_UNASSIGNED,
+        actor=Actor.from_user(current_admin),
+        entity=(EntityType.ROLE_ASSIGNMENT, str(assignment_id)),
+        payload={"role": role_name, "role_id": str(role_id), "target_id": user_id},
     )
 
     await session.commit()

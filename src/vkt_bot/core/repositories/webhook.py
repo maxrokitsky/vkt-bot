@@ -1,15 +1,15 @@
 import datetime
 import secrets
-import logging
 
 import bcrypt
+import structlog
 import sqlalchemy as sa
 
 from vkt_bot.core.models import Webhook
 from vkt_bot.db.repository import AsyncRepository
 from vkt_bot.webapp.schemas.webhook import WebhookCreateSchema, WebhookUpdateSchema
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger("vkt_bot.repositories.webhook")
 
 
 class WebhookRepository(
@@ -21,18 +21,18 @@ class WebhookRepository(
         self, webhook_id: str, api_key: str
     ) -> Webhook | None:
         """Найти вебхук по ID и проверить API ключ."""
-        logger.debug("Поиск вебхука по ID: %s", webhook_id)
+        logger.debug("webhook.lookup", webhook_id=webhook_id)
         webhook = await self.get_or_none(webhook_id)
         if not webhook:
-            logger.warning("Вебхук не найден: %s", webhook_id)
+            logger.warning("webhook.not_found", webhook_id=webhook_id)
             return None
 
         # Проверка хэша API ключа
         if not bcrypt.checkpw(api_key.encode(), webhook.api_key_hash.encode()):
-            logger.warning("Неверный API ключ для вебхука: %s", webhook_id)
+            logger.warning("webhook.bad_api_key", webhook_id=webhook_id)
             return None
 
-        logger.debug("Вебхук найден и API ключ проверен: %s", webhook_id)
+        logger.debug("webhook.authenticated", webhook_id=webhook_id)
         return webhook
 
     async def create_with_api_key(

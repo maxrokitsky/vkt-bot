@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 from fastapi import FastAPI
 
-from vkt_bot.utils.log import init_logging, setup_sentry
+from vkt_bot.logging_setup import init_logging, setup_sentry
 from .config import get_settings
 
 
@@ -31,6 +31,13 @@ def setup(app: FastAPI) -> None:
     setup_sentry()
     importlib.import_module("vkt_bot.core.models")
     importlib.import_module("vkt_bot.core.handlers")
+
+    # Действия бота становятся событиями: клиент сам в базу не ходит.
+    from vkt_bot.app import bot
+    from vkt_bot.core.bot_events import record_bot_action
+
+    bot.event_sink = record_bot_action
+
     for plugin in importlib.metadata.entry_points(group="vkt_bot.plugins"):
         module = plugin.load()
         module.install(app)

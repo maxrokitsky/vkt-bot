@@ -1,6 +1,12 @@
 from .bot_settings import BotSettings
 from .chat import Chat, ChatMembership
-from .log_entry import ActionType, ActorType, EntityType, LogEntry
+from .event import (
+    ActorType,
+    EntityType,
+    EventRecord,
+    EventSeverity,
+    EventSource,
+)
 from .login_history import LoginHistory
 from .login_token import LoginToken
 from .role import Role, RoleAssignment
@@ -14,8 +20,9 @@ __all__ = (
     "ChatMembership",
     "RoleAssignment",
     "BotSettings",
-    "LogEntry",
-    "ActionType",
+    "EventRecord",
+    "EventSource",
+    "EventSeverity",
     "ActorType",
     "EntityType",
     "LoginToken",

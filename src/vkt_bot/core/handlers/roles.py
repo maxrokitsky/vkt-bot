@@ -1,7 +1,8 @@
 import json
-import logging
 import re
 from typing import ClassVar
+
+import structlog
 
 from pydantic import TypeAdapter
 
@@ -29,11 +30,13 @@ from vkt_bot.core.repositories.role import (
 from vkt_bot.core.repositories.chat import ChatMembershipRepository, ChatRepository
 from vkt_bot.core.repositories.user import ChatUserRepository
 from vkt_bot.app import dispatcher
+from vkt_bot.core.events import Actor, EventType, emit
+from vkt_bot.core.models.event import EntityType, EventSource
 from vkt_bot.core.handlers.callback import CallbackData, DeleteRoleCallbackData
 from vkt_bot.core.handlers.mixins import AdminRequiredMixin
 from vkt_bot.utils.message import mention, sender_name
 
-logger = logging.getLogger("teams_bot.handlers.roles")
+logger = structlog.get_logger("vkt_bot.handlers.roles")
 
 # Так API отвечает на ``threads/subscribers/get`` для обычного чата.
 NOT_A_THREAD = "incorrect threadid"
@@ -62,7 +65,18 @@ class CreateRoleHandler(AdminRequiredMixin, CommandHandler):
                 )
                 return
 
-            await role_repository.create(CreateRoleSchema(name=role_name), commit=True)
+            role = await role_repository.create(CreateRoleSchema(name=role_name))
+            await session.flush()
+            await emit(
+                session,
+                EventType.ROLE_CREATED,
+                actor=Actor.from_event(event),
+                source=EventSource.COMMAND,
+                chat_id=event.payload.chat.chatId,
+                entity=(EntityType.ROLE, str(role.id)),
+                payload={"role": role_name},
+            )
+            await session.commit()
         await bot.send_text(
             event.payload.chat.chatId,
             f"{mention(event.payload.sender.userId)}, роль {role_name} добавлена",
@@ -127,6 +141,15 @@ class DeleteRoleHandler(AdminRequiredMixin, CommandHandler):
             for assignment in assignments:
                 await session.delete(assignment)
             await session.delete(role)
+            await emit(
+                session,
+                EventType.ROLE_DELETED,
+                actor=Actor.from_event(event),
+                source=EventSource.COMMAND,
+                chat_id=event.payload.chat.chatId,
+                entity=(EntityType.ROLE, str(role.id)),
+                payload={"role": role_name},
+            )
             await session.commit()
         await bot.send_text(
             event.payload.chat.chatId,
@@ -176,14 +199,22 @@ class AssignRoleHandler(AdminRequiredMixin, CommandHandler):
                     )
                     return
                 await user_repository.get_or_create(user_id)
-                await role_assignment_repository.create(
+                assignment = await role_assignment_repository.create(
                     CreateRoleAssignmentSchema(role_id=role.id, user_id=user_id)
+                )
+                await session.flush()
+                await emit(
+                    session,
+                    EventType.ROLE_ASSIGNED,
+                    actor=Actor.from_event(event),
+                    source=EventSource.COMMAND,
+                    chat_id=event.payload.chat.chatId,
+                    entity=(EntityType.ROLE_ASSIGNMENT, str(assignment.id)),
+                    payload={"role": role.name, "target_id": user_id},
                 )
                 await session.commit()
         except Exception:
-            logger.exception(
-                "Ошибка наначения роли %s пользователю %s", role_name, user_id
-            )
+            logger.exception("role.assign_failed", role=role_name, user_id=user_id)
             await bot.send_text(
                 event.payload.chat.chatId,
                 f"{mention(event.payload.sender.userId)}, ошибка при добавлении роли.",
@@ -236,12 +267,20 @@ class RevokeRoleHandler(AdminRequiredMixin, CommandHandler):
                         f"{mention(event.payload.sender.userId)}, у пользователя {user_id} нет роли {role_name}.",
                     )
                     return
+                assignment_id = role_assignment.id
                 await session.delete(role_assignment)
+                await emit(
+                    session,
+                    EventType.ROLE_UNASSIGNED,
+                    actor=Actor.from_event(event),
+                    source=EventSource.COMMAND,
+                    chat_id=event.payload.chat.chatId,
+                    entity=(EntityType.ROLE_ASSIGNMENT, str(assignment_id)),
+                    payload={"role": role.name, "target_id": user_id},
+                )
                 await session.commit()
         except Exception:
-            logger.exception(
-                "Ошибка удаления роли %s пользователю %s", role_name, user_id
-            )
+            logger.exception("role.unassign_failed", role=role_name, user_id=user_id)
             await bot.send_text(
                 event.payload.chat.chatId,
                 f"{mention(event.payload.sender.userId)}, ошибка при удалении роли.",
@@ -375,8 +414,20 @@ class NotifyRoleIsTaggedHandler(MessageHandler):
                         event,
                         may_see_content=audience is None or user.id in audience,
                     )
+
+                await emit(
+                    session,
+                    EventType.ROLE_MENTIONED,
+                    actor=Actor.from_event(event),
+                    chat_id=event.payload.chat.chatId,
+                    payload={
+                        "role": ", ".join(hashtags),
+                        "notified": len(users),
+                    },
+                )
+                await session.commit()
             except Exception:
-                logger.exception("error")
+                logger.exception("role.notify_failed", user_id=user.id)
 
     async def audience(
         self, bot: VKTeams, session: AsyncSession, chat_id: str
@@ -417,9 +468,7 @@ class NotifyRoleIsTaggedHandler(MessageHandler):
         try:
             page = await bot.threads_subscribers_get(chat_id, page_size=1)
         except Exception:
-            logger.warning(
-                "Не удалось проверить, обсуждение ли чат %s", chat_id, exc_info=True
-            )
+            logger.warning("thread.check_failed", chat_id=chat_id, exc_info=True)
             return False
 
         if page.ok:
@@ -427,11 +476,9 @@ class NotifyRoleIsTaggedHandler(MessageHandler):
 
         description = page.description or ""
         if NOT_A_THREAD in description.lower():
-            logger.debug("Чат %s не обсуждение", chat_id)
+            logger.debug("thread.check_not_a_thread", chat_id=chat_id)
         else:
-            logger.warning(
-                "Проверка обсуждения %s не удалась: %s", chat_id, description
-            )
+            logger.warning("thread.check_refused", chat_id=chat_id, reason=description)
         return False
 
     async def notify(
@@ -463,9 +510,9 @@ class NotifyRoleIsTaggedHandler(MessageHandler):
             return
 
         logger.warning(
-            "Пересылка упоминания из чата %s не прошла (%s). Отправляю текстом.",
-            event.payload.chat.chatId,
-            result.description,
+            "role.mention_forward_failed",
+            chat_id=event.payload.chat.chatId,
+            reason=result.description,
         )
         body = self.quoted_text(text, event) if may_see_content else text
         await bot.send_text(chat_id=user_id, text=body)
@@ -529,6 +576,16 @@ class DeleteRoleConfirmation(BotButtonCommandHandler):
             for assignment in assignments:
                 await session.delete(assignment)
             await session.delete(role)
+            await emit(
+                session,
+                EventType.ROLE_DELETED,
+                actor=Actor.from_event(event),
+                source=EventSource.COMMAND,
+                # У callbackQuery чат лежит в сообщении с кнопкой.
+                chat_id=event.payload.message.chat.chatId,
+                entity=(EntityType.ROLE, str(role.id)),
+                payload={"role": data.role},
+            )
             await session.commit()
         await bot.answer_callback_query(
             query_id=event.payload.queryId, text=f"Роль {data.role} удалена."
