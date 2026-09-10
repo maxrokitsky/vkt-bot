@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -722,6 +723,58 @@ class TestNotifyRoleIsTagged:
         _, plain = fake_bot.sent
         assert plain.kwargs["text"] == "Вас упомянули"
         assert "секрет" not in plain.kwargs["text"]
+
+    async def test_subscribers_failure_is_not_a_regular_chat(
+        self,
+        dispatcher: Dispatcher,
+        fake_bot: FakeBot,
+        session: AsyncSession,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Сбой запроса подписчиков — не «перед нами обычный чат».
+
+        Раньше любая ошибка уходила в ``debug`` и была неотличима от
+        ответа «это не тред»: состав обсуждения молча подменялся пустым
+        членством, и носители роли получали уведомление без текста.
+        Теперь такой сбой виден в логах.
+        """
+        role = await create_role(session, "devs")
+        user = await create_chat_user(session, "u@example.com")
+        await assign_role(session, user.id, role.id)
+        fake_bot.errors["iter_thread_subscribers"] = TimeoutError("нет связи")
+        fake_bot.results["send_text"] = MsgResponse(ok=False, description="Bad request")
+
+        with caplog.at_level(logging.WARNING, logger="teams_bot.handlers.roles"):
+            await NotifyRoleIsTaggedHandler.handle(
+                make_event("new_message_in_thread", text="секрет #devs"), dispatcher
+            )
+
+        assert "Не удалось получить подписчиков" in caplog.text
+        # Состав неизвестен — тело сообщения не уходит.
+        _, plain = fake_bot.sent
+        assert "секрет" not in plain.kwargs["text"]
+
+    async def test_regular_chat_does_not_look_like_a_failure(
+        self,
+        dispatcher: Dispatcher,
+        fake_bot: FakeBot,
+        session: AsyncSession,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """``Incorrect threadId`` — ожидаемый ответ, а не повод для warning.
+
+        Через эту проверку проходит каждое сообщение обычного чата.
+        """
+        role = await create_role(session, "devs")
+        user = await create_chat_user(session, "u@example.com")
+        await assign_role(session, user.id, role.id)
+
+        with caplog.at_level(logging.WARNING, logger="teams_bot.handlers.roles"):
+            await NotifyRoleIsTaggedHandler.handle(
+                make_event("new_message", text="#devs"), dispatcher
+            )
+
+        assert [r for r in caplog.records if r.name == "teams_bot.handlers.roles"] == []
 
     async def test_thread_subscriber_sees_the_body(
         self, dispatcher: Dispatcher, fake_bot: FakeBot, session: AsyncSession

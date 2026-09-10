@@ -1,4 +1,4 @@
-from .client import VKTeams
+from .client import ThreadSubscribersError, VKTeams
 from .enums import EventType
 from .types import (
     Event,
@@ -11,6 +11,7 @@ from .types import (
 
 __all__ = (
     "VKTeams",
+    "ThreadSubscribersError",
     "Event",
     "EventType",
     "MsgLoadFileResponse",

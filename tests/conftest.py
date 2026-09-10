@@ -236,6 +236,26 @@ class FakeBot:
         """Тексты отправленных сообщений."""
         return [call.text for call in self.sent]
 
+    def iter_thread_subscribers(self, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        """Подписчики обсуждения — асинхронный итератор, а не корутина.
+
+        По умолчанию отвечает как API для обычного чата: отказом
+        ``Incorrect threadId``. Подписчиков задаёт
+        ``results["iter_thread_subscribers"]``, сбой —
+        ``errors["iter_thread_subscribers"]``.
+        """
+        from vkteams_client import ThreadSubscribersError
+
+        subscribers = self._record("iter_thread_subscribers", args, kwargs)
+
+        async def generator() -> Any:  # noqa: ANN401
+            if subscribers is None:
+                raise ThreadSubscribersError("Incorrect threadId")
+            for subscriber in subscribers:
+                yield subscriber
+
+        return generator()
+
     def __getattr__(self, method: str) -> Any:  # noqa: ANN401
         if method.startswith("_"):
             raise AttributeError(method)

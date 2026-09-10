@@ -179,9 +179,25 @@ TEST_DB_URL=postgresql+psycopg://postgres@localhost:16432/vkt_bot_test uv run py
 
 ### Обсуждения — threads (`core/threads.py`, `core/handlers/threads.py`)
 
-- У обсуждения собственный `chatId` (формат `2601@chat.agent`), отдельных
-  типов событий нет: сообщение из треда приходит обычным `newMessage` с
-  `chatId` треда. Отправка в тред — тот же `send_text` с `chat_id=thread_id`.
+- У обсуждения собственный `chatId`, отдельных типов событий нет: сообщение
+  из треда приходит обычным `newMessage` с `chatId` треда. Отправка в тред —
+  тот же `send_text` с `chat_id=thread_id`.
+- **По виду `chatId` тред от обычной группы не отличить** — в документации
+  пример `2601@chat.agent`, но живой тред получился `693938330@chat.agent`
+  при родителе `694348323@chat.agent`. Определять тред регекспом по id
+  нельзя; единственная проверка — `threads/subscribers/get`, который для
+  обычного чата отказывает с `Incorrect threadId` (`core/handlers/roles.py`,
+  `thread_subscribers`). Проверка стоит запроса к API, поэтому фильтром
+  уровня диспетчера её делать не стоит.
+- **`threads/add` работает как get-or-create** (проверено 2026-09-10): три
+  вызова на одном `(chatId, msgId)` вернули один и тот же `threadId`, без
+  ошибок и дублей. Это единственный способ узнать id уже существующего
+  обсуждения: в событиях ссылки на тред нет, метода вроде `threads/get` в
+  спеке тоже. Обратная сторона — вызов не только читает: у сообщения без
+  обсуждения он его создаст. Обёртка — `core.threads.get_or_create_thread`.
+  Отсюда же вывод: соответствие «сообщение → тред» хранить у себя не надо,
+  достаточно `msgId` сообщения-якоря. Вложенных обсуждений нет — с `chatId`
+  треда метод отвечает `Bad request`.
 - События из треда доходят только подписчикам. Поэтому при добавлении бота в
   чат (`ChatMembersJoinedHandler`) вызывается `threads/autosubscribe` с
   `withExisting=true` — подписка и на будущие, и на существующие обсуждения.
@@ -207,6 +223,11 @@ TEST_DB_URL=postgresql+psycopg://postgres@localhost:16432/vkt_bot_test uv run py
   плюс автор и текст исходного сообщения.
 - Клиент: `threads_add`, `threads_autosubscribe`, `threads_subscribers_get`
   и `iter_thread_subscribers` (автопагинация по `cursor`).
+- Корневой `api.yaml` устарел: методов `threads/*` в нём нет вовсе. Свежую
+  спеку отдают `https://teams.vk.com/botapi/{api.yaml,schemas.json,
+  params.json,lang_config_ru.json}` — в ней у тредов ровно три метода
+  (`add`, `autosubscribe`, `subscribers/get`), а `threadId` возвращает
+  только `threads/add`.
 
 ### Ответы API
 

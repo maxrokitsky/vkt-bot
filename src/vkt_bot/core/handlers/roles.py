@@ -7,7 +7,7 @@ from pydantic import TypeAdapter
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from vkteams_client import VKTeams
+from vkteams_client import ThreadSubscribersError, VKTeams
 from vkteams_client.types import CallbackQueryEvent, NewMessageEvent
 from vkteams_client.types import Chat as ChatPayload
 from vkt_bot.db.session import async_session
@@ -34,6 +34,9 @@ from vkt_bot.core.handlers.mixins import AdminRequiredMixin
 from vkt_bot.utils.message import mention, sender_name
 
 logger = logging.getLogger("teams_bot.handlers.roles")
+
+# Так API отвечает на ``threads/subscribers/get`` для обычного чата.
+NOT_A_THREAD = "incorrect threadid"
 
 
 @dispatcher.register_handler
@@ -357,6 +360,11 @@ class NotifyRoleIsTaggedHandler(MessageHandler):
                     .query(ChatUserHasRoleQuery(roles=hashtags))
                     .list()
                 )
+                if not users:
+                    # Обычный хештег, а не призыв по роли: дальше идут
+                    # запросы к API, и делать их незачем.
+                    return
+
                 text = await self.notification_text(session, event.payload.chat)
                 audience = await self.audience(bot, session, event.payload.chat.chatId)
                 for user in users:
@@ -377,7 +385,10 @@ class NotifyRoleIsTaggedHandler(MessageHandler):
 
         Роль глобальна, а чат — нет: носитель роли может не состоять в
         источнике. Для обсуждения список даёт ``threads/subscribers/get``,
-        для обычного чата — таблица членства.
+        для обычного чата — таблица членства. Если подписчиков узнать не
+        удалось, остаётся членство: для треда строк там нет, то есть
+        доступ никому не подтвердится и тело сообщения не уйдёт. Так и
+        нужно — при неизвестном составе лучше промолчать.
         """
         subscribers = await self.thread_subscribers(bot, chat_id)
         if subscribers is not None:
@@ -385,15 +396,26 @@ class NotifyRoleIsTaggedHandler(MessageHandler):
         return await ChatMembershipRepository(session).user_ids(chat_id)
 
     async def thread_subscribers(self, bot: VKTeams, chat_id: str) -> set[str] | None:
-        """Подписчики обсуждения или ``None``, если это обычный чат.
+        """Подписчики обсуждения или ``None``, если состав неизвестен.
 
-        Метод работает только с тредами, поэтому отказ здесь — это ответ
-        «перед нами не обсуждение», а не ошибка.
+        Отказ ``Incorrect threadId`` — это ответ «перед нами не
+        обсуждение, а обычный чат», и он ожидаем: каждое сообщение
+        проходит здесь. Всё остальное — сбой: сеть, права или ошибка в
+        нашем коде. Различать их важно, иначе поломка выглядит как
+        обычный чат и молча уходит в debug.
         """
         try:
             return {s.sn async for s in bot.iter_thread_subscribers(chat_id)}
+        except ThreadSubscribersError as err:
+            if NOT_A_THREAD in str(err).lower():
+                logger.debug("Чат %s не обсуждение", chat_id)
+            else:
+                logger.warning("Подписчики обсуждения %s недоступны: %s", chat_id, err)
+            return None
         except Exception:
-            logger.debug("Чат %s не обсуждение либо подписчики недоступны", chat_id)
+            logger.warning(
+                "Не удалось получить подписчиков чата %s", chat_id, exc_info=True
+            )
             return None
 
     async def notify(
