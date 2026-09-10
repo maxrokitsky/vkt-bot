@@ -6,7 +6,7 @@ from typing_extensions import TypeIs
 
 from pydantic import BaseModel, Field
 
-from .enums import ChatType, EventType
+from .enums import ChatType, EventType, Parts, PayLoadFileType
 
 
 class Chat(BaseModel):
@@ -62,6 +62,120 @@ class FormatType(StrEnum):
     FORWARD = "forward"
 
 
+class MentionPayload(BaseModel):
+    """Кого упомянули."""
+
+    userId: str
+    firstName: str | None = None
+    lastName: str | None = None
+
+
+class FilePayload(BaseModel):
+    """Вложенный файл.
+
+    ``type`` есть только у медиа: у обычного документа его нет.
+    """
+
+    fileId: str
+    type: PayLoadFileType | None = None
+    caption: str | None = None
+    format: dict[str, list[FormatPart]] = {}
+
+
+class FileIdPayload(BaseModel):
+    """Стикер или голосовое: кроме идентификатора файла, ничего."""
+
+    fileId: str
+
+
+class QuotedMessage(BaseModel):
+    """Сообщение, которое переслали или на которое ответили."""
+
+    sender: User | Bot | None = Field(alias="from", default=None)
+    msgId: str | None = None
+    text: str | None = None
+    timestamp: datetime.datetime | None = None
+    format: dict[str, list[FormatPart]] = {}
+
+
+class QuotedPayload(BaseModel):
+    """Обёртка вокруг процитированного сообщения."""
+
+    message: QuotedMessage
+
+
+class StickerPart(BaseModel):
+    """Стикер."""
+
+    type: Literal[Parts.STICKER]
+    payload: FileIdPayload
+
+
+class VoicePart(BaseModel):
+    """Голосовое сообщение."""
+
+    type: Literal[Parts.VOICE]
+    payload: FileIdPayload
+
+
+class FilePart(BaseModel):
+    """Файл: документ, картинка, видео или аудио."""
+
+    type: Literal[Parts.FILE]
+    payload: FilePayload
+
+
+class MentionPart(BaseModel):
+    """Упоминание участника."""
+
+    type: Literal[Parts.MENTION]
+    payload: MentionPayload
+
+
+class ForwardPart(BaseModel):
+    """Пересланное сообщение."""
+
+    type: Literal[Parts.FORWARD]
+    payload: QuotedPayload
+
+
+class ReplyPart(BaseModel):
+    """Ответ на сообщение."""
+
+    type: Literal[Parts.REPLY]
+    payload: QuotedPayload
+
+
+class UnknownPart(BaseModel):
+    """Часть неизвестного типа.
+
+    Нужна как запасной вариант: новый тип части не должен ронять разбор
+    всего события. Без неё один незнакомый элемент делал бы сообщение
+    нечитаемым целиком — и бот молчал бы, вместо того чтобы ответить на
+    остальное.
+    """
+
+    type: str
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+#: Известные части. Дискриминатор по ``type`` — разбор идёт сразу в нужную
+#: модель, без перебора.
+type KnownPart = Annotated[
+    Union[  # noqa: UP007
+        StickerPart,
+        VoicePart,
+        FilePart,
+        MentionPart,
+        ForwardPart,
+        ReplyPart,
+    ],
+    Field(discriminator="type"),
+]
+
+type MessagePart = KnownPart | UnknownPart
+
+
 class NewMessagePayload(BaseModel):
     """NewMessagePayload."""
 
@@ -71,6 +185,36 @@ class NewMessagePayload(BaseModel):
     text: str | None = None
     timestamp: datetime.datetime
     format: dict[str, list[FormatPart]] = {}
+    #: Вложения, упоминания, пересылки и ответы. В ``text`` их нет:
+    #: вложение приходит отдельной частью, а упоминание — и частью, и
+    #: разметкой ``format`` одновременно.
+    parts: list[MessagePart] = Field(default_factory=list)
+
+    def parts_of[T](self, kind: Parts, model: type[T]) -> list[T]:
+        """Части одного типа.
+
+        ``model`` нужен не для проверки, а для типизации: у каждого типа
+        своя модель payload, и без него вызывающий получал бы объединение.
+        """
+        return [
+            part.payload  # type: ignore[misc]
+            for part in self.parts
+            if part.type == kind and isinstance(part.payload, model)
+        ]
+
+    @property
+    def mentions(self) -> list[MentionPayload]:
+        """Кого упомянули в сообщении.
+
+        Единственный источник, где у упоминания есть ``userId``: разметка
+        ``format.mention`` несёт только смещение и длину.
+        """
+        return self.parts_of(Parts.MENTION, MentionPayload)
+
+    @property
+    def files(self) -> list[FilePayload]:
+        """Вложенные файлы."""
+        return self.parts_of(Parts.FILE, FilePayload)
 
 
 class EditedMessagePayload(NewMessagePayload):

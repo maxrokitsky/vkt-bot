@@ -213,14 +213,15 @@ class AgentConversationHandler(MessageHandler):
     ) -> dict[str, Any]:
         """По чему бот узнаёт обращение к себе.
 
-        Разметка сообщения идёт первой: она не зависит от того, как сервер
-        отрисовал упоминание в тексте.
+        Идентификаторы из частей сообщения — точный источник; разметка и
+        текст остаются на случай, когда частей нет (ник напечатали руками).
         """
         return {
             "user_id": me.userId if me else None,
             "nick": me.nick if me else None,
             "first_name": me.firstName if me else None,
             "spans": spans_of(event.payload.format),
+            "mentioned_ids": [m.userId for m in event.payload.mentions],
         }
 
     def addressed(

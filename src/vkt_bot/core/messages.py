@@ -12,9 +12,12 @@
 from __future__ import annotations
 
 import datetime
-from typing import TYPE_CHECKING
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any
 
 import structlog
+
+from vkteams_client.enums import Parts, PayLoadFileType
 
 from vkt_bot.core.constants import (
     CHAT_HISTORY_SETTING_PREFIX,
@@ -23,6 +26,7 @@ from vkt_bot.core.constants import (
 from vkt_bot.core.repositories.bot_settings import BotSettingsRepository
 from vkt_bot.core.repositories.message import MessageRepository
 from vkt_bot.db.session import async_session
+from vkt_bot.utils.message import sender_name
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,10 +35,65 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger("vkt_bot.messages")
 
-#: Текста у сообщения может не быть вовсе: файлы, стикеры, голосовые.
-#: ``NewMessagePayload`` не разбирает ``parts``, поэтому на месте
-#: вложения в истории остаётся заглушка.
+#: Совсем ничего: ни текста, ни узнаваемых частей.
 ATTACHMENT_PLACEHOLDER = "[вложение]"
+
+#: Как называть вложение в истории. Текста у сообщения может не быть
+#: вовсе — файлы, стикеры и голосовые приходят без него, — и без пометки
+#: в истории на их месте зияла бы дыра.
+PART_LABELS = {
+    PayLoadFileType.IMAGE: "изображение",
+    PayLoadFileType.VIDEO: "видео",
+    PayLoadFileType.AUDIO: "аудио",
+}
+
+#: Сколько символов цитаты оставлять от пересланного сообщения. Целиком
+#: пересылают и простыни, а история и так самая большая таблица.
+QUOTE_LIMIT = 200
+
+
+def describe_parts(parts: Sequence[Any]) -> list[str]:
+    """Человекочитаемые пометки о вложениях сообщения.
+
+    Упоминания сюда не попадают: они и так видны в тексте как ``@[id]``.
+    """
+    notes: list[str] = []
+    for part in parts:
+        payload = part.payload
+        if part.type == Parts.FILE:
+            kind = PART_LABELS.get(payload.type, "файл")
+            caption = f": {payload.caption}" if payload.caption else ""
+            notes.append(f"[{kind}{caption}]")
+        elif part.type == Parts.STICKER:
+            notes.append("[стикер]")
+        elif part.type == Parts.VOICE:
+            notes.append("[голосовое сообщение]")
+        elif part.type in (Parts.FORWARD, Parts.REPLY):
+            notes.append(_quote(part.type, payload.message))
+    return notes
+
+
+def _quote(kind: str, message: Any) -> str:
+    """Пометка о пересланном сообщении или ответе.
+
+    Текст цитаты в истории нужен: без него «о чём тут договорились» по
+    пересланной переписке не ответить.
+    """
+    who = sender_name(message.sender) if message.sender else "неизвестно кто"
+    label = "переслано от" if kind == Parts.FORWARD else "в ответ на"
+    text = (message.text or "").strip()
+    if not text:
+        return f"[{label} {who}]"
+    return f"[{label} {who}: {text[:QUOTE_LIMIT]}]"
+
+
+def message_text(text: str | None, parts: Sequence[Any] = ()) -> str:
+    """Что записать в историю: текст плюс пометки о вложениях."""
+    notes = describe_parts(parts)
+    parts_text = " ".join(notes)
+    if text and parts_text:
+        return f"{text} {parts_text}"
+    return text or parts_text or ATTACHMENT_PLACEHOLDER
 
 
 def chat_history_key(chat_id: str) -> str:
@@ -75,6 +134,7 @@ async def record_incoming(
     sender: User | Bot | None = None,
     text: str | None = None,
     ts: datetime.datetime | None = None,
+    parts: Sequence[Any] = (),
 ) -> None:
     """Записать входящее сообщение, если запись разрешена.
 
@@ -89,7 +149,7 @@ async def record_incoming(
         chat_id,
         msg_id,
         user_id=sender.userId if sender is not None else None,
-        text=text if text else ATTACHMENT_PLACEHOLDER,
+        text=message_text(text, parts),
         ts=ts,
     )
 

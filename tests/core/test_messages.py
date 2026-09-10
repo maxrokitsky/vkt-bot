@@ -12,6 +12,7 @@ from vkt_bot.core.handlers.chats import CreateChatMiddleware
 from vkt_bot.core.handlers.messages import MessageDeletedHandler, MessageEditedHandler
 from vkt_bot.core.messages import (
     ATTACHMENT_PLACEHOLDER,
+    message_text,
     history_enabled,
     purge_history,
     record_outgoing,
@@ -62,15 +63,39 @@ class TestRecording:
 
         assert await table_count(session, Message) == 1
 
-    async def test_message_without_text_gets_placeholder(
+    async def test_message_without_text_or_parts_gets_placeholder(
         self, session: AsyncSession, middleware: CreateChatMiddleware
     ) -> None:
-        """Файлы и стикеры приходят без текста — на их месте заглушка."""
         await middleware.on_event(make_event("new_message", text=None))
 
         message = await MessageRepository(session).get_by_msg_id(CHAT_ID, MSG_ID)
         assert message is not None
         assert message.text == ATTACHMENT_PLACEHOLDER
+
+    async def test_attachment_is_described(
+        self, session: AsyncSession, middleware: CreateChatMiddleware
+    ) -> None:
+        """Раньше на месте любого вложения стояло безликое «[вложение]»."""
+        await middleware.on_event(
+            make_event(
+                "new_message",
+                text=None,
+                parts=[
+                    {
+                        "type": "file",
+                        "payload": {
+                            "fileId": "f1",
+                            "type": "image",
+                            "caption": "Схема",
+                        },
+                    }
+                ],
+            )
+        )
+
+        message = await MessageRepository(session).get_by_msg_id(CHAT_ID, MSG_ID)
+        assert message is not None
+        assert message.text == "[изображение: Схема]"
 
     async def test_unknown_author_is_still_recorded(
         self, session: AsyncSession, middleware: CreateChatMiddleware
@@ -107,6 +132,101 @@ class TestRecording:
         assert await table_count(session, Message) == 1
         assert await history_enabled(session, CHAT_ID) is False
         assert await history_enabled(session, "other@chat.agent") is True
+
+
+class TestMessageText:
+    """Что попадает в историю: текст плюс пометки о вложениях."""
+
+    @pytest.mark.parametrize(
+        ("parts", "expected"),
+        [
+            ([], "[вложение]"),
+            (
+                [{"type": "file", "payload": {"fileId": "f", "type": "video"}}],
+                "[видео]",
+            ),
+            ([{"type": "file", "payload": {"fileId": "f"}}], "[файл]"),
+            ([{"type": "sticker", "payload": {"fileId": "s"}}], "[стикер]"),
+            ([{"type": "voice", "payload": {"fileId": "v"}}], "[голосовое сообщение]"),
+        ],
+    )
+    def test_labels(self, parts: list[dict], expected: str) -> None:
+        payload = make_event("new_message", text=None, parts=parts).payload
+
+        assert message_text(payload.text, payload.parts) == expected
+
+    def test_text_and_attachment_together(self) -> None:
+        payload = make_event(
+            "new_message",
+            text="смотри",
+            parts=[{"type": "file", "payload": {"fileId": "f", "type": "image"}}],
+        ).payload
+
+        assert message_text(payload.text, payload.parts) == "смотри [изображение]"
+
+    def test_forward_keeps_the_quote(self) -> None:
+        """Без текста цитаты «о чём тут договорились» по пересылке не ответить."""
+        payload = make_event(
+            "new_message",
+            text=None,
+            parts=[
+                {
+                    "type": "forward",
+                    "payload": {
+                        "message": {
+                            "from": {
+                                "firstName": "Пётр",
+                                "lastName": "Петров",
+                                "userId": "9876543210",
+                            },
+                            "text": "переносим релиз",
+                            "msgId": "1",
+                            "timestamp": 1546290000,
+                        }
+                    },
+                }
+            ],
+        ).payload
+
+        assert message_text(payload.text, payload.parts) == (
+            "[переслано от Пётр Петров: переносим релиз]"
+        )
+
+    def test_reply_is_labelled_differently(self) -> None:
+        payload = make_event(
+            "new_message",
+            text="согласен",
+            parts=[
+                {
+                    "type": "reply",
+                    "payload": {"message": {"text": "переносим релиз", "msgId": "1"}},
+                }
+            ],
+        ).payload
+
+        assert message_text(payload.text, payload.parts) == (
+            "согласен [в ответ на неизвестно кто: переносим релиз]"
+        )
+
+    def test_unknown_part_is_ignored(self) -> None:
+        """Новый тип части не должен ни падать, ни мусорить в истории."""
+        payload = make_event(
+            "new_message",
+            text="привет",
+            parts=[{"type": "quantum_hologram", "payload": {}}],
+        ).payload
+
+        assert message_text(payload.text, payload.parts) == "привет"
+
+    def test_mentions_are_not_duplicated(self) -> None:
+        """Упоминание и так видно в тексте как `@[id]`."""
+        payload = make_event(
+            "new_message",
+            text="привет @[9876543210]",
+            parts=[{"type": "mention", "payload": {"userId": "9876543210"}}],
+        ).payload
+
+        assert message_text(payload.text, payload.parts) == "привет @[9876543210]"
 
 
 class TestOutgoing:

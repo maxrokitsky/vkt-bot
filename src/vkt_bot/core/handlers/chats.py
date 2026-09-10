@@ -47,6 +47,7 @@ class CreateChatMiddleware(Middleware):
                 sender=event.payload.sender,
                 text=event.payload.text,
                 ts=event.payload.timestamp,
+                parts=event.payload.parts,
             )
             if not known:
                 await emit(

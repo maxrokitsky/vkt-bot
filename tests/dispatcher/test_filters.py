@@ -36,13 +36,6 @@ from tests.factories import make_event
 if TYPE_CHECKING:
     from vkteams_client.types import Event
 
-# ROADMAP 3.1: фильтры обращаются к отсутствующему `event.data`.
-BROKEN_BY_MISSING_PARTS = pytest.mark.xfail(
-    raises=AttributeError,
-    strict=True,
-    reason="ROADMAP 3.1: фильтры читают event.data, которого у pydantic-модели нет",
-)
-
 
 class Const(FilterBase):
     """Фильтр-заглушка с фиксированным результатом."""
@@ -269,11 +262,9 @@ class TestUrlFilter:
     """``Filter.url``."""
 
     @pytest.mark.parametrize("text", ["не ссылка", "текст https://example.com текст"])
-    def test_rejects_without_raising(self, text: str) -> None:
-        """Регексп не совпал — до сломанного ``FileFilter`` дело не доходит."""
+    def test_rejects_text_that_is_not_a_bare_url(self, text: str) -> None:
         assert URLFilter()(make_event("new_message", text=text)) is False
 
-    @BROKEN_BY_MISSING_PARTS
     @pytest.mark.parametrize(
         "text", ["https://example.com", "  http://example.com/a?b=1  "]
     )
@@ -281,71 +272,66 @@ class TestUrlFilter:
         assert URLFilter()(make_event("new_message", text=text)) is True
 
 
-class TestBrokenPartFilters:
-    """Фильтры по ``parts``: сейчас падают с ``AttributeError`` (ROADMAP 3.1)."""
+class TestPartFilters:
+    """Фильтры по ``parts``.
 
-    @BROKEN_BY_MISSING_PARTS
+    Долго лежали: читали ``event.data``, словарь из старой версии клиента,
+    которого у pydantic-модели нет (ROADMAP 3.1). Теперь ``parts``
+    разбираются, и фильтры смотрят в модель.
+    """
+
     def test_file_filter_matches_file_part(self) -> None:
         assert FileFilter()(make_event("new_message_with_parts")) is True
 
-    @BROKEN_BY_MISSING_PARTS
     def test_file_filter_rejects_plain_message(self, message: Event) -> None:
         assert FileFilter()(message) is False
 
-    @BROKEN_BY_MISSING_PARTS
     def test_image_filter(self) -> None:
         assert ImageFilter()(make_event("new_message_with_parts")) is True
 
-    @BROKEN_BY_MISSING_PARTS
     def test_video_filter(self) -> None:
         assert VideoFilter()(make_event("new_message_with_parts")) is False
 
-    @BROKEN_BY_MISSING_PARTS
     def test_audio_filter(self) -> None:
         assert AudioFilter()(make_event("new_message_with_parts")) is False
 
-    @BROKEN_BY_MISSING_PARTS
     def test_sticker_filter(self, message: Event) -> None:
         assert StickerFilter()(message) is False
 
-    @BROKEN_BY_MISSING_PARTS
     def test_mention_filter_without_user(self) -> None:
         assert MentionFilter()(make_event("new_message_with_parts")) is True
 
-    @BROKEN_BY_MISSING_PARTS
     def test_mention_filter_with_user(self) -> None:
         event = make_event("new_message_with_parts")
         assert MentionFilter("9876543210")(event) is True
         assert MentionFilter("0000000000")(event) is False
 
-    @BROKEN_BY_MISSING_PARTS
     def test_forward_filter(self, message: Event) -> None:
         assert ForwardFilter()(message) is False
 
-    @BROKEN_BY_MISSING_PARTS
     def test_reply_filter(self, message: Event) -> None:
         assert ReplyFilter()(message) is False
 
-    @BROKEN_BY_MISSING_PARTS
     def test_media_shortcut(self) -> None:
         assert Filter.media(make_event("new_message_with_parts")) is True
 
-    @BROKEN_BY_MISSING_PARTS
     def test_data_shortcut(self) -> None:
         assert Filter.data(make_event("new_message_with_parts")) is False
 
-    @BROKEN_BY_MISSING_PARTS
     def test_text_shortcut(self, message: Event) -> None:
         assert Filter.text(message) is True
 
-    @BROKEN_BY_MISSING_PARTS
     def test_callback_data_filter(self, callback: Event) -> None:
         expected = callback.payload.callbackData
         assert CallbackDataFilter(expected)(callback) is True
 
-    @BROKEN_BY_MISSING_PARTS
     def test_callback_data_regexp_filter(self, callback: Event) -> None:
-        assert bool(CallbackDataRegexpFilter(r"showcommands")(callback)) is True
+        # Именно ``is True``: раньше фильтр возвращал объект совпадения.
+        assert CallbackDataRegexpFilter(r"showcommands")(callback) is True
+
+    def test_callback_data_filters_reject_messages(self, message: Event) -> None:
+        assert CallbackDataFilter("что угодно")(message) is False
+        assert CallbackDataRegexpFilter(r".*")(message) is False
 
 
 class TestFilterShortcuts:
