@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import {
+  Bot,
   GitBranch,
   Gauge,
   MessagesSquare,
@@ -22,6 +23,7 @@ import GitLabWebhooksView from '@/views/GitLabWebhooksView.vue'
 import BotSettingsView from '@/views/BotSettingsView.vue'
 import EventsView from '@/views/EventsView.vue'
 import WebhooksView from '@/views/WebhooksView.vue'
+import AiSessionsView from '@/views/AiSessionsView.vue'
 import MainLayout from '@/layouts/MainLayout.vue'
 // Расширение RouteMeta живёт здесь же, где описаны группы меню.
 import './nav'
@@ -173,6 +175,23 @@ const router = createRouter({
               order: 2,
               icon: ScrollText,
               keywords: ['аудит', 'логи', 'журнал'],
+            },
+          },
+        },
+        {
+          path: 'ai',
+          name: 'ai',
+          component: AiSessionsView,
+          meta: {
+            title: 'ИИ-агент',
+            description: 'Диалоги с агентом и расход токенов',
+            width: 'wide',
+            requiresAuth: true,
+            nav: {
+              group: 'admin',
+              order: 3,
+              icon: Bot,
+              keywords: ['ai', 'агент', 'токены', 'диалоги'],
             },
           },
         },

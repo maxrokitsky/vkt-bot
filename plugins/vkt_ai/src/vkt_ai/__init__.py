@@ -56,15 +56,16 @@ async def lifespan() -> AsyncIterator[None]:
         await cancel_all()
 
 
-def install(webapp: FastAPI) -> None:  # noqa: ARG001
+def install(webapp: FastAPI) -> None:
     """Подключить плагин."""
     from vkt_bot.core.lifespans import register
 
-    from . import handlers, models  # noqa: F401
+    from . import api, handlers, models  # noqa: F401
     from .agent import configured
     from .events import install_events
 
     install_events()
     register(lifespan)
+    webapp.include_router(api.router)
 
     logger.info("plugin.installed", plugin="ai", configured=configured())

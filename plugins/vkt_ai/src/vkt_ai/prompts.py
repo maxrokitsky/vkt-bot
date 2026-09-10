@@ -56,3 +56,21 @@ def build_prompt(question: str, history: str | None) -> str:
     if not history:
         return question
     return f"{CONTEXT_HEADER}\n{history}\n{CONTEXT_FOOTER}\n\nВопрос: {question}"
+
+
+def strip_context(prompt: str) -> str:
+    """Убрать из запроса подложенную историю чата, оставив вопрос.
+
+    Нужно панели: в первом сообщении диалога лежит автоконтекст — чужая
+    переписка целиком. Показывать её в карточке сессии значило бы завести
+    второй способ читать чаты, в обход проверок ``chat_messages``. Вместо
+    текста остаётся отметка о том, что контекст был.
+    """
+    start = prompt.find(CONTEXT_HEADER)
+    end = prompt.find(CONTEXT_FOOTER)
+    if start == -1 or end == -1 or end < start:
+        return prompt
+    inner = prompt[start + len(CONTEXT_HEADER) : end].strip()
+    tail = prompt[end + len(CONTEXT_FOOTER) :].lstrip()
+    note = f"[история чата: {len(inner)} символов]"
+    return f"{prompt[:start]}{note}\n\n{tail}".strip()

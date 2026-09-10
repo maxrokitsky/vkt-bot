@@ -19,6 +19,12 @@ TEST_ENV = {
     "SECRET_KEY": "test-secret-key",
     "OWNER_ID": "owner@example.com",
     "PUBLIC_URL": "https://panel.example.com",
+    # Настройки плагинов тоже фиксируем: у ``AiSettings`` свой
+    # ``env_file=".env"``, и без этого тесты читали бы боевой ключ и
+    # включённого агента с машины разработчика.
+    "AI_ENABLED": "false",
+    "AI_API_KEY": "",
+    "AI_MODEL": "test/model",
 }
 for _key, _value in TEST_ENV.items():
     os.environ[_key] = _value

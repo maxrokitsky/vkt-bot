@@ -328,7 +328,12 @@ TEST_DB_URL=postgresql+psycopg://postgres@localhost:16432/vkt_bot_test uv run py
   get-or-create), продолжение ловит `AgentReplyHandler` по `thread_id` в
   `agent_sessions` — один запрос по индексу вместо запроса к API.
 - Настройки — свой `BaseSettings` с префиксом `AI_` в плагине; выключатель
-  на ходу — `ai_enabled` в `bot_settings`.
+  на ходу — `ai_enabled` в `bot_settings`. **В тестах они фиксируются в
+  `TEST_ENV`**: у `AiSettings` свой `env_file=".env"`, и без этого тесты
+  читали бы боевой ключ с машины разработчика.
+- Панель: `/api/ai/status`, `/api/ai/sessions`, `/api/ai/usage` — страница
+  «ИИ-агент». `status` нужен, чтобы отличить «агента выключили» от «никто
+  не спрашивал»: и там, и там пустой список.
 
 ### Ответы API
 
@@ -385,6 +390,11 @@ FastAPI. `app.py` собирает роутеры, `api/` — эндпоинты
 - Состав чата — это `GET /api/chat-users?chat_id=...`: фильтр идёт через
   `chat_memberships`, поэтому ушедшие из списка исчезают, хотя их строки
   `ChatUser` остаются.
+- `api/ai.py` (плагин) — диалоги с агентом и расход токенов. Админ видит
+  всё, обычный участник — только свои сессии: вопрос к агенту говорит о
+  человеке не меньше, чем ответ. Автоконтекст из сообщений вырезается
+  (`prompts.strip_context`) — иначе панель стала бы вторым способом читать
+  чужие чаты, в обход проверок `chat_messages`.
 - Зависимости доступа: `CurrentUser`, `CurrentAdminUser`, `CurrentOwnerUser`,
   `SessionDep`.
 

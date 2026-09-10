@@ -38,6 +38,247 @@ export type AddRoleMemberRequest = {
 }
 
 /**
+ * AgentMessageResponse
+ *
+ * Сообщение диалога.
+ *
+ * ``raw`` наружу не отдаётся никогда: там лежит полный запрос к модели
+ * вместе с автоконтекстом.
+ */
+export type AgentMessageResponse = {
+  /**
+   * Id
+   */
+  id: number
+  /**
+   * Role
+   */
+  role: string
+  /**
+   * Content
+   */
+  content: string | null
+  /**
+   * Tool Name
+   */
+  tool_name: string | null
+  /**
+   * Created At
+   */
+  created_at: string
+}
+
+/**
+ * AgentSessionDetailResponse
+ *
+ * Сессия целиком, с ходом диалога.
+ */
+export type AgentSessionDetailResponse = {
+  session: AgentSessionResponse
+  /**
+   * Messages
+   */
+  messages: Array<AgentMessageResponse>
+}
+
+/**
+ * AgentSessionResponse
+ *
+ * Сессия в списке.
+ */
+export type AgentSessionResponse = {
+  /**
+   * Id
+   */
+  id: string
+  /**
+   * Chat Id
+   */
+  chat_id: string
+  /**
+   * Chat Title
+   */
+  chat_title: string | null
+  /**
+   * User Id
+   */
+  user_id: string
+  /**
+   * User Name
+   */
+  user_name: string
+  /**
+   * Thread Id
+   */
+  thread_id: string | null
+  status: SessionStatus
+  /**
+   * Created At
+   */
+  created_at: string
+  /**
+   * Updated At
+   */
+  updated_at: string
+  /**
+   * Tokens In
+   */
+  tokens_in: number
+  /**
+   * Tokens Out
+   */
+  tokens_out: number
+  /**
+   * Question
+   */
+  question: string | null
+}
+
+/**
+ * AgentStatusResponse
+ *
+ * Состояние агента: включён ли и с какими лимитами.
+ */
+export type AgentStatusResponse = {
+  /**
+   * Configured
+   */
+  configured: boolean
+  /**
+   * Enabled
+   */
+  enabled: boolean
+  /**
+   * Model
+   */
+  model: string
+  /**
+   * Max Steps
+   */
+  max_steps: number
+  /**
+   * Context Messages
+   */
+  context_messages: number
+  /**
+   * Daily Token Budget
+   */
+  daily_token_budget: number
+  /**
+   * Retention Days
+   */
+  retention_days: number
+}
+
+/**
+ * AgentUsageActor
+ *
+ * Расход по участнику или чату.
+ */
+export type AgentUsageActor = {
+  /**
+   * Id
+   */
+  id: string
+  /**
+   * Name
+   */
+  name: string
+  /**
+   * Sessions
+   */
+  sessions: number
+  /**
+   * Tokens
+   */
+  tokens: number
+}
+
+/**
+ * AgentUsagePoint
+ *
+ * Расход за один день.
+ */
+export type AgentUsagePoint = {
+  /**
+   * Date
+   */
+  date: string
+  /**
+   * Sessions
+   */
+  sessions: number
+  /**
+   * Tokens
+   */
+  tokens: number
+}
+
+/**
+ * AgentUsageResponse
+ *
+ * Расход токенов.
+ *
+ * Админ видит всех, обычный участник — только себя: вопрос к агенту
+ * говорит о человеке не меньше, чем сам ответ.
+ */
+export type AgentUsageResponse = {
+  /**
+   * Days
+   */
+  days: number
+  totals: AgentUsageTotals
+  /**
+   * By Day
+   */
+  by_day: Array<AgentUsagePoint>
+  /**
+   * Top Users
+   */
+  top_users: Array<AgentUsageActor>
+  /**
+   * Top Chats
+   */
+  top_chats: Array<AgentUsageActor>
+  /**
+   * Daily Token Budget
+   */
+  daily_token_budget: number
+  /**
+   * Spent Today
+   */
+  spent_today: number
+}
+
+/**
+ * AgentUsageTotals
+ *
+ * Итоги за период.
+ */
+export type AgentUsageTotals = {
+  /**
+   * Sessions
+   */
+  sessions: number
+  /**
+   * Tokens In
+   */
+  tokens_in: number
+  /**
+   * Tokens Out
+   */
+  tokens_out: number
+  /**
+   * Users
+   */
+  users: number
+  /**
+   * Failed
+   */
+  failed: number
+}
+
+/**
  * BotSettingsResponse
  *
  * Bot settings response schema.
@@ -489,6 +730,34 @@ export type OverviewResponse = {
 }
 
 /**
+ * PaginatedAgentSessionsResponse
+ *
+ * Постраничный список сессий.
+ */
+export type PaginatedAgentSessionsResponse = {
+  /**
+   * Items
+   */
+  items: Array<AgentSessionResponse>
+  /**
+   * Total
+   */
+  total: number
+  /**
+   * Page
+   */
+  page: number
+  /**
+   * Size
+   */
+  size: number
+  /**
+   * Pages
+   */
+  pages: number
+}
+
+/**
  * PaginatedChatUsersResponse
  */
 export type PaginatedChatUsersResponse = {
@@ -703,6 +972,13 @@ export type SendMessageResponse = {
    */
   message: string
 }
+
+/**
+ * SessionStatus
+ *
+ * Состояние сессии.
+ */
+export type SessionStatus = 'active' | 'waiting_approval' | 'done' | 'failed' | 'canceled'
 
 /**
  * Token
@@ -2315,6 +2591,143 @@ export type HealthHealthGetResponses = {
    */
   200: unknown
 }
+
+export type GetStatusApiAiStatusGetData = {
+  body?: never
+  path?: never
+  query?: never
+  url: '/api/ai/status'
+}
+
+export type GetStatusApiAiStatusGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: AgentStatusResponse
+}
+
+export type GetStatusApiAiStatusGetResponse =
+  GetStatusApiAiStatusGetResponses[keyof GetStatusApiAiStatusGetResponses]
+
+export type ListSessionsApiAiSessionsGetData = {
+  body?: never
+  path?: never
+  query?: {
+    /**
+     * Page
+     */
+    page?: number
+    /**
+     * Size
+     */
+    size?: number
+    /**
+     * User Id
+     */
+    user_id?: string | null
+    /**
+     * Chat Id
+     */
+    chat_id?: string | null
+    /**
+     * Session Status
+     */
+    session_status?: SessionStatus | null
+    /**
+     * Start Date
+     */
+    start_date?: string | null
+    /**
+     * End Date
+     */
+    end_date?: string | null
+  }
+  url: '/api/ai/sessions'
+}
+
+export type ListSessionsApiAiSessionsGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type ListSessionsApiAiSessionsGetError =
+  ListSessionsApiAiSessionsGetErrors[keyof ListSessionsApiAiSessionsGetErrors]
+
+export type ListSessionsApiAiSessionsGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: PaginatedAgentSessionsResponse
+}
+
+export type ListSessionsApiAiSessionsGetResponse =
+  ListSessionsApiAiSessionsGetResponses[keyof ListSessionsApiAiSessionsGetResponses]
+
+export type GetSessionApiAiSessionsSessionIdGetData = {
+  body?: never
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string
+  }
+  query?: never
+  url: '/api/ai/sessions/{session_id}'
+}
+
+export type GetSessionApiAiSessionsSessionIdGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type GetSessionApiAiSessionsSessionIdGetError =
+  GetSessionApiAiSessionsSessionIdGetErrors[keyof GetSessionApiAiSessionsSessionIdGetErrors]
+
+export type GetSessionApiAiSessionsSessionIdGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: AgentSessionDetailResponse
+}
+
+export type GetSessionApiAiSessionsSessionIdGetResponse =
+  GetSessionApiAiSessionsSessionIdGetResponses[keyof GetSessionApiAiSessionsSessionIdGetResponses]
+
+export type GetUsageApiAiUsageGetData = {
+  body?: never
+  path?: never
+  query?: {
+    /**
+     * Days
+     */
+    days?: number
+  }
+  url: '/api/ai/usage'
+}
+
+export type GetUsageApiAiUsageGetErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError
+}
+
+export type GetUsageApiAiUsageGetError =
+  GetUsageApiAiUsageGetErrors[keyof GetUsageApiAiUsageGetErrors]
+
+export type GetUsageApiAiUsageGetResponses = {
+  /**
+   * Successful Response
+   */
+  200: AgentUsageResponse
+}
+
+export type GetUsageApiAiUsageGetResponse =
+  GetUsageApiAiUsageGetResponses[keyof GetUsageApiAiUsageGetResponses]
 
 export type ListWebhooksGlWebhooksGetData = {
   body?: never
