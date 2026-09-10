@@ -35,8 +35,11 @@ def setup(app: FastAPI) -> None:
     # Действия бота становятся событиями: клиент сам в базу не ходит.
     from vkt_bot.app import bot
     from vkt_bot.core.bot_events import record_bot_action
+    from vkt_bot.core.messages import record_outgoing
 
     bot.event_sink = record_bot_action
+    # Свои сообщения — в историю чата: в поток событий они не приходят.
+    bot.message_sink = record_outgoing
 
     for plugin in importlib.metadata.entry_points(group="vkt_bot.plugins"):
         module = plugin.load()

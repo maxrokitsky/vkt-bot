@@ -47,6 +47,10 @@ class VKTeams:
     #: свою функцию и превращает вызовы в доменные события; пакет про них
     #: ничего не знает и в базу не ходит.
     event_sink: Callable[[str, dict[str, Any]], Awaitable[None]] | None = None
+    #: Куда отдавать отправленные сообщения целиком: приложение пишет их
+    #: в историю чата. Отдельный крючок, а не ``event_sink``: полный
+    #: текст в журнал событий и в логи не идёт.
+    message_sink: Callable[[str, str, str], Awaitable[None]] | None = None
 
     def __init__(self, token: str) -> None:
         self.token = token
@@ -63,6 +67,20 @@ class VKTeams:
             await self.event_sink(event_type, fields)
         except Exception:
             logger.exception("event_sink.failed", event_type=event_type)
+
+    async def record_message(self, chat_id: str, msg_id: str, text: str) -> None:
+        """Отдать отправленное сообщение в историю.
+
+        В поток событий свои сообщения не возвращаются, поэтому без этого
+        история читается с дырами: вопрос есть, ответа нет. Ошибка
+        наблюдателя отправку не ломает.
+        """
+        if self.message_sink is None:
+            return
+        try:
+            await self.message_sink(chat_id, msg_id, text)
+        except Exception:
+            logger.exception("message_sink.failed", chat_id=chat_id)
 
     @property
     def session(self) -> aiohttp.ClientSession:
@@ -154,6 +172,8 @@ class VKTeams:
                 text_preview=text[:50],
                 reason=result.description,
             )
+            if result.ok and result.msgId:
+                await self.record_message(chat_id, result.msgId, text)
             return result
 
     async def edit_text(

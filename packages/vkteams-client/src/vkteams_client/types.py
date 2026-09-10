@@ -127,8 +127,19 @@ class EditedMessageEvent(BaseEvent[EditedMessagePayload]):
     type: Literal[EventType.EDITED_MESSAGE]
 
 
-class DeletedMessageEvent(BaseEvent[Any]):
-    """Сообщение был изменено."""
+class DeletedMessagePayload(BaseModel):
+    """DeletedMessagePayload.
+
+    Отправителя в событии нет: удалить сообщение может и не автор.
+    """
+
+    chat: Chat
+    msgId: str
+    timestamp: datetime.datetime
+
+
+class DeletedMessageEvent(BaseEvent[DeletedMessagePayload]):
+    """Сообщение удалено."""
 
     type: Literal[EventType.DELETED_MESSAGE]
 

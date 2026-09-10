@@ -1,0 +1,22 @@
+[project]
+name = "vkt-ai"
+version = "0.1.0"
+description = "ИИ-агент: отвечает на вопросы о ролях, чатах, событиях и переписке"
+readme = "README.md"
+authors = [
+    { name = "Max Rokitsky", email = "max@rokitsky.ru" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "vkt-agent",
+]
+
+[tool.uv.sources]
+vkt_agent = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.7.13,<0.8.0"]
+build-backend = "uv_build"
+
+[project.entry-points.'vkt_bot.plugins']
+ai = "vkt_ai"

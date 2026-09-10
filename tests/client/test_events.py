@@ -187,16 +187,22 @@ class TestOtherPayloads:
     @pytest.mark.parametrize(
         "fixture",
         [
-            "deleted_message",
             "pinned_message",
             "unpinned_message",
         ],
     )
     def test_untyped_payloads_stay_dicts(self, fixture: str) -> None:
-        """У трёх событий ``payload: Any`` — см. ROADMAP 3.5."""
+        """У двух событий ``payload: Any`` — см. ROADMAP 3.5."""
         event = make_event(fixture)
         assert isinstance(event.payload, dict)
         assert event.payload == raw_event(fixture)["payload"]
+
+    def test_deleted_message_payload_is_typed(self) -> None:
+        """История сообщений помечает удалённые — ей нужен ``msgId``."""
+        event = make_event("deleted_message")
+
+        assert event.payload.msgId == "6752739791872001111"
+        assert event.payload.chat.chatId == "681869378@chat.agent"
 
 
 class TestEventStr:

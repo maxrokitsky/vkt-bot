@@ -27,6 +27,9 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger("vkt_bot.threads")
 
+#: Так API отвечает на ``threads/subscribers/get`` для обычного чата.
+NOT_A_THREAD = "incorrect threadid"
+
 
 async def autosubscribe_enabled() -> bool:
     """Разрешена ли автоподписка на обсуждения настройками бота."""
@@ -116,3 +119,34 @@ async def get_or_create_thread(
         msg_id=msg_id,
     )
     return response.threadId
+
+
+async def is_thread(bot: VKTeams, chat_id: str) -> bool:
+    """Обсуждение ли этот чат.
+
+    По виду ``chatId`` тред от группы не отличить; единственная проверка
+    — ответ API: для обычного чата ``threads/subscribers/get`` отказывает
+    с ``Incorrect threadId``. Сам список подписчиков не нужен, поэтому
+    просим одну страницу, а не обходим все.
+
+    Этот отказ ожидаем — через проверку идёт каждое сообщение обычного
+    чата. Всё остальное — сбой: сеть, права или ошибка в нашем коде.
+    Различать их важно, иначе поломка выглядит как обычный чат и молча
+    уходит в debug. При сбое отвечаем «обычный чат»: проверка по членству
+    строже, и ошибаться лучше в эту сторону.
+    """
+    try:
+        page = await bot.threads_subscribers_get(chat_id, page_size=1)
+    except Exception:
+        logger.warning("thread.check_failed", chat_id=chat_id, exc_info=True)
+        return False
+
+    if page.ok:
+        return True
+
+    description = page.description or ""
+    if NOT_A_THREAD in description.lower():
+        logger.debug("thread.check_not_a_thread", chat_id=chat_id)
+    else:
+        logger.warning("thread.check_refused", chat_id=chat_id, reason=description)
+    return False

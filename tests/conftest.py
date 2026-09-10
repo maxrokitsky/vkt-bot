@@ -87,6 +87,7 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: ARG001
 
     importlib.import_module("vkt_bot.core.models")
     importlib.import_module("vkt_gitlab.models")
+    importlib.import_module("vkt_ai.models")
 
 
 # --------------------------------------------------------------------------- #

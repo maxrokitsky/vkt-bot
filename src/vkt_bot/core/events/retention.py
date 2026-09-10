@@ -1,8 +1,13 @@
-"""Чистка журнала событий.
+"""Суточная уборка: журнал событий и история сообщений.
 
-Таблица растёт без остановки: поток чатов, вебхуков и команд идёт
-постоянно. Старые рутинные записи удаляются, предупреждения и ошибки
-остаются — именно их ищут, когда что-то пошло не так месяц назад.
+Обе таблицы растут без остановки: поток чатов, вебхуков и команд идёт
+постоянно, а сообщений — ещё быстрее. Старые рутинные записи журнала
+удаляются, предупреждения и ошибки остаются: именно их ищут, когда
+что-то пошло не так месяц назад. История сообщений чистится и по сроку
+хранения, и по потолку строк на чат.
+
+Задача одна на обе таблицы: уборка не срочная, и держать два одинаковых
+цикла незачем.
 """
 
 from __future__ import annotations
@@ -55,8 +60,10 @@ async def run_retention_loop(interval: int = INTERVAL_SECONDS) -> None:
     Сбой чистки не должен ронять бота: следующая попытка будет завтра.
     """
     from vkt_bot.config import get_settings
+    from vkt_bot.core.messages import purge_history
 
-    days = get_settings().events_retention_days
+    settings = get_settings()
+    days = settings.events_retention_days
     while True:
         try:
             async with async_session() as session:
@@ -65,6 +72,21 @@ async def run_retention_loop(interval: int = INTERVAL_SECONDS) -> None:
                 logger.info("events.purged", removed=removed, older_than_days=days)
         except Exception:
             logger.exception("events.purge_failed")
+        try:
+            async with async_session() as session:
+                removed = await purge_history(
+                    session,
+                    days=settings.messages_retention_days,
+                    max_per_chat=settings.messages_max_per_chat,
+                )
+            if removed:
+                logger.info(
+                    "messages.purged",
+                    removed=removed,
+                    older_than_days=settings.messages_retention_days,
+                )
+        except Exception:
+            logger.exception("messages.purge_failed")
         await asyncio.sleep(interval)
 
 
