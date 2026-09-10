@@ -24,7 +24,7 @@ info:
     <p>tr{{mainPage.receivingServerEventsDesc}}
     <h2>__tr{{mainPage.librariesForCreatingBots}}__</h2>
     <ul>
-    <li>[Python](https://github.com/mail-ru-im/bot-python) <a href="https://pypi.org/project/mailru-im-bot/">(PIP)</a></li>
+    <li>[Python](https://github.com/mail-ru-im/bot-python) <a href="https://pypi.org/project/vk-workspace-bot-sdk/">(PIP)</a></li>
     <li>[Golang](https://github.com/mail-ru-im/bot-golang)</li>
     <li>[Java](https://github.com/mail-ru-im/bot-java)</li>
     </ul>
@@ -76,6 +76,7 @@ tags:
   - name: chats
   - name: files
   - name: events
+  - name: threads
 paths:
   /self/get:
     $ref: 'self/get.json'
@@ -131,3 +132,9 @@ paths:
     $ref: 'files/getInfo.json'
   /events/get:
     $ref: 'events/get.json'
+  /threads/add:
+    $ref: 'threads/add.json'
+  /threads/autosubscribe:
+    $ref: 'threads/autosubscribe.json'
+  /threads/subscribers/get:
+    $ref: 'threads/subscribersGet.json'

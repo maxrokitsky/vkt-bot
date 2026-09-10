@@ -223,11 +223,10 @@ TEST_DB_URL=postgresql+psycopg://postgres@localhost:16432/vkt_bot_test uv run py
   плюс автор и текст исходного сообщения.
 - Клиент: `threads_add`, `threads_autosubscribe`, `threads_subscribers_get`
   и `iter_thread_subscribers` (автопагинация по `cursor`).
-- Корневой `api.yaml` устарел: методов `threads/*` в нём нет вовсе. Свежую
-  спеку отдают `https://teams.vk.com/botapi/{api.yaml,schemas.json,
-  params.json,lang_config_ru.json}` — в ней у тредов ровно три метода
-  (`add`, `autosubscribe`, `subscribers/get`), а `threadId` возвращает
-  только `threads/add`.
+- В спеке у тредов ровно три метода (`add`, `autosubscribe`,
+  `subscribers/get`), и `threadId` возвращает только `threads/add`.
+  Корневой `api.yaml` обновлён 2026-09-10 отсюда:
+  `https://teams.vk.com/botapi/{api.yaml,schemas.json,params.json,lang_config_ru.json}`.
 
 ### Ответы API
 
