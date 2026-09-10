@@ -32,6 +32,8 @@ async def main() -> None:
         await dispatcher.run()
     except asyncio.CancelledError:
         sys.stdout.write("\r")
+        # Только лог: писать в базу на отмене корутины — ловить
+        # оборванное соединение в момент, когда цикл уже гасится.
         main_logger.info("bot.stopped")
 
 

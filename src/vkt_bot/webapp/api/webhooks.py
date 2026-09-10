@@ -5,6 +5,8 @@ import structlog
 from vkteams_client.types import MsgLoadFileResponse
 
 from vkt_bot.app import bot
+from vkt_bot.core.events import Actor, EventType, emit
+from vkt_bot.core.models.event import EntityType
 from vkt_bot.core.repositories.chat import ChatRepository
 from vkt_bot.core.repositories.webhook import WebhookRepository
 from vkt_bot.webapp.dependencies import CurrentUser, SessionDep
@@ -18,8 +20,6 @@ from vkt_bot.webapp.schemas.webhook import (
     WebhookSendResponse,
     WebhookUpdateSchema,
 )
-
-logger = structlog.get_logger("vkt_bot.webapp.webhooks")
 
 router = APIRouter(prefix="/api/webhooks", tags=["webhooks"])
 public_router = APIRouter(prefix="/webhooks", tags=["public-webhooks"])
@@ -60,13 +60,15 @@ async def create_webhook(
     webhook_repo = WebhookRepository(session)
     webhook, api_key = await webhook_repo.create_with_api_key(data, current_user.id)
 
-    logger.info(
-        "webhook.created",
-        webhook_id=webhook.id,
-        name=webhook.name,
+    await emit(
+        session,
+        EventType.WEBHOOK_CREATED,
+        actor=Actor.from_user(current_user),
         chat_id=webhook.chat_id,
-        created_by=webhook.created_by,
+        entity=(EntityType.WEBHOOK, webhook.id),
+        payload={"name": webhook.name},
     )
+    await session.commit()
 
     return WebhookCreateResponse(
         webhook=WebhookResponse.model_validate(webhook),
@@ -125,15 +127,24 @@ async def update_webhook(
             detail="You don't have permission to update this webhook",
         )
 
-    # Обновление вебхука
-    updated_webhook = await webhook_repo.update(webhook_id, data)
-
-    logger.info(
-        "webhook.updated",
-        webhook_id=updated_webhook.id,
-        name=updated_webhook.name,
-        is_active=updated_webhook.is_active,
+    # Только переданные поля: репозиторий пишет весь словарь, и при
+    # частичном PUT опущенные поля обнулялись бы.
+    updated_webhook = await webhook_repo.update(
+        webhook_id, data.model_dump(exclude_unset=True)
     )
+
+    await emit(
+        session,
+        EventType.WEBHOOK_UPDATED,
+        actor=Actor.from_user(current_user),
+        chat_id=updated_webhook.chat_id,
+        entity=(EntityType.WEBHOOK, updated_webhook.id),
+        payload={"name": updated_webhook.name, "is_active": updated_webhook.is_active},
+    )
+    await session.commit()
+    # ``updated_at`` проставляет база, после коммита значение в объекте
+    # протухло: без refresh сериализация полезет за ним ленивой загрузкой.
+    await session.refresh(updated_webhook)
 
     return WebhookResponse.model_validate(updated_webhook)
 
@@ -164,7 +175,15 @@ async def delete_webhook(
     # Удаление вебхука
     await webhook_repo.delete(webhook_id)
 
-    logger.info("webhook.deleted", webhook_id=webhook.id, name=webhook.name)
+    await emit(
+        session,
+        EventType.WEBHOOK_DELETED,
+        actor=Actor.from_user(current_user),
+        chat_id=webhook.chat_id,
+        entity=(EntityType.WEBHOOK, webhook.id),
+        payload={"name": webhook.name},
+    )
+    await session.commit()
 
 
 @router.post("/{webhook_id}/regenerate", response_model=WebhookRegenerateResponse)
@@ -193,11 +212,15 @@ async def regenerate_webhook_api_key(
     # Перегенерация API ключа
     updated_webhook, new_api_key = await webhook_repo.regenerate_api_key(webhook_id)
 
-    logger.info(
-        "webhook.key_regenerated",
-        webhook_id=updated_webhook.id,
-        name=updated_webhook.name,
+    await emit(
+        session,
+        EventType.WEBHOOK_KEY_REGENERATED,
+        actor=Actor.from_user(current_user),
+        chat_id=updated_webhook.chat_id,
+        entity=(EntityType.WEBHOOK, updated_webhook.id),
+        payload={"name": updated_webhook.name},
     )
+    await session.commit()
 
     return WebhookRegenerateResponse(
         webhook=WebhookResponse.model_validate(updated_webhook),
@@ -260,7 +283,7 @@ async def handle_webhook(
 
         msg_id = None
         file_id = None
-        sent: tuple[str, dict[str, object]] | None = None
+        sent: dict[str, object] | None = None
 
         if request.text is not None:
             # Отправка текста
@@ -270,7 +293,7 @@ async def handle_webhook(
                 text=text,
                 parse_mode=parse_mode,
             )
-            sent = ("webhook.message_sent", {"text_length": len(text)})
+            sent = {"text_length": len(text)}
 
         elif request.file:
             # Отправка файла из новой схемы
@@ -287,13 +310,10 @@ async def handle_webhook(
                 # Проверяем наличие fileId в результате
                 if isinstance(result, MsgLoadFileResponse):
                     file_id = result.fileId
-                sent = (
-                    "webhook.file_sent",
-                    {
-                        "filename": request.file.filename,
-                        "size": len(file_content),
-                    },
-                )
+                sent = {
+                    "filename": request.file.filename,
+                    "size": len(file_content),
+                }
             except ValueError as e:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -308,9 +328,15 @@ async def handle_webhook(
             response_data={"status": "sent", "msg_id": msg_id, "file_id": file_id},
         )
 
-        if sent:
-            event_name, fields = sent
-            logger.info(event_name, **fields)
+        await emit(
+            session,
+            EventType.WEBHOOK_CALLED,
+            actor=Actor.external(webhook.name),
+            chat_id=webhook.chat_id,
+            entity=(EntityType.WEBHOOK, webhook.id),
+            payload={"name": webhook.name, **(sent or {})},
+        )
+        await session.commit()
 
         return WebhookSendResponse(
             success=True,
@@ -330,7 +356,15 @@ async def handle_webhook(
             response_data={"error": str(e)},
         )
 
-        logger.error("webhook.send_failed", error=str(e))
+        await emit(
+            session,
+            EventType.WEBHOOK_FAILED,
+            actor=Actor.external(webhook.name),
+            chat_id=webhook.chat_id,
+            entity=(EntityType.WEBHOOK, webhook.id),
+            payload={"name": webhook.name, "reason": str(e)},
+        )
+        await session.commit()
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -7,7 +7,7 @@ from vkteams_client.types import NewMessageEvent
 from vkt_bot.app import dispatcher
 from vkt_bot.config import settings
 from vkt_bot.core.events import Actor, EventType, emit
-from vkt_bot.core.models.event import EntityType
+from vkt_bot.core.models.event import EntityType, EventSource
 from vkt_bot.core.repositories.login_token import LoginTokenRepository
 from vkt_bot.core.repositories.user import ChatUserRepository
 from vkt_bot.core.security import is_owner
@@ -48,6 +48,14 @@ class LoginHandler(CommandHandler):
                 logger.info("auth.superuser_granted", user_id=user_id)
 
             login_token = await token_repo.create_token(user_id, expires_minutes=5)
+            await emit(
+                session,
+                EventType.AUTH_LOGIN_REQUESTED,
+                actor=Actor.from_event(event),
+                source=EventSource.COMMAND,
+                chat_id=event.payload.chat.chatId,
+                entity=(EntityType.CHAT_USER, user_id),
+            )
             await session.commit()
             # В лог идёт id строки, а не сам токен: одноразовый он или
             # нет, в журнале ему не место.

@@ -1,5 +1,5 @@
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any, Literal
 
 import aiohttp
@@ -43,9 +43,26 @@ class VKTeams:
     token: str
     _session: aiohttp.ClientSession | None = None
     base_url: str = "https://myteam.mail.ru/bot/v1"
+    #: Куда сообщать о том, что бот сделал. Приложение подставляет сюда
+    #: свою функцию и превращает вызовы в доменные события; пакет про них
+    #: ничего не знает и в базу не ходит.
+    event_sink: Callable[[str, dict[str, Any]], Awaitable[None]] | None = None
 
     def __init__(self, token: str) -> None:
         self.token = token
+
+    async def notify(self, event_type: str, **fields: Any) -> None:  # noqa: ANN401
+        """Сообщить наблюдателю о действии бота.
+
+        Ошибка наблюдателя не должна ломать отправку сообщения: журнал
+        событий — не причина не доставить текст пользователю.
+        """
+        if self.event_sink is None:
+            return
+        try:
+            await self.event_sink(event_type, fields)
+        except Exception:
+            logger.exception("event_sink.failed", event_type=event_type)
 
     @property
     def session(self) -> aiohttp.ClientSession:
@@ -131,6 +148,12 @@ class VKTeams:
                     reason=result.description,
                     **extra,
                 )
+            await self.notify(
+                "message.sent" if result.ok else "message.send_failed",
+                chat_id=chat_id,
+                text_preview=text[:50],
+                reason=result.description,
+            )
             return result
 
     async def edit_text(

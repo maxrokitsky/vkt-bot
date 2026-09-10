@@ -217,26 +217,27 @@ class TestUpdateWebhook:
         assert response.json()["name"] == "новое имя"
         assert response.json()["is_active"] is False
 
-    async def test_partial_update_is_broken(
+    async def test_partial_update_keeps_other_fields(
         self,
         client: httpx.AsyncClient,
         user: ChatUser,
         webhook: tuple[Webhook, str],
     ) -> None:
-        """Известный дефект: ``PUT`` только с ``name`` ломает запрос.
+        """``PUT`` только с ``name`` не должен обнулять остальное.
 
-        ``AsyncRepository.update`` пишет весь ``model_dump()``, поэтому
-        опущенные поля становятся ``None``, а ``WebhookResponse`` не
-        принимает ``is_active=None`` и ``webhook_metadata=None``.
+        ``AsyncRepository.update`` пишет весь переданный словарь, поэтому
+        ручка отдаёт ему только заполненные поля.
         """
-        from pydantic import ValidationError
+        response = await client.put(
+            f"/api/webhooks/{webhook[0].id}",
+            json={"name": "новое имя"},
+            headers=auth_headers(user.id),
+        )
 
-        with pytest.raises(ValidationError):
-            await client.put(
-                f"/api/webhooks/{webhook[0].id}",
-                json={"name": "новое имя"},
-                headers=auth_headers(user.id),
-            )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["name"] == "новое имя"
+        assert body["is_active"] is True
 
     async def test_stranger_is_forbidden(
         self,
@@ -266,24 +267,19 @@ class TestUpdateWebhook:
 class TestDeleteWebhook:
     """``DELETE /api/webhooks/{id}``."""
 
-    async def test_returns_204_but_does_not_commit(
+    async def test_deletion_is_persisted(
         self,
         client: httpx.AsyncClient,
         session: AsyncSession,
         user: ChatUser,
         webhook: tuple[Webhook, str],
     ) -> None:
-        """Известный дефект: ручка отвечает 204, а вебхук остаётся в базе.
-
-        ``webhook_repo.delete(webhook_id)`` вызывается без ``commit=True``,
-        а сессия из ``get_session`` закрывается без коммита.
-        """
         response = await client.delete(
             f"/api/webhooks/{webhook[0].id}", headers=auth_headers(user.id)
         )
 
         assert response.status_code == 204
-        assert await table_count(session, Webhook) == 1
+        assert await table_count(session, Webhook) == 0
 
     async def test_stranger_is_forbidden(
         self,

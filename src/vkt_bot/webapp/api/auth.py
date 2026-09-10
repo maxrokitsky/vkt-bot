@@ -5,8 +5,11 @@ from jose import jwt
 import structlog
 
 from vkt_bot.config import settings
+from vkt_bot.core.events import Actor, EventType, emit
+from vkt_bot.core.models.event import EntityType
 from vkt_bot.core.repositories.login_history import LoginHistoryRepository
 from vkt_bot.core.repositories.login_token import LoginTokenRepository
+from vkt_bot.core.repositories.user import ChatUserRepository
 from vkt_bot.webapp.dependencies import CurrentUser, SessionDep
 from vkt_bot.webapp.schemas.auth import Token, TokenLoginRequest
 from vkt_bot.webapp.schemas.user import UserResponse
@@ -69,6 +72,14 @@ async def login(
         user_id=login_token.user_id,
         ip_address=ip_address,
         user_agent=request.headers.get("user-agent"),
+    )
+    user = await ChatUserRepository(session).get_or_none(login_token.user_id)
+    await emit(
+        session,
+        EventType.AUTH_LOGIN_SUCCEEDED,
+        actor=Actor.from_user(user) if user else Actor.system(),
+        entity=(EntityType.CHAT_USER, login_token.user_id),
+        payload={"ip_address": ip_address},
     )
     await session.commit()
 

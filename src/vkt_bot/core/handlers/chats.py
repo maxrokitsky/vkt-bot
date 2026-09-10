@@ -20,6 +20,8 @@ from vkt_bot.core.repositories.chat import ChatMembershipRepository, ChatReposit
 from vkt_bot.core.repositories.user import ChatUserRepository
 from vkt_bot.core.threads import autosubscribe_enabled, set_thread_autosubscribe
 from vkt_bot.app import dispatcher
+from vkt_bot.core.events import Actor, EventType, emit
+from vkt_bot.core.models.event import EntityType
 
 logger = structlog.get_logger("vkt_bot.handlers.chats")
 
@@ -35,9 +37,15 @@ class CreateChatMiddleware(Middleware):
             await chat_repository.upsert(event.payload.chat)
             # Сообщения — самый частый источник имён.
             await ChatUserRepository(session).update_profile(event.payload.sender)
-            await session.commit()
             if not known:
-                logger.info("chat.registered", chat_id=event.payload.chat.chatId)
+                await emit(
+                    session,
+                    EventType.CHAT_REGISTERED,
+                    chat_id=event.payload.chat.chatId,
+                    entity=(EntityType.CHAT, event.payload.chat.chatId),
+                    payload={"title": event.payload.chat.title},
+                )
+            await session.commit()
 
 
 @dispatcher.register_handler
@@ -77,10 +85,27 @@ class ChatMembersJoinedHandler(NewChatMembersHandler):
                     await users.get_or_create(user_id)
                 await memberships.add(chat_id, user_id)
 
+            if bots:
+                await emit(
+                    session,
+                    EventType.CHAT_BOT_ADDED,
+                    actor=Actor.from_event(event),
+                    chat_id=chat_id,
+                    entity=(EntityType.CHAT, chat_id),
+                    payload={"members": len(members)},
+                )
+            else:
+                await emit(
+                    session,
+                    EventType.CHAT_MEMBER_JOINED,
+                    actor=Actor.from_event(event),
+                    chat_id=chat_id,
+                    entity=(EntityType.CHAT, chat_id),
+                    payload={"members": ", ".join(joined)},
+                )
             await session.commit()
 
         if bots:
-            logger.info("chat.bot_added", chat_id=chat_id, members=len(members))
             # Подписываемся на обсуждения чата, иначе события из тредов
             # до бота не дойдут: у треда собственный chatId.
             if await autosubscribe_enabled():
@@ -108,12 +133,20 @@ class ChatMembersLeftHandler(LeftChatMembersHandler):
 
         async with async_session() as session:
             memberships = ChatMembershipRepository(session)
+            left = [member.userId for member in payload.leftMembers]
             for member in payload.leftMembers:
                 await memberships.remove(chat_id, member.userId)
-            await session.commit()
 
-        if any(isinstance(member, Bot) for member in payload.leftMembers):
-            logger.info("chat.bot_removed", chat_id=chat_id)
+            bot_left = any(isinstance(member, Bot) for member in payload.leftMembers)
+            await emit(
+                session,
+                EventType.CHAT_BOT_REMOVED if bot_left else EventType.CHAT_MEMBER_LEFT,
+                actor=Actor.from_event(event),
+                chat_id=chat_id,
+                entity=(EntityType.CHAT, chat_id),
+                payload={"members": ", ".join(left)},
+            )
+            await session.commit()
 
 
 @dispatcher.register_handler
@@ -124,5 +157,13 @@ class ChatInfoChangedHandler(ChangedChatInfoHandler):
         async with async_session() as session:
             await ChatRepository(session).upsert(
                 event.payload.chat, title=event.payload.title
+            )
+            await emit(
+                session,
+                EventType.CHAT_INFO_CHANGED,
+                actor=Actor.from_event(event),
+                chat_id=event.payload.chat.chatId,
+                entity=(EntityType.CHAT, event.payload.chat.chatId),
+                payload={"title": event.payload.title},
             )
             await session.commit()

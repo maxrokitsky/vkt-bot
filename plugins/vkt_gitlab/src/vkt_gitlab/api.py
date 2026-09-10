@@ -9,6 +9,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from vkt_bot.app import bot
+from vkt_bot.core.events import Actor, emit
+from vkt_gitlab.events import PIPELINE_FAILED, PIPELINE_SUCCEEDED
 from vkt_bot.db.exceptions import NotFoundError
 from vkt_bot.core.security import verify_password, get_password_hash
 from vkt_bot.webapp.dependencies import CurrentAdminUser, SessionDep
@@ -249,8 +251,24 @@ async def trigger_webhook(
     session.add(webhook)
     await session.commit()
 
-    if data["object_attributes"]["status"] not in ["failed", "success"]:
+    status = data["object_attributes"]["status"]
+    if status not in ["failed", "success"]:
         return
+
+    await emit(
+        session,
+        PIPELINE_SUCCEEDED if status == "success" else PIPELINE_FAILED,
+        actor=Actor.external("gitlab"),
+        chat_id=webhook.chat_id,
+        entity=("gl_webhook", str(webhook.id)),
+        payload={
+            "project": data["project"]["path_with_namespace"],
+            "branch": data["object_attributes"]["ref"],
+            "author": data["user"]["username"],
+            "url": data["object_attributes"]["url"],
+        },
+    )
+    await session.commit()
 
     await bot.send_text(
         webhook.chat_id,

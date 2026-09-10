@@ -30,6 +30,8 @@ from vkt_bot.core.repositories.role import (
 from vkt_bot.core.repositories.chat import ChatMembershipRepository, ChatRepository
 from vkt_bot.core.repositories.user import ChatUserRepository
 from vkt_bot.app import dispatcher
+from vkt_bot.core.events import Actor, EventType, emit
+from vkt_bot.core.models.event import EntityType, EventSource
 from vkt_bot.core.handlers.callback import CallbackData, DeleteRoleCallbackData
 from vkt_bot.core.handlers.mixins import AdminRequiredMixin
 from vkt_bot.utils.message import mention, sender_name
@@ -63,7 +65,18 @@ class CreateRoleHandler(AdminRequiredMixin, CommandHandler):
                 )
                 return
 
-            await role_repository.create(CreateRoleSchema(name=role_name), commit=True)
+            role = await role_repository.create(CreateRoleSchema(name=role_name))
+            await session.flush()
+            await emit(
+                session,
+                EventType.ROLE_CREATED,
+                actor=Actor.from_event(event),
+                source=EventSource.COMMAND,
+                chat_id=event.payload.chat.chatId,
+                entity=(EntityType.ROLE, str(role.id)),
+                payload={"role": role_name},
+            )
+            await session.commit()
         await bot.send_text(
             event.payload.chat.chatId,
             f"{mention(event.payload.sender.userId)}, роль {role_name} добавлена",
@@ -128,6 +141,15 @@ class DeleteRoleHandler(AdminRequiredMixin, CommandHandler):
             for assignment in assignments:
                 await session.delete(assignment)
             await session.delete(role)
+            await emit(
+                session,
+                EventType.ROLE_DELETED,
+                actor=Actor.from_event(event),
+                source=EventSource.COMMAND,
+                chat_id=event.payload.chat.chatId,
+                entity=(EntityType.ROLE, str(role.id)),
+                payload={"role": role_name},
+            )
             await session.commit()
         await bot.send_text(
             event.payload.chat.chatId,
@@ -177,8 +199,18 @@ class AssignRoleHandler(AdminRequiredMixin, CommandHandler):
                     )
                     return
                 await user_repository.get_or_create(user_id)
-                await role_assignment_repository.create(
+                assignment = await role_assignment_repository.create(
                     CreateRoleAssignmentSchema(role_id=role.id, user_id=user_id)
+                )
+                await session.flush()
+                await emit(
+                    session,
+                    EventType.ROLE_ASSIGNED,
+                    actor=Actor.from_event(event),
+                    source=EventSource.COMMAND,
+                    chat_id=event.payload.chat.chatId,
+                    entity=(EntityType.ROLE_ASSIGNMENT, str(assignment.id)),
+                    payload={"role": role.name, "target_id": user_id},
                 )
                 await session.commit()
         except Exception:
@@ -235,7 +267,17 @@ class RevokeRoleHandler(AdminRequiredMixin, CommandHandler):
                         f"{mention(event.payload.sender.userId)}, у пользователя {user_id} нет роли {role_name}.",
                     )
                     return
+                assignment_id = role_assignment.id
                 await session.delete(role_assignment)
+                await emit(
+                    session,
+                    EventType.ROLE_UNASSIGNED,
+                    actor=Actor.from_event(event),
+                    source=EventSource.COMMAND,
+                    chat_id=event.payload.chat.chatId,
+                    entity=(EntityType.ROLE_ASSIGNMENT, str(assignment_id)),
+                    payload={"role": role.name, "target_id": user_id},
+                )
                 await session.commit()
         except Exception:
             logger.exception("role.unassign_failed", role=role_name, user_id=user_id)
@@ -372,6 +414,18 @@ class NotifyRoleIsTaggedHandler(MessageHandler):
                         event,
                         may_see_content=audience is None or user.id in audience,
                     )
+
+                await emit(
+                    session,
+                    EventType.ROLE_MENTIONED,
+                    actor=Actor.from_event(event),
+                    chat_id=event.payload.chat.chatId,
+                    payload={
+                        "role": ", ".join(hashtags),
+                        "notified": len(users),
+                    },
+                )
+                await session.commit()
             except Exception:
                 logger.exception("role.notify_failed", user_id=user.id)
 
@@ -522,6 +576,16 @@ class DeleteRoleConfirmation(BotButtonCommandHandler):
             for assignment in assignments:
                 await session.delete(assignment)
             await session.delete(role)
+            await emit(
+                session,
+                EventType.ROLE_DELETED,
+                actor=Actor.from_event(event),
+                source=EventSource.COMMAND,
+                # У callbackQuery чат лежит в сообщении с кнопкой.
+                chat_id=event.payload.message.chat.chatId,
+                entity=(EntityType.ROLE, str(role.id)),
+                payload={"role": data.role},
+            )
             await session.commit()
         await bot.answer_callback_query(
             query_id=event.payload.queryId, text=f"Роль {data.role} удалена."

@@ -7,8 +7,11 @@ from vkteams_client.types import NewMessageEvent
 from vkt_dispatcher.handlers import CommandHandler
 
 from vkt_bot.app import dispatcher
+from vkt_bot.core.events import Actor, EventType, emit
 from vkt_bot.core.handlers.mixins import AdminRequiredMixin
+from vkt_bot.core.models.event import EntityType
 from vkt_bot.core.threads import set_thread_autosubscribe
+from vkt_bot.db.session import async_session
 from vkt_bot.utils.message import mention
 
 logger = structlog.get_logger("vkt_bot.handlers.threads")
@@ -34,6 +37,18 @@ class SubscribeThreadsHandler(AdminRequiredMixin, CommandHandler):
         chat_id = event.payload.chat.chatId
 
         ok = await set_thread_autosubscribe(bot, chat_id, enable=enable)
+
+        if ok:
+            async with async_session() as session:
+                await emit(
+                    session,
+                    EventType.THREAD_AUTOSUBSCRIBE_CHANGED,
+                    actor=Actor.from_event(event),
+                    chat_id=chat_id,
+                    entity=(EntityType.CHAT, chat_id),
+                    payload={"enabled": "включена" if enable else "выключена"},
+                )
+                await session.commit()
 
         who = mention(event.payload.sender.userId)
         if not ok:

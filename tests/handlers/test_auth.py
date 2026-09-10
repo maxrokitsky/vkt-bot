@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from vkt_bot.core.handlers.auth import LoginHandler
-from vkt_bot.core.models import ChatUser, EventRecord, LoginToken
+from vkt_bot.core.models import ChatUser, LoginToken
 from vkt_bot.core.repositories.event import EventRepository
 from vkt_bot.core.repositories.login_token import LoginTokenRepository
 from vkt_bot.core.repositories.user import ChatUserRepository
@@ -245,9 +245,8 @@ class TestOwnerPromotion:
         await LoginHandler.handle(owner_login(owner_id), dispatcher)
 
         entries = await EventRepository(session).list()
-        assert [(e.entity_id, e.type) for e in entries] == [
-            (owner_id, "auth.superuser_granted")
-        ]
+        promotions = [e for e in entries if e.type == "auth.superuser_granted"]
+        assert [e.entity_id for e in promotions] == [owner_id]
 
     async def test_repeated_login_does_not_re_audit(
         self,
@@ -261,7 +260,11 @@ class TestOwnerPromotion:
         await LoginHandler.handle(event, dispatcher)
         await LoginHandler.handle(event, dispatcher)
 
-        assert await table_count(session, EventRecord) == 1
+        entries = await EventRepository(session).list()
+        promotions = [e for e in entries if e.type == "auth.superuser_granted"]
+        assert len(promotions) == 1
+        # Сам запрос входа пишется каждый раз — это разные события.
+        assert len([e for e in entries if e.type == "auth.login_requested"]) == 2
 
     async def test_no_audit_when_already_superuser(
         self,
@@ -274,7 +277,8 @@ class TestOwnerPromotion:
 
         await LoginHandler.handle(owner_login(owner_id), dispatcher)
 
-        assert await table_count(session, EventRecord) == 0
+        entries = await EventRepository(session).list()
+        assert [e.type for e in entries] == ["auth.login_requested"]
 
     async def test_logs_promotion(
         self,

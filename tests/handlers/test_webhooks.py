@@ -434,7 +434,7 @@ class TestRegenerateWebhookKey:
 class TestToggleWebhook:
     """``/togglewebhook``."""
 
-    async def test_command_is_broken(
+    async def test_toggles_the_flag(
         self,
         dispatcher: Dispatcher,
         fake_bot: FakeBot,
@@ -442,21 +442,21 @@ class TestToggleWebhook:
         webhook: tuple[Webhook, str],
         owner_id: str,
     ) -> None:
-        """Известный дефект: команда падает на коммите.
+        """В ``UPDATE`` уходят только переданные поля.
 
-        ``WebhookUpdateSchema(is_active=...)`` уходит в
-        ``AsyncRepository.update`` целиком, поэтому в ``UPDATE`` попадают
-        ``name=NULL`` и ``webhook_metadata=NULL``. Колонка ``name`` —
-        ``NOT NULL``, так что вебхук нельзя ни включить, ни выключить.
+        Раньше схема обновления уезжала в репозиторий целиком, и в запрос
+        попадали ``name=NULL`` и ``webhook_metadata=NULL`` — вебхук нельзя
+        было ни включить, ни выключить.
         """
-        import sqlalchemy as sa
-
         model, _ = webhook
 
-        with pytest.raises(sa.exc.IntegrityError):
-            await ToggleWebhookHandler.handle(
-                owner_message(f"/togglewebhook {model.id}", owner_id), dispatcher
-            )
+        await ToggleWebhookHandler.handle(
+            owner_message(f"/togglewebhook {model.id}", owner_id), dispatcher
+        )
+
+        await session.refresh(model)
+        assert model.is_active is False
+        assert model.name
 
     async def test_unknown_webhook(
         self,

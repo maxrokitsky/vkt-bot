@@ -30,7 +30,6 @@ class EventType(enum.StrEnum):
     """
 
     BOT_STARTED = "bot.started"
-    BOT_STOPPED = "bot.stopped"
     BOT_POLLING_FAILED = "bot.polling_failed"
 
     MESSAGE_SENT = "message.sent"
@@ -66,8 +65,6 @@ class EventType(enum.StrEnum):
 
     CHAT_USER_UPDATED = "chat_user.updated"
     SETTINGS_CHANGED = "settings.changed"
-
-    API_EVENT_RECEIVED = "api.event_received"
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -139,12 +136,6 @@ CORE_EVENTS = (
         type=EventType.BOT_STARTED,
         title="Бот запущен",
         template="Бот {nick} запущен",
-        source=EventSource.BOT,
-    ),
-    EventSpec(
-        type=EventType.BOT_STOPPED,
-        title="Бот остановлен",
-        template="Бот остановлен",
         source=EventSource.BOT,
     ),
     EventSpec(
@@ -349,16 +340,6 @@ CORE_EVENTS = (
         title="Настройка изменена",
         template="{actor} изменил настройку {key} на «{value}»",
         source=EventSource.PANEL,
-    ),
-    EventSpec(
-        type=EventType.API_EVENT_RECEIVED,
-        title="Событие от API",
-        template="Получено событие {event_type}",
-        source=EventSource.API,
-        severity=EventSeverity.DEBUG,
-        # Каждое входящее событие в базе не нужно — только в логах.
-        persist=False,
-        chat_scoped=True,
     ),
 )
 

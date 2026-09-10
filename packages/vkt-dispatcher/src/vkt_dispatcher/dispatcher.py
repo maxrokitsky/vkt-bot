@@ -50,6 +50,9 @@ class Dispatcher:
             self.info = await self.bot.get_self()
             self.inited = True
             main_logger.info("bot.started", nick=self.info.nick)
+            # Приложение превратит это в запись журнала: перезапуски бота
+            # видно в панели, а не только в логах.
+            await self.bot.notify("bot.started", nick=self.info.nick)
             await self.start_polling()
         finally:
             await self.bot.close()
@@ -77,6 +80,12 @@ class Dispatcher:
                     retry_in=delay,
                     exc_info=True,
                 )
+                # Единичный обрыв long-poll — обычное дело, поэтому в
+                # журнал уходит только затяжной сбой.
+                if failures == len(self.RETRY_DELAYS):
+                    await self.bot.notify(
+                        "bot.polling_failed", attempt=failures, retry_in=delay
+                    )
                 await asyncio.sleep(delay)
                 continue
 
