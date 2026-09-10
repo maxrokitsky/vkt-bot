@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -18,9 +18,10 @@ from vkt_bot.core.handlers.roles import (
     NotifyRoleIsTaggedHandler,
     RevokeRoleHandler,
 )
-from vkteams_client.types import MsgResponse
+from vkteams_client.types import MsgResponse, Subscriber
 
 from vkt_bot.core.models import Role, RoleAssignment
+from vkt_bot.core.repositories.chat import ChatMembershipRepository
 from vkt_bot.core.repositories.role import RoleRepository
 from vkt_bot.db.exceptions import NotFoundError
 
@@ -657,6 +658,9 @@ class TestNotifyRoleIsTagged:
         role = await create_role(session, "devs")
         user = await create_chat_user(session, "u@example.com")
         await assign_role(session, user.id, role.id)
+        await create_chat(session, "2601@chat.agent")
+        await ChatMembershipRepository(session).add("2601@chat.agent", user.id)
+        await session.commit()
         fake_bot.results["send_text"] = MsgResponse(
             ok=False, description="Forward is not allowed"
         )
@@ -701,3 +705,43 @@ class TestNotifyRoleIsTagged:
 
         _, plain = fake_bot.sent
         assert plain.kwargs["text"].startswith("Вас упомянули")
+
+    async def test_body_is_hidden_from_outsiders(
+        self, dispatcher: Dispatcher, fake_bot: FakeBot, session: AsyncSession
+    ) -> None:
+        """Роль глобальна: носитель может не состоять в чате-источнике."""
+        role = await create_role(session, "devs")
+        user = await create_chat_user(session, "outsider@example.com")
+        await assign_role(session, user.id, role.id)
+        fake_bot.results["send_text"] = MsgResponse(ok=False, description="Bad request")
+
+        await NotifyRoleIsTaggedHandler.handle(
+            make_event("new_message_in_thread", text="секрет #devs"), dispatcher
+        )
+
+        _, plain = fake_bot.sent
+        assert plain.kwargs["text"] == "Вас упомянули"
+        assert "секрет" not in plain.kwargs["text"]
+
+    async def test_thread_subscriber_sees_the_body(
+        self, dispatcher: Dispatcher, fake_bot: FakeBot, session: AsyncSession
+    ) -> None:
+        """Членства у обсуждения нет — доступ подтверждают его подписчики."""
+        role = await create_role(session, "devs")
+        user = await create_chat_user(session, "u@example.com")
+        await assign_role(session, user.id, role.id)
+        fake_bot.results["send_text"] = MsgResponse(ok=False, description="Bad request")
+
+        async def subscribers(chat_id: str) -> Any:
+            assert chat_id == "2601@chat.agent"
+            for sn in (user.id, "someone@example.com"):
+                yield Subscriber(sn=sn)
+
+        fake_bot.iter_thread_subscribers = subscribers  # type: ignore[attr-defined]
+
+        await NotifyRoleIsTaggedHandler.handle(
+            make_event("new_message_in_thread", text="тест #devs"), dispatcher
+        )
+
+        _, plain = fake_bot.sent
+        assert "тест #devs" in plain.kwargs["text"]

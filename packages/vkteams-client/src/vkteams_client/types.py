@@ -245,9 +245,12 @@ class MsgLoadFileResponse(Response):
 
 
 class ThreadAddResponse(Response):
-    """Ответ метода /threads/add."""
+    """Ответ метода /threads/add.
 
-    threadId: str
+    При ``ok: false`` идентификатора в ответе нет.
+    """
+
+    threadId: str | None = None
 
 
 class UserState(BaseModel):

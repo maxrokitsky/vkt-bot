@@ -51,7 +51,8 @@ pnpm openapi-ts    # перегенерация клиента из openapi.json
 - `components/ui/` — вендоренный shadcn-vue: ставится и обновляется через CLI,
   руками не правится (для него в `eslint.config.ts` отдельный блок правил).
 - `composables/` — `useListQuery` (страница + поиск с задержкой),
-  `useCommandPalette`, `useTheme`.
+  `useConfirm` (цель и открытость подтверждающего диалога — держать их в
+  одном ref нельзя, см. комментарий в файле), `useCommandPalette`, `useTheme`.
 - `lib/` — `format` (даты), `plural` (склонения), `audit` и `chats` (подписи
   перечислений API по-русски).
 - `views/` — страницы, по одной на маршрут.

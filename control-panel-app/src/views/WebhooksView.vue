@@ -44,6 +44,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { useConfirm } from '@/composables/useConfirm'
 import { formatRelative } from '@/lib/format'
 
 const queryClient = useQueryClient()
@@ -51,8 +52,12 @@ const { copy, copied } = useClipboard({ legacy: true })
 
 /** `null` — закрыто, объект без id — создание, с id — редактирование. */
 const editing = ref<Partial<WebhookResponse> | null>(null)
-const toDelete = ref<WebhookResponse | null>(null)
-const toRegenerate = ref<WebhookResponse | null>(null)
+const { target: toDelete, open: deleteOpen, ask: askDelete } = useConfirm<WebhookResponse>()
+const {
+  target: toRegenerate,
+  open: regenerateOpen,
+  ask: askRegenerate,
+} = useConfirm<WebhookResponse>()
 const issuedKey = ref<{ webhook: WebhookResponse; apiKey: string } | null>(null)
 
 const { data, isPending, isError, refetch } = useQuery(listWebhooksApiWebhooksGetOptions())
@@ -100,7 +105,6 @@ const deleteWebhook = useMutation({
   onSuccess: () => {
     invalidate()
     toast.success(`Вебхук «${toDelete.value?.name}» удалён`)
-    toDelete.value = null
   },
   onError: () => toast.error('Не удалось удалить вебхук'),
 })
@@ -112,7 +116,6 @@ const regenerate = useMutation({
     if (toRegenerate.value) {
       issuedKey.value = { webhook: toRegenerate.value, apiKey: result.api_key }
     }
-    toRegenerate.value = null
   },
   onError: () => toast.error('Не удалось выпустить новый ключ'),
 })
@@ -227,11 +230,11 @@ function toggleActive(webhook: WebhookResponse) {
                   {{ webhook.is_active ? 'Выключить' : 'Включить' }}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem @click="toRegenerate = webhook">
+                <DropdownMenuItem @click="askRegenerate(webhook)">
                   <KeyRound />
                   Новый ключ
                 </DropdownMenuItem>
-                <DropdownMenuItem variant="destructive" @click="toDelete = webhook">
+                <DropdownMenuItem variant="destructive" @click="askDelete(webhook)">
                   <Trash2 />
                   Удалить
                 </DropdownMenuItem>
@@ -256,7 +259,7 @@ function toggleActive(webhook: WebhookResponse) {
       @close="issuedKey = null"
     />
 
-    <AlertDialog :open="toDelete !== null" @update:open="toDelete = null">
+    <AlertDialog v-model:open="deleteOpen">
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Удалить вебхук «{{ toDelete?.name }}»?</AlertDialogTitle>
@@ -276,7 +279,7 @@ function toggleActive(webhook: WebhookResponse) {
       </AlertDialogContent>
     </AlertDialog>
 
-    <AlertDialog :open="toRegenerate !== null" @update:open="toRegenerate = null">
+    <AlertDialog v-model:open="regenerateOpen">
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Выпустить новый ключ?</AlertDialogTitle>

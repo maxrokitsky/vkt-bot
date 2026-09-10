@@ -21,6 +21,10 @@ from .loggers import events_logger, send_message_logger
 logger = logging.getLogger("teams_bot.client")
 
 
+class ThreadSubscribersError(RuntimeError):
+    """Сервер отказал в выдаче подписчиков обсуждения."""
+
+
 async def log_response(response: aiohttp.ClientResponse) -> dict[str, Any]:
     return {
         "ok": response.ok,
@@ -310,8 +314,15 @@ class VKTeams:
     ) -> ThreadSubscribersResponse:
         """Получить страницу подписчиков обсуждения.
 
+        Хотя бы один из ``page_size`` и ``cursor`` обязателен: без них
+        сервер отвечает ``Bad request``.
+
         Постраничный обход удобнее делать через ``iter_thread_subscribers``.
         """
+        if page_size is None and cursor is None:
+            msg = "Нужен page_size или cursor"
+            raise ValueError(msg)
+
         path = "/threads/subscribers/get"
 
         params: dict[str, str | int] = {"token": self.token, "threadId": thread_id}
@@ -346,6 +357,11 @@ class VKTeams:
                 page_size=page_size,
                 cursor=cursor,
             )
+            if not page.ok:
+                # Иначе отказ неотличим от обсуждения без подписчиков.
+                msg = page.description or "Не удалось получить подписчиков"
+                raise ThreadSubscribersError(msg)
+
             for subscriber in page.subscribers:
                 yield subscriber
             # Страница без курсора или без подписчиков — конец списка.

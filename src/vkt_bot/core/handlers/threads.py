@@ -28,7 +28,7 @@ class SubscribeThreadsHandler(AdminRequiredMixin, CommandHandler):
     description = "/subscribethreads [off] - Подписать бота на обсуждения текущего чата"
 
     async def callback(self, bot: VKTeams, event: NewMessageEvent) -> None:
-        args = (event.payload.text or "").split(" ")[1:]
+        args = (event.payload.text or "").split()[1:]
         enable = not (args and args[0].lower() in OFF_ARGS)
         chat_id = event.payload.chat.chatId
 

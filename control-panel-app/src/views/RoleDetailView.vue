@@ -42,6 +42,7 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useConfirm } from '@/composables/useConfirm'
 import { useListQuery } from '@/composables/useListQuery'
 import { plural } from '@/lib/plural'
 
@@ -56,7 +57,11 @@ const isAdmin = computed(() => authStore.isAdmin)
 const addOpen = ref(false)
 const renaming = ref<{ id: string; name: string } | null>(null)
 const confirmDelete = ref(false)
-const memberToRemove = ref<{ user_id: string; display_name: string } | null>(null)
+const {
+  target: memberToRemove,
+  open: removeMemberOpen,
+  ask: askRemoveMember,
+} = useConfirm<{ user_id: string; display_name: string }>()
 
 /**
  * Поиск участника идёт на сервер — список может быть большим. Локальный фильтр
@@ -104,7 +109,6 @@ const removeMember = useMutation({
   onSuccess: () => {
     invalidateRole()
     toast.success(`${memberToRemove.value?.display_name} убран из роли`)
-    memberToRemove.value = null
   },
   onError: () => toast.error('Не удалось убрать участника'),
 })
@@ -249,7 +253,7 @@ function initials(name: string) {
               size="icon"
               class="size-8 text-muted-foreground"
               :aria-label="`Убрать ${member.display_name} из роли`"
-              @click="memberToRemove = member"
+              @click="askRemoveMember(member)"
             >
               <UserMinus class="size-4" />
             </Button>
@@ -295,7 +299,7 @@ function initials(name: string) {
       </AlertDialogContent>
     </AlertDialog>
 
-    <AlertDialog :open="memberToRemove !== null" @update:open="memberToRemove = null">
+    <AlertDialog v-model:open="removeMemberOpen">
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>

@@ -26,7 +26,7 @@ from vkt_bot.core.repositories.role import (
     RoleAssignmentRepository,
     RoleRepository,
 )
-from vkt_bot.core.repositories.chat import ChatRepository
+from vkt_bot.core.repositories.chat import ChatMembershipRepository, ChatRepository
 from vkt_bot.core.repositories.user import ChatUserRepository
 from vkt_bot.app import dispatcher
 from vkt_bot.core.handlers.callback import CallbackData, DeleteRoleCallbackData
@@ -358,10 +358,43 @@ class NotifyRoleIsTaggedHandler(MessageHandler):
                     .list()
                 )
                 text = await self.notification_text(session, event.payload.chat)
+                audience = await self.audience(bot, session, event.payload.chat.chatId)
                 for user in users:
-                    await self.notify(bot, user.id, text, event)
+                    await self.notify(
+                        bot,
+                        user.id,
+                        text,
+                        event,
+                        may_see_content=user.id in audience,
+                    )
             except Exception:
                 logger.exception("error")
+
+    async def audience(
+        self, bot: VKTeams, session: AsyncSession, chat_id: str
+    ) -> set[str]:
+        """Кому исходное сообщение и так доступно.
+
+        Роль глобальна, а чат — нет: носитель роли может не состоять в
+        источнике. Для обсуждения список даёт ``threads/subscribers/get``,
+        для обычного чата — таблица членства.
+        """
+        subscribers = await self.thread_subscribers(bot, chat_id)
+        if subscribers is not None:
+            return subscribers
+        return await ChatMembershipRepository(session).user_ids(chat_id)
+
+    async def thread_subscribers(self, bot: VKTeams, chat_id: str) -> set[str] | None:
+        """Подписчики обсуждения или ``None``, если это обычный чат.
+
+        Метод работает только с тредами, поэтому отказ здесь — это ответ
+        «перед нами не обсуждение», а не ошибка.
+        """
+        try:
+            return {s.sn async for s in bot.iter_thread_subscribers(chat_id)}
+        except Exception:
+            logger.debug("Чат %s не обсуждение либо подписчики недоступны", chat_id)
+            return None
 
     async def notify(
         self,
@@ -369,13 +402,16 @@ class NotifyRoleIsTaggedHandler(MessageHandler):
         user_id: str,
         text: str,
         event: NewMessageEvent,
+        *,
+        may_see_content: bool,
     ) -> None:
         """Уведомить пользователя об упоминании.
 
         Обычно пересылаем исходное сообщение. Из обсуждения пересылка
         может не пройти — сервер отвечает ``ok: false``, и уведомление
-        молча теряется. Поэтому на отказ шлём текст сообщения напрямую:
-        лучше без перехода к оригиналу, чем совсем ничего.
+        молча теряется. Поэтому на отказ шлём текст сообщения напрямую —
+        но только тому, кому он и так доступен: пересылку получатель без
+        доступа не открыл бы, а наш текст прочитал бы.
         """
         result = await bot.send_text(
             chat_id=user_id,
@@ -393,7 +429,8 @@ class NotifyRoleIsTaggedHandler(MessageHandler):
             event.payload.chat.chatId,
             result.description,
         )
-        await bot.send_text(chat_id=user_id, text=self.quoted_text(text, event))
+        body = self.quoted_text(text, event) if may_see_content else text
+        await bot.send_text(chat_id=user_id, text=body)
 
     @staticmethod
     def quoted_text(text: str, event: NewMessageEvent) -> str:

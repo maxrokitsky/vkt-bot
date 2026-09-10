@@ -59,6 +59,21 @@ class TestSubscribeThreads:
         assert call.kwargs["enable"] is False
         assert "больше не подписываюсь" in fake_bot.texts[-1]
 
+    async def test_off_with_extra_spaces(
+        self,
+        dispatcher: Dispatcher,
+        fake_bot: FakeBot,
+        session_factory: object,
+        owner_id: str,
+    ) -> None:
+        """Лишние пробелы не должны превращать отписку в подписку."""
+        await SubscribeThreadsHandler.handle(
+            owner_message("/subscribethreads   off", owner_id), dispatcher
+        )
+
+        (call,) = fake_bot.calls_of("threads_autosubscribe")
+        assert call.kwargs["enable"] is False
+
     async def test_requires_admin(
         self, dispatcher: Dispatcher, fake_bot: FakeBot, session_factory: object
     ) -> None:

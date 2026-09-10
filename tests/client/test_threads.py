@@ -55,6 +55,21 @@ class TestThreadsAdd:
         assert result.ok is True
         assert result.threadId == THREAD_ID
 
+    async def test_failed_response_has_no_thread_id(
+        self, vkteams: VKTeams, mock_api: aioresponses
+    ) -> None:
+        """При ``ok: false`` идентификатора нет, но разбор не падает."""
+        mock_api.get(
+            url_for("/threads/add"),
+            payload={"ok": False, "description": "Bad request"},
+        )
+
+        result = await vkteams.threads_add(chat_id=CHAT_ID, msg_id="1")
+
+        assert result.ok is False
+        assert result.threadId is None
+        assert result.description == "Bad request"
+
 
 class TestThreadsAutosubscribe:
     """``threads_autosubscribe``."""
@@ -137,6 +152,15 @@ class TestThreadSubscribers:
             "cursor": "c1",
         }
 
+    async def test_requires_page_size_or_cursor(
+        self, vkteams: VKTeams, mock_api: aioresponses
+    ) -> None:
+        """Без ``pageSize`` и ``cursor`` сервер отвечает ``Bad request``."""
+        with pytest.raises(ValueError, match="page_size"):
+            await vkteams.threads_subscribers_get(thread_id=THREAD_ID)
+
+        assert mock_api.requests == {}
+
     async def test_optional_params_are_omitted(
         self, vkteams: VKTeams, mock_api: aioresponses
     ) -> None:
@@ -145,10 +169,10 @@ class TestThreadSubscribers:
             payload={"ok": True, "subscribers": []},
         )
 
-        await vkteams.threads_subscribers_get(thread_id=THREAD_ID)
+        await vkteams.threads_subscribers_get(thread_id=THREAD_ID, cursor="c1")
 
         params = single_query(mock_api, SUBSCRIBERS_GET)
-        assert set(params) == {"token", "threadId"}
+        assert set(params) == {"token", "threadId", "cursor"}
 
     async def test_parses_subscribers(
         self, vkteams: VKTeams, mock_api: aioresponses
@@ -165,7 +189,9 @@ class TestThreadSubscribers:
             },
         )
 
-        result = await vkteams.threads_subscribers_get(thread_id=THREAD_ID)
+        result = await vkteams.threads_subscribers_get(
+            thread_id=THREAD_ID, page_size=10
+        )
 
         assert result.cursor == "next"
         assert [s.sn for s in result.subscribers] == [
@@ -205,6 +231,20 @@ class TestThreadSubscribers:
         subscribers = [s async for s in vkteams.iter_thread_subscribers(THREAD_ID)]
 
         assert subscribers == []
+
+    async def test_iterator_raises_on_refusal(
+        self, vkteams: VKTeams, mock_api: aioresponses
+    ) -> None:
+        """Отказ не должен выглядеть как обсуждение без подписчиков."""
+        from vkteams_client.client import ThreadSubscribersError
+
+        mock_api.get(
+            url_for("/threads/subscribers/get"),
+            payload={"ok": False, "description": "Bad request"},
+        )
+
+        with pytest.raises(ThreadSubscribersError, match="Bad request"):
+            [s async for s in vkteams.iter_thread_subscribers(THREAD_ID)]
 
     async def test_iterator_passes_page_size(
         self, vkteams: VKTeams, mock_api: aioresponses

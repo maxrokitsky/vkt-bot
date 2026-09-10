@@ -60,6 +60,13 @@ class ChatMembershipRepository(
         )
         return await self.session.scalar(stmt)
 
+    async def user_ids(self, chat_id: str) -> set[str]:
+        """Идентификаторы участников чата."""
+        stmt = sa.select(ChatMembership.user_id).where(
+            ChatMembership.chat_id == chat_id
+        )
+        return set((await self.session.scalars(stmt)).all())
+
     async def add(self, chat_id: str, user_id: str) -> ChatMembership | None:
         """Добавить участника. Повторный вызов ничего не меняет."""
         existing = await self.get_or_none_by_pair(chat_id, user_id)
