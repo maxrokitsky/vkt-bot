@@ -8,6 +8,7 @@ from pydantic import ValidationError
 import uvicorn
 
 from vkt_bot.config import get_settings
+from vkt_bot.core.events.retention import retention_task
 from vkt_bot.db.session import async_session
 from vkt_bot.app import dispatcher
 from vkt_bot.webapp.app import create_app
@@ -29,7 +30,8 @@ def check_settings() -> None:
 
 async def main() -> None:
     try:
-        await dispatcher.run()
+        async with retention_task():
+            await dispatcher.run()
     except asyncio.CancelledError:
         sys.stdout.write("\r")
         # Только лог: писать в базу на отмене корутины — ловить

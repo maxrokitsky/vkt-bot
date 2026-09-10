@@ -335,6 +335,10 @@ FastAPI. `app.py` собирает роутеры, `api/` — эндпоинты
   то же, что отдаёт API.
 - Модель называется `EventRecord`, а не `Event`, — иначе путалась бы с
   событием VK Teams в тех же модулях.
+- Чистка: раз в сутки фоновая задача (`core/events/retention.py`,
+  запускается из `main.main`) удаляет рутинные события старше
+  `EVENTS_RETENTION_DAYS`. Предупреждения и ошибки не удаляются никогда —
+  именно их ищут, разбирая старый инцидент; `0` выключает чистку.
 - Доступ: `/api/events` админу отдаёт всё, обычному участнику — события его
   чатов (`VisibleToUser`, подзапросом, иначе `total` в пагинации врёт) и без
   текстов сообщений (`TEXT_FIELDS`). `/api/chats/{id}/events` — лента чата,
@@ -362,8 +366,8 @@ FastAPI. `app.py` собирает роутеры, `api/` — эндпоинты
 Необязательно: `OWNER_ID`, `SECRET_KEY` (нужен для JWT веб-API),
 `PUBLIC_URL`, `SENTRY_DSN`, `ACCESS_TOKEN_EXPIRE_MINUTES` (по умолчанию
 8 дней), `LOG_FILE`, `LOG_FORMAT`, `LOG_LEVELS`, `ENV`, `SERVICE_NAME`,
-`MAX_FILE_SIZE` и `ALLOWED_FILE_TYPES` (50 МБ и белый список MIME по
-умолчанию).
+`EVENTS_RETENTION_DAYS` (90), `MAX_FILE_SIZE` и `ALLOWED_FILE_TYPES`
+(50 МБ и белый список MIME по умолчанию).
 
 ### Логи
 

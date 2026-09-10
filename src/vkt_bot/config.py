@@ -29,6 +29,9 @@ class VktSettings(BaseSettings):
     public_url: str | None = None
     sentry_dsn: str | None = None
     access_token_expire_minutes: int = 60 * 24 * 8
+    #: Сколько дней хранить рутинные события журнала. Предупреждения и
+    #: ошибки не удаляются никогда; ``0`` выключает чистку.
+    events_retention_days: int = 90
 
     # Настройки для загрузки файлов
     max_file_size: int = 50 * 1024 * 1024  # 50 MB по умолчанию
