@@ -1,18 +1,27 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
+import { computed, ref } from 'vue'
+import { useRoute } from 'vue-router'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { Bot, Crown, MessagesSquare, Plus, Shield, X } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
 import {
-  Dialog,
-  DialogTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+  assignRoleToUserApiChatUsersUserIdRolesRoleIdPostMutation,
+  getChatUserApiChatUsersUserIdGetOptions,
+  getChatUserApiChatUsersUserIdGetQueryKey,
+  listLogsApiLogsGetOptions,
+  listRolesApiRolesGetOptions,
+  removeRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteMutation,
+  updateChatUserApiChatUsersUserIdPatchMutation,
+} from '@/client/@tanstack/vue-query.gen'
+import { useAuthStore } from '@/stores/auth'
+import PageHeader from '@/components/layout/PageHeader.vue'
+import PageSection from '@/components/layout/PageSection.vue'
+import CopyableId from '@/components/data/CopyableId.vue'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,279 +33,272 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  TagsInput,
-  TagsInputItem,
-  TagsInputItemDelete,
-  TagsInputItemText,
-} from '@/components/ui/tags-input'
-import { ArrowLeft, Plus, Shield, Crown, Bot } from 'lucide-vue-next'
-import { toast } from 'vue-sonner'
-import { useAuthStore } from '@/stores/auth'
-import {
-  getChatUserApiChatUsersUserIdGetOptions,
-  getChatUserApiChatUsersUserIdGetQueryKey,
-  listRolesApiRolesGetOptions,
-  assignRoleToUserApiChatUsersUserIdRolesRoleIdPostMutation,
-  removeRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteMutation,
-  updateChatUserApiChatUsersUserIdPatchMutation,
-} from '@/client/@tanstack/vue-query.gen'
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { ACTION_LABELS, ACTION_VARIANTS } from '@/lib/audit'
+import { chatTypeLabel } from '@/lib/chats'
+import { formatRelative } from '@/lib/format'
+import { plural } from '@/lib/plural'
 
 const route = useRoute()
-const router = useRouter()
 const queryClient = useQueryClient()
 const authStore = useAuthStore()
-const isOwner = computed(() => authStore.isOwner)
+
 const userId = computed(() => route.params.id as string)
-const showAddRoleDialog = ref(false)
-const selectedRoleId = ref<string>('')
-const showDeleteRoleDialog = ref(false)
-const roleToDelete = ref<{ id: string; name: string } | null>(null)
+const isOwner = computed(() => authStore.isOwner)
+const isAdmin = computed(() => authStore.isAdmin)
 
-const { data: userData, isLoading } = useQuery(
-  computed(() => getChatUserApiChatUsersUserIdGetOptions({
-    path: { user_id: userId.value },
-  }))
+const addRoleOpen = ref(false)
+const roleToRemove = ref<{ id: string; name: string } | null>(null)
+
+const { data: user, isPending } = useQuery(
+  computed(() =>
+    getChatUserApiChatUsersUserIdGetOptions({ path: { user_id: userId.value } }),
+  ),
 )
 
-const { data: rolesData } = useQuery(
-  listRolesApiRolesGetOptions({
-    query: { page: 1, size: 1000 },
-  })
+const { data: roles } = useQuery(
+  computed(() => ({
+    ...listRolesApiRolesGetOptions({ query: { page: 1, size: 1000 } }),
+    enabled: isAdmin.value,
+  })),
 )
 
-const assignRoleMutation = useMutation({
-  ...assignRoleToUserApiChatUsersUserIdRolesRoleIdPostMutation(),
-  onSuccess: () => {
-    queryClient.invalidateQueries({
-      queryKey: getChatUserApiChatUsersUserIdGetQueryKey({
-        path: { user_id: userId.value },
-      }),
-    })
-    showAddRoleDialog.value = false
-    selectedRoleId.value = ''
-  },
+/** Что этот участник делал в панели — журнал уже умеет фильтровать по актору. */
+const { data: history } = useQuery(
+  computed(() => ({
+    ...listLogsApiLogsGetOptions({
+      query: { page: 1, size: 5, actor_id: userId.value },
+    }),
+    enabled: isAdmin.value,
+  })),
+)
+
+const availableRoles = computed(() => {
+  const assigned = new Set((user.value?.roles ?? []).map((role) => role.id))
+  return (roles.value?.items ?? []).filter((role) => !assigned.has(role.id))
 })
 
-const removeRoleMutation = useMutation({
+const status = computed(() => {
+  if (user.value?.is_owner) return { label: 'Владелец', icon: Crown, variant: 'default' as const }
+  if (user.value?.is_superuser)
+    return { label: 'Администратор', icon: Shield, variant: 'secondary' as const }
+  return null
+})
+
+function invalidateUser() {
+  queryClient.invalidateQueries({
+    queryKey: getChatUserApiChatUsersUserIdGetQueryKey({ path: { user_id: userId.value } }),
+  })
+}
+
+const assignRole = useMutation({
+  ...assignRoleToUserApiChatUsersUserIdRolesRoleIdPostMutation(),
+  onSuccess: (_data, variables) => {
+    invalidateUser()
+    addRoleOpen.value = false
+    const name = availableRoles.value.find((role) => role.id === variables.path.role_id)?.name
+    toast.success(name ? `Роль «${name}» назначена` : 'Роль назначена')
+  },
+  onError: () => toast.error('Не удалось назначить роль'),
+})
+
+const removeRole = useMutation({
   ...removeRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteMutation(),
   onSuccess: () => {
-    queryClient.invalidateQueries({
-      queryKey: getChatUserApiChatUsersUserIdGetQueryKey({
-        path: { user_id: userId.value },
-      }),
-    })
+    invalidateUser()
+    toast.success(`Роль «${roleToRemove.value?.name}» снята`)
+    roleToRemove.value = null
   },
+  onError: () => toast.error('Не удалось снять роль'),
 })
 
-const updateUserMutation = useMutation({
+const updateUser = useMutation({
   ...updateChatUserApiChatUsersUserIdPatchMutation(),
-  onSuccess: () => {
-    queryClient.invalidateQueries({
-      queryKey: getChatUserApiChatUsersUserIdGetQueryKey({
-        path: { user_id: userId.value },
-      }),
-    })
-    toast.success('Статус администратора обновлен')
+  onSuccess: (_data, variables) => {
+    invalidateUser()
+    toast.success(
+      variables.body.is_superuser ? 'Права администратора выданы' : 'Права администратора сняты',
+    )
   },
-  onError: (error) => {
-    toast.error(`Ошибка: ${error.message}`)
-  },
+  onError: () => toast.error('Не удалось изменить права'),
 })
 
-const handleAssignRole = () => {
-  if (selectedRoleId.value) {
-    assignRoleMutation.mutate({
-      path: { user_id: userId.value, role_id: selectedRoleId.value },
-    })
-  }
+function toggleAdmin(value: boolean) {
+  updateUser.mutate({ path: { user_id: userId.value }, body: { is_superuser: value } })
 }
 
-const handleRemoveRole = (roleId: string, roleName: string) => {
-  roleToDelete.value = { id: roleId, name: roleName }
-  showDeleteRoleDialog.value = true
+function confirmRemoveRole() {
+  if (!roleToRemove.value) return
+  removeRole.mutate({ path: { user_id: userId.value, role_id: roleToRemove.value.id } })
 }
-
-const confirmRemoveRole = () => {
-  if (roleToDelete.value) {
-    removeRoleMutation.mutate({
-      path: { user_id: userId.value, role_id: roleToDelete.value.id },
-    })
-    showDeleteRoleDialog.value = false
-    roleToDelete.value = null
-  }
-}
-
-const goBack = () => {
-  router.push('/chat-users')
-}
-
-const handleToggleAdmin = (checked: boolean) => {
-  updateUserMutation.mutate({
-    path: { user_id: userId.value },
-    body: { is_superuser: checked },
-  })
-}
-
-// Доступные роли для добавления (исключая уже назначенные)
-const availableRoles = computed(() => {
-  if (!rolesData.value?.items || !userData.value) return []
-  const userRoleIds = new Set(userData.value.roles.map(r => r.id))
-  return rolesData.value.items.filter(role => !userRoleIds.has(role.id))
-})
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div class="flex items-center gap-4">
-      <Button variant="ghost" size="sm" @click="goBack">
-        <ArrowLeft class="h-4 w-4 mr-2" />
-        Назад
-      </Button>
-      <div>
-        <h1 class="text-3xl font-bold">{{ userData?.display_name || userId }}</h1>
-        <p
-          v-if="userData && userData.display_name !== userId"
-          class="text-sm text-muted-foreground"
-        >
-          {{ userId }}
-        </p>
-      </div>
-    </div>
-
-    <!-- Статус администратора -->
-    <div v-if="!isLoading && userData" class="flex items-center gap-4 p-4 border rounded-lg">
-      <div class="flex items-center gap-2">
-        <Badge v-if="userData.is_owner" variant="default" class="gap-1">
-          <Crown class="h-3 w-3" />
-          Владелец
+  <div class="space-y-8">
+    <PageHeader :title="user?.display_name ?? userId" :description="null">
+      <template #badges>
+        <Badge v-if="status" :variant="status.variant">
+          <component :is="status.icon" />
+          {{ status.label }}
         </Badge>
-        <Badge v-else-if="userData.is_superuser" variant="secondary" class="gap-1">
-          <Shield class="h-3 w-3" />
-          Админ
-        </Badge>
-        <span v-else class="text-sm text-muted-foreground">Обычный пользователь</span>
-        <Badge v-if="userData.is_bot" variant="outline" class="gap-1">
-          <Bot class="h-3 w-3" />
+        <Badge v-if="user?.is_bot" variant="outline">
+          <Bot />
           Бот
         </Badge>
-      </div>
-      <div v-if="isOwner && !userData.is_owner" class="flex items-center gap-2 ml-auto">
-        <Switch
-          :checked="userData.is_superuser"
-          :disabled="updateUserMutation.isPending.value"
-          @update:checked="handleToggleAdmin"
-        />
-        <Label class="text-sm">Администратор</Label>
-      </div>
-    </div>
-
-    <div v-if="!isLoading && userData" class="grid gap-6 md:grid-cols-2">
-      <!-- Роли пользователя -->
-      <div class="space-y-4">
-        <div class="flex items-center justify-between">
-          <h2 class="text-xl font-semibold">Роли</h2>
-          <Dialog v-model:open="showAddRoleDialog">
-            <DialogTrigger as-child>
-              <Button size="sm">
-                <Plus class="h-4 w-4 mr-2" />
-                Добавить роль
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Назначить роль</DialogTitle>
-              </DialogHeader>
-              <div class="space-y-4">
-                <div class="space-y-2">
-                  <label class="text-sm font-medium">Выберите роль</label>
-                  <Select v-model="selectedRoleId">
-                    <SelectTrigger>
-                      <SelectValue placeholder="Выберите роль" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem
-                        v-for="role in availableRoles"
-                        :key="role.id"
-                        :value="role.id"
-                      >
-                        {{ role.name }}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button
-                  @click="handleAssignRole"
-                  class="w-full"
-                  :disabled="!selectedRoleId || assignRoleMutation.isPending.value"
-                >
-                  Назначить
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-        <TagsInput
-          :model-value="userData.roles.map(r => r.name)"
-          :disabled="removeRoleMutation.isPending.value"
+      </template>
+      <template #actions>
+        <div
+          v-if="isOwner && user && !user.is_owner"
+          class="flex items-center gap-2 rounded-lg border px-3 py-2"
         >
-          <TagsInputItem
-            v-for="role in userData.roles"
-            :key="role.id"
-            :value="role.name"
-          >
-            <TagsInputItemText />
-            <TagsInputItemDelete @click="handleRemoveRole(role.id, role.name)" />
-          </TagsInputItem>
-        </TagsInput>
-        <div v-if="userData.roles.length === 0" class="text-center py-4 text-sm text-muted-foreground">
-          У пользователя нет ролей
+          <Switch
+            id="admin"
+            :model-value="user.is_superuser"
+            :disabled="updateUser.isPending.value"
+            @update:model-value="toggleAdmin"
+          />
+          <Label for="admin" class="text-sm font-normal">Администратор</Label>
         </div>
-      </div>
+      </template>
+      <template #below>
+        <CopyableId v-if="user && user.display_name !== user.id" :value="user.id" class="mt-2" />
+      </template>
+    </PageHeader>
 
-      <!-- Чаты пользователя -->
-      <div class="space-y-4">
-        <h2 class="text-xl font-semibold">Чаты</h2>
-        <div v-if="userData.chats.length > 0" class="space-y-2">
-          <div
-            v-for="chat in userData.chats"
-            :key="chat.id"
-            class="flex items-center justify-between p-3 border rounded-lg bg-card"
-          >
-            <div>
-              <div class="font-medium">{{ chat.id }}</div>
-              <Badge variant="outline" class="mt-1">{{ chat.type }}</Badge>
-            </div>
-          </div>
-        </div>
-        <div v-else class="text-center py-8 text-muted-foreground border rounded-lg">
-          Пользователь не состоит в чатах
-        </div>
-      </div>
+    <div v-if="isPending" class="space-y-4">
+      <Skeleton class="h-6 w-40" />
+      <Skeleton class="h-24 w-full" />
     </div>
-    <div v-else class="py-8 text-center">Загрузка...</div>
 
-    <!-- Диалог подтверждения удаления роли -->
-    <AlertDialog v-model:open="showDeleteRoleDialog">
+    <template v-else-if="user">
+      <PageSection title="Роли" description="Упоминание #роли в чате призывает всех её участников">
+        <template v-if="isAdmin" #actions>
+          <Popover v-model:open="addRoleOpen">
+            <PopoverTrigger as-child>
+              <Button variant="outline" size="sm" :disabled="!availableRoles.length">
+                <Plus class="size-4" />
+                Назначить роль
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent class="w-64 p-0" align="end">
+              <Command>
+                <CommandInput placeholder="Найти роль" />
+                <CommandList>
+                  <CommandEmpty>Роли не нашлось</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      v-for="role in availableRoles"
+                      :key="role.id"
+                      :value="role.name"
+                      @select="
+                        assignRole.mutate({
+                          path: { user_id: userId, role_id: role.id },
+                        })
+                      "
+                    >
+                      {{ role.name }}
+                    </CommandItem>
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        </template>
+
+        <div v-if="user.roles.length" class="flex flex-wrap gap-2">
+          <span
+            v-for="role in user.roles"
+            :key="role.id"
+            class="inline-flex items-center gap-1 rounded-full border bg-secondary/50 py-0.5 pl-3 pr-1 text-sm"
+          >
+            <RouterLink :to="`/roles/${role.id}`" class="hover:underline">
+              {{ role.name }}
+            </RouterLink>
+            <button
+              v-if="isAdmin"
+              type="button"
+              class="rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+              :aria-label="`Снять роль ${role.name}`"
+              @click="roleToRemove = { id: role.id, name: role.name }"
+            >
+              <X class="size-3" />
+            </button>
+          </span>
+        </div>
+        <p v-else class="text-sm text-muted-foreground">Ролей нет.</p>
+      </PageSection>
+
+      <PageSection
+        title="Чаты"
+        :description="`Состоит в ${user.chats.length} ${plural(user.chats.length, 'чате', 'чатах', 'чатах')}`"
+      >
+        <ul v-if="user.chats.length" class="divide-y rounded-lg border">
+          <li
+            v-for="chat in user.chats"
+            :key="chat.id"
+            class="flex items-center justify-between gap-3 px-4 py-2.5"
+          >
+            <div class="flex min-w-0 items-center gap-3">
+              <MessagesSquare class="size-4 shrink-0 text-muted-foreground" />
+              <div class="min-w-0">
+                <div class="truncate text-sm font-medium">{{ chat.title || chat.id }}</div>
+                <CopyableId v-if="chat.title" :value="chat.id" />
+              </div>
+            </div>
+            <Badge variant="outline">{{ chatTypeLabel(chat.type) }}</Badge>
+          </li>
+        </ul>
+        <p v-else class="text-sm text-muted-foreground">
+          Бот не видел этого участника ни в одном чате.
+        </p>
+      </PageSection>
+
+      <PageSection v-if="isAdmin" title="Последние действия">
+        <template #actions>
+          <Button variant="ghost" size="sm" as-child>
+            <RouterLink :to="{ path: '/logs', query: { actor_id: userId } }">
+              В журнале
+            </RouterLink>
+          </Button>
+        </template>
+        <ul v-if="history?.items.length" class="divide-y">
+          <li
+            v-for="entry in history.items"
+            :key="entry.id"
+            class="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-2.5 text-sm"
+          >
+            <span class="w-28 shrink-0 tabular-nums text-muted-foreground">
+              {{ formatRelative(entry.timestamp) }}
+            </span>
+            <Badge :variant="ACTION_VARIANTS[entry.action_type]">
+              {{ ACTION_LABELS[entry.action_type] }}
+            </Badge>
+            <span class="min-w-0 flex-1">{{ entry.description ?? entry.entity_id }}</span>
+          </li>
+        </ul>
+        <p v-else class="text-sm text-muted-foreground">Через панель ничего не менял.</p>
+      </PageSection>
+    </template>
+
+    <AlertDialog :open="roleToRemove !== null" @update:open="roleToRemove = null">
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Удаление роли</AlertDialogTitle>
+          <AlertDialogTitle>Снять роль «{{ roleToRemove?.name }}»?</AlertDialogTitle>
           <AlertDialogDescription>
-            Вы уверены, что хотите удалить роль "{{ roleToDelete?.name }}"?
-            Это действие нельзя отменить.
+            Участник перестанет получать призывы по этой роли. Назначить её снова можно
+            в любой момент.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Отмена</AlertDialogCancel>
-          <AlertDialogAction @click="confirmRemoveRole">
-            Удалить
-          </AlertDialogAction>
+          <AlertDialogAction @click="confirmRemoveRole">Снять роль</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

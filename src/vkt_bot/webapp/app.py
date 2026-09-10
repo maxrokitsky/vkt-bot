@@ -12,6 +12,7 @@ from .api import (
     chat_users,
     bot_settings,
     logs,
+    overview,
     webhooks,
 )
 
@@ -36,6 +37,7 @@ def create_app(*args, **kwargs) -> FastAPI:
     app.include_router(chat_users.router)
     app.include_router(bot_settings.router)
     app.include_router(logs.router)
+    app.include_router(overview.router)
     app.include_router(webhooks.router)
     app.include_router(webhooks.public_router)
 

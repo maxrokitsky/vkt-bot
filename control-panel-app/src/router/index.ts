@@ -1,9 +1,20 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import {
+  GitBranch,
+  Gauge,
+  MessagesSquare,
+  ScrollText,
+  Settings,
+  ShieldCheck,
+  Users,
+  Webhook,
+} from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import LoginView from '@/views/LoginView.vue'
 import DashboardView from '@/views/DashboardView.vue'
 import ChatsView from '@/views/ChatsView.vue'
 import RolesView from '@/views/RolesView.vue'
+import RoleDetailView from '@/views/RoleDetailView.vue'
 import ChatUsersView from '@/views/ChatUsersView.vue'
 import ChatUserDetailView from '@/views/ChatUserDetailView.vue'
 import GitLabWebhooksView from '@/views/GitLabWebhooksView.vue'
@@ -11,6 +22,8 @@ import BotSettingsView from '@/views/BotSettingsView.vue'
 import LogsView from '@/views/LogsView.vue'
 import WebhooksView from '@/views/WebhooksView.vue'
 import MainLayout from '@/layouts/MainLayout.vue'
+// Расширение RouteMeta живёт здесь же, где описаны группы меню.
+import './nav'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -19,7 +32,7 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: LoginView,
-      meta: { title: "Вход", requiresAuth: false },
+      meta: { title: 'Вход', requiresAuth: false },
     },
     {
       path: '/',
@@ -30,56 +43,126 @@ const router = createRouter({
           path: '',
           name: 'dashboard',
           component: DashboardView,
-          meta: { title: "Главная", requiresAuth: true },
+          meta: {
+            title: 'Обзор',
+            description: 'Что сейчас у бота',
+            width: 'wide',
+            requiresAuth: true,
+            nav: { group: 'overview', order: 1, icon: Gauge },
+          },
         },
         {
           path: 'chats',
           name: 'chats',
           component: ChatsView,
-          meta: { title: "Чаты", requiresAuth: true },
-        },
-        {
-          path: 'roles',
-          name: 'roles',
-          component: RolesView,
-          meta: { title: "Роли", requiresAuth: true },
+          meta: {
+            title: 'Чаты',
+            description: 'Чаты, в которых состоит бот',
+            width: 'wide',
+            requiresAuth: true,
+            nav: { group: 'people', order: 1, icon: MessagesSquare },
+          },
         },
         {
           path: 'chat-users',
           name: 'chat-users',
           component: ChatUsersView,
-          meta: { title: "Пользователи чатов", requiresAuth: true },
+          meta: {
+            title: 'Участники',
+            description: 'Кто есть в чатах бота и какие у них роли',
+            width: 'wide',
+            requiresAuth: true,
+            nav: { group: 'people', order: 2, icon: Users, keywords: ['пользователи'] },
+          },
         },
         {
           path: 'chat-users/:id',
           name: 'chat-user-detail',
           component: ChatUserDetailView,
-          meta: { title: "Детали пользователя", requiresAuth: true },
+          meta: {
+            title: 'Участник',
+            width: 'medium',
+            requiresAuth: true,
+            parent: 'chat-users',
+          },
         },
         {
-          path: 'gitlab/webhooks',
-          name: 'gitlab-webhooks',
-          component: GitLabWebhooksView,
-          meta: { title: "GitLab Webhooks", requiresAuth: true, requiresAdmin: true },
+          path: 'roles',
+          name: 'roles',
+          component: RolesView,
+          meta: {
+            title: 'Роли',
+            description: 'Роли для призыва в чатах — #роль упоминает всех участников',
+            width: 'wide',
+            requiresAuth: true,
+            nav: { group: 'people', order: 3, icon: ShieldCheck },
+          },
         },
         {
-          path: 'bot-settings',
-          name: 'bot-settings',
-          component: BotSettingsView,
-          meta: { title: "Настройки бота", requiresAuth: true, requiresAdmin: true },
-        },
-        {
-          path: 'logs',
-          name: 'logs',
-          component: LogsView,
-          meta: { title: "Логи аудита", requiresAuth: true, requiresAdmin: true },
+          path: 'roles/:id',
+          name: 'role-detail',
+          component: RoleDetailView,
+          meta: {
+            title: 'Роль',
+            width: 'medium',
+            requiresAuth: true,
+            parent: 'roles',
+          },
         },
         {
           path: 'webhooks',
           name: 'webhooks',
           component: WebhooksView,
-          meta: { title: "Вебхуки", requiresAuth: true },
+          meta: {
+            title: 'Вебхуки',
+            description: 'Приём запросов из внешних систем с пересылкой в чат',
+            width: 'wide',
+            requiresAuth: true,
+            nav: { group: 'integrations', order: 1, icon: Webhook },
+          },
         },
+        {
+          path: 'integrations/gitlab',
+          name: 'gitlab-webhooks',
+          component: GitLabWebhooksView,
+          meta: {
+            title: 'GitLab',
+            description: 'Уведомления о пайплайнах GitLab в чатах',
+            width: 'wide',
+            requiresAuth: true,
+            requiresAdmin: true,
+            nav: { group: 'integrations', order: 2, icon: GitBranch, keywords: ['пайплайны'] },
+          },
+        },
+        {
+          path: 'settings',
+          name: 'settings',
+          component: BotSettingsView,
+          meta: {
+            title: 'Настройки',
+            description: 'Поведение бота во всех чатах',
+            width: 'narrow',
+            requiresAuth: true,
+            requiresAdmin: true,
+            nav: { group: 'admin', order: 1, icon: Settings },
+          },
+        },
+        {
+          path: 'logs',
+          name: 'logs',
+          component: LogsView,
+          meta: {
+            title: 'Журнал действий',
+            description: 'Кто и что менял через панель и бота',
+            width: 'wide',
+            requiresAuth: true,
+            requiresAdmin: true,
+            nav: { group: 'admin', order: 2, icon: ScrollText, keywords: ['аудит', 'логи'] },
+          },
+        },
+        // Старые адреса — на случай сохранённых ссылок.
+        { path: 'bot-settings', redirect: { name: 'settings' } },
+        { path: 'gitlab/webhooks', redirect: { name: 'gitlab-webhooks' } },
       ],
     },
   ],

@@ -18,3 +18,17 @@ class ChatByIdQuery(ChatQuery):
         if self.chat_id:
             statement = statement.where(Chat.id == self.chat_id)
         return statement
+
+
+class ChatSearchQuery(ChatQuery):
+    """Поиск чата по названию или id."""
+
+    search: str | None = None
+
+    def apply(self, statement: Statement) -> Statement:
+        if not self.search:
+            return statement
+        pattern = f"%{self.search.strip()}%"
+        return statement.where(
+            sa.or_(Chat.title.ilike(pattern), Chat.id.ilike(pattern))
+        )

@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from vkt_bot.app import bot
 from vkt_bot.core.models.chat import Chat
+from vkt_bot.core.queries.chat import ChatSearchQuery
 from vkt_bot.core.repositories.chat import ChatRepository
 from vkt_bot.webapp.dependencies import CurrentAdminUser, CurrentUser, SessionDep
 from vkt_bot.webapp.schemas.chat import (
@@ -23,14 +24,22 @@ async def list_chats(
     _: CurrentUser,
     page: int = 1,
     size: int = 20,
+    search: str | None = None,
 ) -> PaginatedChatsResponse:
-    """List all chats with pagination."""
+    """List all chats with pagination. Optional search by title or id."""
+    search_query = ChatSearchQuery(search=search)
+
     # Get total count
-    count_stmt = sa.select(sa.func.count()).select_from(Chat)
+    count_stmt = search_query.apply(sa.select(sa.func.count()).select_from(Chat))
     total = await session.scalar(count_stmt) or 0
 
     # Get paginated chats
-    stmt = sa.select(Chat).offset((page - 1) * size).limit(size)
+    stmt = (
+        search_query.apply(sa.select(Chat))
+        .order_by(Chat.title, Chat.id)
+        .offset((page - 1) * size)
+        .limit(size)
+    )
     result = await session.scalars(stmt)
     chats = result.all()
 

@@ -13,6 +13,7 @@ from vkt_bot.core.repositories.login_token import LoginTokenRepository
 from vkt_bot.webapp.api.auth import create_access_token
 
 from tests.conftest import auth_headers, table_count
+from tests.factories import create_chat_user
 
 if TYPE_CHECKING:
     import httpx
@@ -190,8 +191,26 @@ class TestCurrentUser:
         assert response.json() == {
             "id": user.id,
             "is_superuser": False,
+            "is_bot": False,
+            "first_name": None,
+            "last_name": None,
+            "nick": None,
             "is_owner": False,
+            "display_name": user.id,
         }
+
+    async def test_returns_display_name(
+        self, client: httpx.AsyncClient, session: AsyncSession
+    ) -> None:
+        """Панель показывает имя из профиля, а не id."""
+        me = await create_chat_user(
+            session, "ivan@example.com", first_name="Иван", last_name="Иванов"
+        )
+
+        body = (await client.get("/api/auth/me", headers=auth_headers(me.id))).json()
+
+        assert body["display_name"] == "Иван Иванов"
+        assert body["first_name"] == "Иван"
 
     async def test_owner_flag(self, client: httpx.AsyncClient, owner: ChatUser) -> None:
         response = await client.get("/api/auth/me", headers=auth_headers(owner.id))

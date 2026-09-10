@@ -111,26 +111,44 @@ def callback_event() -> Event:
 
 
 async def create_chat_user(
-    session: AsyncSession, user_id: str, *, is_superuser: bool = False
+    session: AsyncSession,
+    user_id: str,
+    *,
+    is_superuser: bool = False,
+    is_bot: bool = False,
+    first_name: str | None = None,
+    last_name: str | None = None,
+    nick: str | None = None,
 ) -> ChatUser:
     """Создать пользователя бота."""
     from vkt_bot.core.models import ChatUser
 
-    user = ChatUser(id=user_id, is_superuser=is_superuser)
+    user = ChatUser(
+        id=user_id,
+        is_superuser=is_superuser,
+        is_bot=is_bot,
+        first_name=first_name,
+        last_name=last_name,
+        nick=nick,
+    )
     session.add(user)
     await session.commit()
     return user
 
 
 async def create_chat(
-    session: AsyncSession, chat_id: str, chat_type: str = "group"
+    session: AsyncSession,
+    chat_id: str,
+    chat_type: str = "group",
+    *,
+    title: str | None = None,
 ) -> Chat:
     """Создать чат."""
     from vkteams_client.enums import ChatType
 
     from vkt_bot.core.models import Chat
 
-    chat = Chat(id=chat_id, type=ChatType(chat_type))
+    chat = Chat(id=chat_id, type=ChatType(chat_type), title=title)
     session.add(chat)
     await session.commit()
     return chat
