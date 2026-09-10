@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pytest
+
 from tests.conftest import auth_headers
 from tests.factories import create_chat
 
@@ -37,13 +39,23 @@ class TestListChats:
             "b@chat.agent",
         }
 
-    async def test_title_is_always_none(
+    async def test_title_is_null_until_known(
         self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
     ) -> None:
-        """У модели ``Chat`` нет названия, поэтому ответ всегда с ``title: null``."""
+        """Название приходит только из событий, до тех пор — ``null``."""
         await create_chat(session, "a@chat.agent")
         body = (await client.get("/api/chats", headers=auth_headers(user.id))).json()
         assert body["items"][0]["title"] is None
+
+    async def test_returns_title_and_type(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        await create_chat(session, "a@chat.agent", "channel", title="Релизы")
+
+        body = (await client.get("/api/chats", headers=auth_headers(user.id))).json()
+
+        assert body["items"][0]["title"] == "Релизы"
+        assert body["items"][0]["type"] == "channel"
 
     async def test_pagination(
         self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
@@ -209,3 +221,104 @@ class TestSendMessage:
             headers=auth_headers(superuser.id),
         )
         assert response.status_code == 422
+
+
+class TestSearchChats:
+    """``GET /api/chats?search=``."""
+
+    async def test_by_title(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        await create_chat(session, "a@chat.agent", title="Release notes")
+        await create_chat(session, "b@chat.agent", title="Support")
+
+        body = (
+            await client.get(
+                "/api/chats", params={"search": "rele"}, headers=auth_headers(user.id)
+            )
+        ).json()
+
+        assert body["total"] == 1
+        assert body["items"][0]["id"] == "a@chat.agent"
+
+    async def test_by_id(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        await create_chat(session, "681869378@chat.agent", title="Релизы")
+        await create_chat(session, "999@chat.agent", title="Поддержка")
+
+        body = (
+            await client.get(
+                "/api/chats",
+                params={"search": "6818"},
+                headers=auth_headers(user.id),
+            )
+        ).json()
+
+        assert [item["id"] for item in body["items"]] == ["681869378@chat.agent"]
+
+    async def test_total_counts_only_matches(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        """``total`` — по найденному, иначе пагинация врёт."""
+        for i in range(5):
+            await create_chat(session, f"{i}@ch.agent", title=f"Release {i}")
+        await create_chat(session, "x@ch.agent", title="Nope")
+
+        body = (
+            await client.get(
+                "/api/chats",
+                params={"search": "Release"},
+                headers=auth_headers(user.id),
+            )
+        ).json()
+
+        assert body["total"] == 5
+
+    async def test_no_matches(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        await create_chat(session, "a@chat.agent", title="Release notes")
+
+        body = (
+            await client.get(
+                "/api/chats", params={"search": "zzz"}, headers=auth_headers(user.id)
+            )
+        ).json()
+
+        assert body["items"] == []
+        assert body["total"] == 0
+
+    async def test_blank_search_returns_all(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        await create_chat(session, "a@chat.agent", title="Release notes")
+        await create_chat(session, "b@chat.agent", title="Support")
+
+        body = (
+            await client.get(
+                "/api/chats", params={"search": "   "}, headers=auth_headers(user.id)
+            )
+        ).json()
+
+        assert body["total"] == 2
+
+    async def test_cyrillic_is_case_insensitive(
+        self,
+        client: httpx.AsyncClient,
+        session: AsyncSession,
+        user: ChatUser,
+        is_postgres: bool,
+    ) -> None:
+        """``ilike`` приводит регистр кириллицы только в PostgreSQL."""
+        if not is_postgres:
+            pytest.skip("SQLite не приводит регистр кириллицы в LIKE")
+        await create_chat(session, "a@chat.agent", title="Релизы")
+
+        body = (
+            await client.get(
+                "/api/chats", params={"search": "РЕЛИЗ"}, headers=auth_headers(user.id)
+            )
+        ).json()
+
+        assert [item["id"] for item in body["items"]] == ["a@chat.agent"]

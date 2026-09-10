@@ -1,204 +1,106 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useQuery, useMutation } from '@tanstack/vue-query'
-import { listChatsApiChatsGet, sendMessageApiChatsChatIdSendMessagePost } from '@/client'
+import { computed, ref } from 'vue'
+import { useQuery } from '@tanstack/vue-query'
+import { MessagesSquare, Send } from 'lucide-vue-next'
+import { listChatsApiChatsGetOptions } from '@/client/@tanstack/vue-query.gen'
+import type { ChatResponse } from '@/client'
 import { useAuthStore } from '@/stores/auth'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
-import {
-  Dialog,
-  DialogTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Search, Send } from 'lucide-vue-next'
-import { toast } from 'vue-sonner'
+import PageHeader from '@/components/layout/PageHeader.vue'
+import DataToolbar from '@/components/data/DataToolbar.vue'
+import DataTableShell from '@/components/data/DataTableShell.vue'
+import TablePagination from '@/components/data/TablePagination.vue'
+import CopyableId from '@/components/data/CopyableId.vue'
+import RowActions from '@/components/data/RowActions.vue'
+import SendMessageDialog from '@/components/SendMessageDialog.vue'
+import { Badge } from '@/components/ui/badge'
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { useListQuery } from '@/composables/useListQuery'
+import { chatTypeLabel } from '@/lib/chats'
 
 const authStore = useAuthStore()
 const isAdmin = computed(() => authStore.isAdmin)
-const page = ref(1)
-const size = ref(10)
-const searchQuery = ref('')
-const showSendMessageDialog = ref(false)
-const selectedChatId = ref('')
-const selectedChatTitle = ref('')
-const messageText = ref('')
-const parseMode = ref<'MarkdownV2' | 'HTML' | undefined>(undefined)
+const { page, pageSize, searchInput, search } = useListQuery()
 
-const { data: chatsData, isLoading } = useQuery({
-  queryKey: ['chats', page, size],
-  queryFn: async () => {
-    const response = await listChatsApiChatsGet({
-      query: { page: page.value, size: size.value },
-    })
-    return response.data
-  },
-})
+const chatToMessage = ref<ChatResponse | null>(null)
 
-const sendMessageMutation = useMutation({
-  mutationFn: async (data: { chatId: string; text: string; parseMode?: 'MarkdownV2' | 'HTML' }) => {
-    return await sendMessageApiChatsChatIdSendMessagePost({
-      path: { chat_id: data.chatId },
-      body: {
-        text: data.text,
-        parse_mode: data.parseMode,
-      },
-    })
-  },
-  onSuccess: () => {
-    showSendMessageDialog.value = false
-    messageText.value = ''
-    parseMode.value = undefined
-    toast.success('Сообщение отправлено')
-  },
-  onError: (error) => {
-    toast.error(`Не удалось отправить сообщение: ${error.message}`)
-  },
-})
-
-const openSendMessageDialog = (chatId: string, chatTitle: string | null | undefined) => {
-  selectedChatId.value = chatId
-  selectedChatTitle.value = chatTitle || chatId
-  showSendMessageDialog.value = true
-}
-
-const handleSendMessage = () => {
-  if (!messageText.value.trim()) return
-
-  sendMessageMutation.mutate({
-    chatId: selectedChatId.value,
-    text: messageText.value,
-    parseMode: parseMode.value,
-  })
-}
+const { data, isPending, isError, refetch } = useQuery(
+  computed(() =>
+    listChatsApiChatsGetOptions({
+      query: { page: page.value, size: pageSize.value, search: search.value || undefined },
+    }),
+  ),
+)
 </script>
 
 <template>
-  <div class="space-y-6">
-    <!-- <div class="flex items-center justify-between">
-      <h1 class="text-3xl font-bold">Чаты</h1>
-    </div> -->
+  <div>
+    <PageHeader />
 
-    <!-- <Card>
-      <CardContent class="pt-6"> -->
-        <div class="mb-4">
-          <div class="relative">
-            <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              v-model="searchQuery"
-              placeholder="Поиск по названию чата..."
-              class="pl-9"
-            />
-          </div>
-        </div>
+    <DataToolbar
+      v-model:search="searchInput"
+      placeholder="Название или id чата"
+    />
 
-        <Table v-if="!isLoading && chatsData">
-          <TableHeader>
-            <TableRow>
-              <TableHead>ID</TableHead>
-              <TableHead>Название</TableHead>
-              <TableHead v-if="isAdmin" class="w-[100px]">Действия</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow
-              v-for="chat in chatsData.items.filter(
-                (c) => !searchQuery || c.title?.toLowerCase().includes(searchQuery.toLowerCase()),
-              )"
-              :key="chat.id"
-            >
-              <TableCell class="font-mono text-sm">{{ chat.id }}</TableCell>
-              <TableCell>{{ chat.title || '—' }}</TableCell>
-              <TableCell v-if="isAdmin">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  @click="openSendMessageDialog(chat.id, chat.title)"
-                >
-                  <Send class="h-4 w-4" />
-                </Button>
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-        <div v-else class="py-8 text-center">Загрузка...</div>
-      <!-- </CardContent>
-    </Card> -->
+    <DataTableShell
+      :loading="isPending"
+      :error="isError ? true : undefined"
+      :empty="!data?.items.length"
+      :columns="isAdmin ? 3 : 2"
+      :empty-icon="MessagesSquare"
+      :empty-title="search ? 'Чат не нашёлся' : 'Бот пока не в одном чате'"
+      :empty-description="
+        search
+          ? 'Проверьте название или попробуйте id.'
+          : 'Чат появится здесь, как только бота добавят в него.'
+      "
+      @retry="refetch()"
+    >
+      <template #header>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Название</TableHead>
+            <TableHead class="w-32">Тип</TableHead>
+            <TableHead v-if="isAdmin" class="w-16 text-right">
+              <span class="sr-only">Действия</span>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+      </template>
 
-    <div v-if="chatsData" class="flex items-center justify-between">
-      <div class="text-sm text-muted-foreground">
-        Показано {{ chatsData.items.length }} из {{ chatsData.total }} чатов
-      </div>
-      <div class="flex gap-2">
-        <Button variant="outline" :disabled="page <= 1" @click="page--">Назад</Button>
-        <Button variant="outline" :disabled="page >= chatsData.pages" @click="page++">
-          Далее
-        </Button>
-      </div>
-    </div>
+      <template #body>
+        <TableBody>
+          <TableRow v-for="chat in data?.items ?? []" :key="chat.id">
+            <TableCell>
+              <div class="font-medium">{{ chat.title || 'Без названия' }}</div>
+              <CopyableId :value="chat.id" :max="40" />
+            </TableCell>
+            <TableCell>
+              <Badge variant="outline">{{ chatTypeLabel(chat.type) }}</Badge>
+            </TableCell>
+            <TableCell v-if="isAdmin" class="text-right">
+              <RowActions>
+                <DropdownMenuItem @click="chatToMessage = chat">
+                  <Send />
+                  Отправить сообщение
+                </DropdownMenuItem>
+              </RowActions>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </template>
+    </DataTableShell>
 
-    <!-- Диалог отправки сообщения -->
-    <Dialog v-model:open="showSendMessageDialog">
-      <DialogContent class="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Отправить сообщение</DialogTitle>
-          <DialogDescription>
-            Отправка сообщения в чат: {{ selectedChatTitle }}
-          </DialogDescription>
-        </DialogHeader>
-        <div class="space-y-4">
-          <div class="space-y-2">
-            <label class="text-sm font-medium">Текст сообщения</label>
-            <Textarea
-              v-model="messageText"
-              placeholder="Введите текст сообщения..."
-              class="min-h-[150px]"
-              :disabled="sendMessageMutation.isPending.value"
-            />
-          </div>
-          <div class="space-y-2">
-            <label class="text-sm font-medium">Режим парсинга (опционально)</label>
-            <Select v-model="parseMode">
-              <SelectTrigger>
-                <SelectValue placeholder="Без форматирования" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem :value="undefined">Без форматирования</SelectItem>
-                <SelectItem value="MarkdownV2">MarkdownV2</SelectItem>
-                <SelectItem value="HTML">HTML</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div class="flex gap-2">
-            <Button
-              @click="handleSendMessage"
-              :disabled="!messageText.trim() || sendMessageMutation.isPending.value"
-              class="flex-1"
-            >
-              <Send class="h-4 w-4 mr-2" />
-              Отправить
-            </Button>
-            <Button
-              variant="outline"
-              @click="showSendMessageDialog = false"
-              :disabled="sendMessageMutation.isPending.value"
-            >
-              Отмена
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+    <TablePagination
+      v-if="data"
+      :page="page"
+      :size="pageSize"
+      :total="data.total"
+      :pages="data.pages"
+      items-label="чатов"
+      @update:page="page = $event"
+    />
+
+    <SendMessageDialog :chat="chatToMessage" @update:chat="chatToMessage = $event" />
   </div>
 </template>

@@ -2,9 +2,12 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from vkteams_client.enums import ChatType
+
 
 class ChatResponse(BaseModel):
     id: str
+    type: ChatType
     title: str | None = None
 
     model_config = ConfigDict(from_attributes=True)

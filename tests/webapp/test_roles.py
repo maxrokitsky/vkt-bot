@@ -6,13 +6,13 @@ import uuid
 from typing import TYPE_CHECKING
 
 
-from vkt_bot.core.models import Role
+from vkt_bot.core.models import Role, RoleAssignment
 from vkt_bot.core.models.log_entry import ActionType, ActorType, EntityType
 from vkt_bot.core.repositories.log_entry import LogEntryRepository
 from vkt_bot.core.repositories.role import RoleRepository
 
 from tests.conftest import auth_headers, table_count
-from tests.factories import create_role
+from tests.factories import assign_role, create_chat_user, create_role
 
 if TYPE_CHECKING:
     import httpx
@@ -111,6 +111,8 @@ class TestCreateRole:
         assert entry.entity_type is EntityType.ROLE
         assert entry.actor_type is ActorType.WEB_USER
         assert entry.actor_id == superuser.id
+        # Запись должна указывать на созданную роль, а не на "None".
+        assert entry.entity_id == response.json()["id"]
 
     async def test_duplicate_name_is_rejected(
         self, client: httpx.AsyncClient, session: AsyncSession, superuser: ChatUser
@@ -303,3 +305,270 @@ class TestDeleteRole:
         role = await create_role(session, "devs")
         await client.delete(f"/api/roles/{role.id}", headers=auth_headers(user.id))
         assert await RoleRepository(session).get_by_name("devs")
+
+
+class TestRoleMemberCount:
+    """Число участников в списке ролей."""
+
+    async def test_zero_without_members(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        await create_role(session, "devs")
+
+        body = (await client.get("/api/roles", headers=auth_headers(user.id))).json()
+
+        assert body["items"][0]["member_count"] == 0
+
+    async def test_counts_members(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        role = await create_role(session, "devs")
+        empty = await create_role(session, "qa")
+        for i in range(3):
+            member = await create_chat_user(session, f"dev-{i}@example.com")
+            await assign_role(session, member.id, role.id)
+
+        body = (await client.get("/api/roles", headers=auth_headers(user.id))).json()
+        counts = {item["name"]: item["member_count"] for item in body["items"]}
+
+        assert counts == {"devs": 3, "qa": 0}
+        assert empty.name == "qa"
+
+
+class TestGetRole:
+    """``GET /api/roles/{role_id}``."""
+
+    async def test_returns_members(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        role = await create_role(session, "devs")
+        member = await create_chat_user(
+            session, "ivan@example.com", first_name="Иван", last_name="Иванов"
+        )
+        await assign_role(session, member.id, role.id)
+
+        response = await client.get(
+            f"/api/roles/{role.id}", headers=auth_headers(user.id)
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "id": str(role.id),
+            "name": "devs",
+            "member_count": 1,
+            "members": [
+                {
+                    "user_id": "ivan@example.com",
+                    "display_name": "Иван Иванов",
+                    "is_bot": False,
+                }
+            ],
+        }
+
+    async def test_members_sorted_by_name(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        role = await create_role(session, "devs")
+        for name in ("Ярослав", "Антон", "Мария"):
+            member = await create_chat_user(
+                session, f"{len(name)}-{name}@example.com", first_name=name
+            )
+            await assign_role(session, member.id, role.id)
+
+        body = (
+            await client.get(f"/api/roles/{role.id}", headers=auth_headers(user.id))
+        ).json()
+
+        assert [member["display_name"] for member in body["members"]] == [
+            "Антон",
+            "Мария",
+            "Ярослав",
+        ]
+
+    async def test_empty_role(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        role = await create_role(session, "devs")
+
+        body = (
+            await client.get(f"/api/roles/{role.id}", headers=auth_headers(user.id))
+        ).json()
+
+        assert body["members"] == []
+        assert body["member_count"] == 0
+
+    async def test_unknown_role(
+        self, client: httpx.AsyncClient, user: ChatUser
+    ) -> None:
+        response = await client.get(
+            f"/api/roles/{uuid.uuid4()}", headers=auth_headers(user.id)
+        )
+        assert response.status_code == 404
+
+    async def test_requires_authentication(
+        self, client: httpx.AsyncClient, session: AsyncSession
+    ) -> None:
+        role = await create_role(session, "devs")
+        assert (await client.get(f"/api/roles/{role.id}")).status_code == 403
+
+
+class TestAddRoleMember:
+    """``POST /api/roles/{role_id}/members``."""
+
+    async def test_adds_member(
+        self, client: httpx.AsyncClient, session: AsyncSession, superuser: ChatUser
+    ) -> None:
+        role = await create_role(session, "devs")
+        member = await create_chat_user(session, "ivan@example.com", first_name="Иван")
+
+        response = await client.post(
+            f"/api/roles/{role.id}/members",
+            json={"user_id": member.id},
+            headers=auth_headers(superuser.id),
+        )
+
+        assert response.status_code == 201
+        assert response.json() == {
+            "user_id": member.id,
+            "display_name": "Иван",
+            "is_bot": False,
+        }
+        assert await table_count(session, RoleAssignment) == 1
+
+    async def test_writes_audit_log(
+        self, client: httpx.AsyncClient, session: AsyncSession, superuser: ChatUser
+    ) -> None:
+        role = await create_role(session, "devs")
+        member = await create_chat_user(session, "ivan@example.com")
+
+        await client.post(
+            f"/api/roles/{role.id}/members",
+            json={"user_id": member.id},
+            headers=auth_headers(superuser.id),
+        )
+
+        entries = await LogEntryRepository(session).list()
+        assert [entry.action_type for entry in entries] == [ActionType.ASSIGN]
+        entry = entries[0]
+        assert entry.entity_type is EntityType.ROLE_ASSIGNMENT
+        assert entry.actor_type is ActorType.WEB_USER
+        assert entry.details["role_name"] == "devs"
+        # id назначения известен только после flush — иначе в журнале "None".
+        assert entry.entity_id != "None"
+
+    async def test_rejects_duplicate(
+        self, client: httpx.AsyncClient, session: AsyncSession, superuser: ChatUser
+    ) -> None:
+        role = await create_role(session, "devs")
+        member = await create_chat_user(session, "ivan@example.com")
+        await assign_role(session, member.id, role.id)
+
+        response = await client.post(
+            f"/api/roles/{role.id}/members",
+            json={"user_id": member.id},
+            headers=auth_headers(superuser.id),
+        )
+
+        assert response.status_code == 400
+        assert await table_count(session, RoleAssignment) == 1
+
+    async def test_unknown_role(
+        self, client: httpx.AsyncClient, session: AsyncSession, superuser: ChatUser
+    ) -> None:
+        member = await create_chat_user(session, "ivan@example.com")
+
+        response = await client.post(
+            f"/api/roles/{uuid.uuid4()}/members",
+            json={"user_id": member.id},
+            headers=auth_headers(superuser.id),
+        )
+
+        assert response.status_code == 404
+
+    async def test_unknown_user(
+        self, client: httpx.AsyncClient, session: AsyncSession, superuser: ChatUser
+    ) -> None:
+        role = await create_role(session, "devs")
+
+        response = await client.post(
+            f"/api/roles/{role.id}/members",
+            json={"user_id": "nobody@example.com"},
+            headers=auth_headers(superuser.id),
+        )
+
+        assert response.status_code == 404
+
+    async def test_forbidden_for_plain_user(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        role = await create_role(session, "devs")
+
+        response = await client.post(
+            f"/api/roles/{role.id}/members",
+            json={"user_id": user.id},
+            headers=auth_headers(user.id),
+        )
+
+        assert response.status_code == 403
+        assert await table_count(session, RoleAssignment) == 0
+
+
+class TestRemoveRoleMember:
+    """``DELETE /api/roles/{role_id}/members/{user_id}``."""
+
+    async def test_removes_member(
+        self, client: httpx.AsyncClient, session: AsyncSession, superuser: ChatUser
+    ) -> None:
+        role = await create_role(session, "devs")
+        member = await create_chat_user(session, "ivan@example.com")
+        await assign_role(session, member.id, role.id)
+
+        response = await client.delete(
+            f"/api/roles/{role.id}/members/{member.id}",
+            headers=auth_headers(superuser.id),
+        )
+
+        assert response.status_code == 204
+        assert await table_count(session, RoleAssignment) == 0
+
+    async def test_writes_audit_log(
+        self, client: httpx.AsyncClient, session: AsyncSession, superuser: ChatUser
+    ) -> None:
+        role = await create_role(session, "devs")
+        member = await create_chat_user(session, "ivan@example.com")
+        await assign_role(session, member.id, role.id)
+
+        await client.delete(
+            f"/api/roles/{role.id}/members/{member.id}",
+            headers=auth_headers(superuser.id),
+        )
+
+        entries = await LogEntryRepository(session).list()
+        assert [entry.action_type for entry in entries] == [ActionType.UNASSIGN]
+
+    async def test_member_without_role(
+        self, client: httpx.AsyncClient, session: AsyncSession, superuser: ChatUser
+    ) -> None:
+        role = await create_role(session, "devs")
+        member = await create_chat_user(session, "ivan@example.com")
+
+        response = await client.delete(
+            f"/api/roles/{role.id}/members/{member.id}",
+            headers=auth_headers(superuser.id),
+        )
+
+        assert response.status_code == 404
+
+    async def test_forbidden_for_plain_user(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        role = await create_role(session, "devs")
+        await assign_role(session, user.id, role.id)
+
+        response = await client.delete(
+            f"/api/roles/{role.id}/members/{user.id}",
+            headers=auth_headers(user.id),
+        )
+
+        assert response.status_code == 403
+        assert await table_count(session, RoleAssignment) == 1

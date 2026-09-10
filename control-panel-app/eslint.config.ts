@@ -15,10 +15,24 @@ export default defineConfigWithVueTs(
     files: ['**/*.{ts,mts,tsx,vue}'],
   },
 
-  globalIgnores(['**/dist/**', '**/dist-ssr/**', '**/coverage/**']),
+  // `src/client` генерируется Hey API из openapi.json — правит его не человек.
+  globalIgnores(['**/dist/**', '**/dist-ssr/**', '**/coverage/**', 'src/client/**']),
 
   pluginVue.configs['flat/essential'],
   vueTsConfigs.recommended,
   ...pluginOxlint.configs['flat/recommended'],
   skipFormatting,
+
+  {
+    // `src/components/ui` — вендоренный shadcn-vue: он ставится и обновляется
+    // через CLI, поэтому его имена компонентов (Table, Switch) и типы мы не
+    // правим, иначе следующее обновление затрёт правки.
+    name: 'app/vendored-ui',
+    files: ['src/components/ui/**/*.{vue,ts}'],
+    rules: {
+      'vue/multi-word-component-names': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+    },
+  },
 )

@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/vue-query';
 
 import { client } from '../client.gen';
-import { assignRoleToUserApiChatUsersUserIdRolesRoleIdPost, createRoleApiRolesPost, createWebhookApiWebhooksPost, createWebhookGlWebhooksPost, deleteRoleApiRolesRoleIdDelete, deleteWebhookApiWebhooksWebhookIdDelete, deleteWebhookGlWebhooksWebhookIdDelete, getBotSettingApiBotSettingsKeyGet, getChatApiChatsChatIdGet, getChatUserApiChatUsersUserIdGet, getCurrentUserInfoApiAuthMeGet, getLogApiLogsLogIdGet, getWebhookApiWebhooksWebhookIdGet, getWebhookGlWebhooksWebhookIdGet, handleWebhookWebhooksWebhookIdPost, healthHealthGet, listBotSettingsApiBotSettingsGet, listChatsApiChatsGet, listChatUsersApiChatUsersGet, listLogsApiLogsGet, listRolesApiRolesGet, listWebhooksApiWebhooksGet, listWebhooksGlWebhooksGet, loginApiAuthLoginPost, type Options, regenerateWebhookApiKeyApiWebhooksWebhookIdRegeneratePost, removeRoleFromUserApiChatUsersUserIdRolesRoleIdDelete, rootGet, sendMessageApiChatsChatIdSendMessagePost, triggerWebhookGlWebhooksWebhookIdTriggerPost, updateBotSettingApiBotSettingsKeyPut, updateChatUserApiChatUsersUserIdPatch, updateRoleApiRolesRoleIdPatch, updateWebhookApiWebhooksWebhookIdPut, updateWebhookGlWebhooksWebhookIdPatch } from '../sdk.gen';
-import type { AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostData, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostError, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostResponse, CreateRoleApiRolesPostData, CreateRoleApiRolesPostError, CreateRoleApiRolesPostResponse, CreateWebhookApiWebhooksPostData, CreateWebhookApiWebhooksPostError, CreateWebhookApiWebhooksPostResponse, CreateWebhookGlWebhooksPostData, CreateWebhookGlWebhooksPostError, CreateWebhookGlWebhooksPostResponse, DeleteRoleApiRolesRoleIdDeleteData, DeleteRoleApiRolesRoleIdDeleteError, DeleteRoleApiRolesRoleIdDeleteResponse, DeleteWebhookApiWebhooksWebhookIdDeleteData, DeleteWebhookApiWebhooksWebhookIdDeleteError, DeleteWebhookApiWebhooksWebhookIdDeleteResponse, DeleteWebhookGlWebhooksWebhookIdDeleteData, DeleteWebhookGlWebhooksWebhookIdDeleteError, DeleteWebhookGlWebhooksWebhookIdDeleteResponse, GetBotSettingApiBotSettingsKeyGetData, GetBotSettingApiBotSettingsKeyGetError, GetBotSettingApiBotSettingsKeyGetResponse, GetChatApiChatsChatIdGetData, GetChatApiChatsChatIdGetError, GetChatApiChatsChatIdGetResponse, GetChatUserApiChatUsersUserIdGetData, GetChatUserApiChatUsersUserIdGetError, GetChatUserApiChatUsersUserIdGetResponse, GetCurrentUserInfoApiAuthMeGetData, GetCurrentUserInfoApiAuthMeGetResponse, GetLogApiLogsLogIdGetData, GetLogApiLogsLogIdGetError, GetLogApiLogsLogIdGetResponse, GetWebhookApiWebhooksWebhookIdGetData, GetWebhookApiWebhooksWebhookIdGetError, GetWebhookApiWebhooksWebhookIdGetResponse, GetWebhookGlWebhooksWebhookIdGetData, GetWebhookGlWebhooksWebhookIdGetError, GetWebhookGlWebhooksWebhookIdGetResponse, HandleWebhookWebhooksWebhookIdPostData, HandleWebhookWebhooksWebhookIdPostError, HandleWebhookWebhooksWebhookIdPostResponse, HealthHealthGetData, ListBotSettingsApiBotSettingsGetData, ListBotSettingsApiBotSettingsGetResponse, ListChatsApiChatsGetData, ListChatsApiChatsGetError, ListChatsApiChatsGetResponse, ListChatUsersApiChatUsersGetData, ListChatUsersApiChatUsersGetError, ListChatUsersApiChatUsersGetResponse, ListLogsApiLogsGetData, ListLogsApiLogsGetError, ListLogsApiLogsGetResponse, ListRolesApiRolesGetData, ListRolesApiRolesGetError, ListRolesApiRolesGetResponse, ListWebhooksApiWebhooksGetData, ListWebhooksApiWebhooksGetResponse, ListWebhooksGlWebhooksGetData, ListWebhooksGlWebhooksGetError, ListWebhooksGlWebhooksGetResponse, LoginApiAuthLoginPostData, LoginApiAuthLoginPostError, LoginApiAuthLoginPostResponse, RegenerateWebhookApiKeyApiWebhooksWebhookIdRegeneratePostData, RegenerateWebhookApiKeyApiWebhooksWebhookIdRegeneratePostError, RegenerateWebhookApiKeyApiWebhooksWebhookIdRegeneratePostResponse, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteData, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteError, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteResponse, RootGetData, SendMessageApiChatsChatIdSendMessagePostData, SendMessageApiChatsChatIdSendMessagePostError, SendMessageApiChatsChatIdSendMessagePostResponse, TriggerWebhookGlWebhooksWebhookIdTriggerPostData, TriggerWebhookGlWebhooksWebhookIdTriggerPostError, UpdateBotSettingApiBotSettingsKeyPutData, UpdateBotSettingApiBotSettingsKeyPutError, UpdateBotSettingApiBotSettingsKeyPutResponse, UpdateChatUserApiChatUsersUserIdPatchData, UpdateChatUserApiChatUsersUserIdPatchError, UpdateChatUserApiChatUsersUserIdPatchResponse, UpdateRoleApiRolesRoleIdPatchData, UpdateRoleApiRolesRoleIdPatchError, UpdateRoleApiRolesRoleIdPatchResponse, UpdateWebhookApiWebhooksWebhookIdPutData, UpdateWebhookApiWebhooksWebhookIdPutError, UpdateWebhookApiWebhooksWebhookIdPutResponse, UpdateWebhookGlWebhooksWebhookIdPatchData, UpdateWebhookGlWebhooksWebhookIdPatchError, UpdateWebhookGlWebhooksWebhookIdPatchResponse } from '../types.gen';
+import { addRoleMemberApiRolesRoleIdMembersPost, assignRoleToUserApiChatUsersUserIdRolesRoleIdPost, createRoleApiRolesPost, createWebhookApiWebhooksPost, createWebhookGlWebhooksPost, deleteRoleApiRolesRoleIdDelete, deleteWebhookApiWebhooksWebhookIdDelete, deleteWebhookGlWebhooksWebhookIdDelete, getBotSettingApiBotSettingsKeyGet, getChatApiChatsChatIdGet, getChatUserApiChatUsersUserIdGet, getCurrentUserInfoApiAuthMeGet, getLogApiLogsLogIdGet, getOverviewApiOverviewGet, getRoleApiRolesRoleIdGet, getWebhookApiWebhooksWebhookIdGet, getWebhookGlWebhooksWebhookIdGet, handleWebhookWebhooksWebhookIdPost, healthHealthGet, listBotSettingsApiBotSettingsGet, listChatsApiChatsGet, listChatUsersApiChatUsersGet, listLogsApiLogsGet, listRolesApiRolesGet, listWebhooksApiWebhooksGet, listWebhooksGlWebhooksGet, loginApiAuthLoginPost, type Options, regenerateWebhookApiKeyApiWebhooksWebhookIdRegeneratePost, removeRoleFromUserApiChatUsersUserIdRolesRoleIdDelete, removeRoleMemberApiRolesRoleIdMembersUserIdDelete, rootGet, sendMessageApiChatsChatIdSendMessagePost, triggerWebhookGlWebhooksWebhookIdTriggerPost, updateBotSettingApiBotSettingsKeyPut, updateChatUserApiChatUsersUserIdPatch, updateRoleApiRolesRoleIdPatch, updateWebhookApiWebhooksWebhookIdPut, updateWebhookGlWebhooksWebhookIdPatch } from '../sdk.gen';
+import type { AddRoleMemberApiRolesRoleIdMembersPostData, AddRoleMemberApiRolesRoleIdMembersPostError, AddRoleMemberApiRolesRoleIdMembersPostResponse, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostData, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostError, AssignRoleToUserApiChatUsersUserIdRolesRoleIdPostResponse, CreateRoleApiRolesPostData, CreateRoleApiRolesPostError, CreateRoleApiRolesPostResponse, CreateWebhookApiWebhooksPostData, CreateWebhookApiWebhooksPostError, CreateWebhookApiWebhooksPostResponse, CreateWebhookGlWebhooksPostData, CreateWebhookGlWebhooksPostError, CreateWebhookGlWebhooksPostResponse, DeleteRoleApiRolesRoleIdDeleteData, DeleteRoleApiRolesRoleIdDeleteError, DeleteRoleApiRolesRoleIdDeleteResponse, DeleteWebhookApiWebhooksWebhookIdDeleteData, DeleteWebhookApiWebhooksWebhookIdDeleteError, DeleteWebhookApiWebhooksWebhookIdDeleteResponse, DeleteWebhookGlWebhooksWebhookIdDeleteData, DeleteWebhookGlWebhooksWebhookIdDeleteError, DeleteWebhookGlWebhooksWebhookIdDeleteResponse, GetBotSettingApiBotSettingsKeyGetData, GetBotSettingApiBotSettingsKeyGetError, GetBotSettingApiBotSettingsKeyGetResponse, GetChatApiChatsChatIdGetData, GetChatApiChatsChatIdGetError, GetChatApiChatsChatIdGetResponse, GetChatUserApiChatUsersUserIdGetData, GetChatUserApiChatUsersUserIdGetError, GetChatUserApiChatUsersUserIdGetResponse, GetCurrentUserInfoApiAuthMeGetData, GetCurrentUserInfoApiAuthMeGetResponse, GetLogApiLogsLogIdGetData, GetLogApiLogsLogIdGetError, GetLogApiLogsLogIdGetResponse, GetOverviewApiOverviewGetData, GetOverviewApiOverviewGetError, GetOverviewApiOverviewGetResponse, GetRoleApiRolesRoleIdGetData, GetRoleApiRolesRoleIdGetError, GetRoleApiRolesRoleIdGetResponse, GetWebhookApiWebhooksWebhookIdGetData, GetWebhookApiWebhooksWebhookIdGetError, GetWebhookApiWebhooksWebhookIdGetResponse, GetWebhookGlWebhooksWebhookIdGetData, GetWebhookGlWebhooksWebhookIdGetError, GetWebhookGlWebhooksWebhookIdGetResponse, HandleWebhookWebhooksWebhookIdPostData, HandleWebhookWebhooksWebhookIdPostError, HandleWebhookWebhooksWebhookIdPostResponse, HealthHealthGetData, ListBotSettingsApiBotSettingsGetData, ListBotSettingsApiBotSettingsGetResponse, ListChatsApiChatsGetData, ListChatsApiChatsGetError, ListChatsApiChatsGetResponse, ListChatUsersApiChatUsersGetData, ListChatUsersApiChatUsersGetError, ListChatUsersApiChatUsersGetResponse, ListLogsApiLogsGetData, ListLogsApiLogsGetError, ListLogsApiLogsGetResponse, ListRolesApiRolesGetData, ListRolesApiRolesGetError, ListRolesApiRolesGetResponse, ListWebhooksApiWebhooksGetData, ListWebhooksApiWebhooksGetResponse, ListWebhooksGlWebhooksGetData, ListWebhooksGlWebhooksGetError, ListWebhooksGlWebhooksGetResponse, LoginApiAuthLoginPostData, LoginApiAuthLoginPostError, LoginApiAuthLoginPostResponse, RegenerateWebhookApiKeyApiWebhooksWebhookIdRegeneratePostData, RegenerateWebhookApiKeyApiWebhooksWebhookIdRegeneratePostError, RegenerateWebhookApiKeyApiWebhooksWebhookIdRegeneratePostResponse, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteData, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteError, RemoveRoleFromUserApiChatUsersUserIdRolesRoleIdDeleteResponse, RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteData, RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteError, RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteResponse, RootGetData, SendMessageApiChatsChatIdSendMessagePostData, SendMessageApiChatsChatIdSendMessagePostError, SendMessageApiChatsChatIdSendMessagePostResponse, TriggerWebhookGlWebhooksWebhookIdTriggerPostData, TriggerWebhookGlWebhooksWebhookIdTriggerPostError, UpdateBotSettingApiBotSettingsKeyPutData, UpdateBotSettingApiBotSettingsKeyPutError, UpdateBotSettingApiBotSettingsKeyPutResponse, UpdateChatUserApiChatUsersUserIdPatchData, UpdateChatUserApiChatUsersUserIdPatchError, UpdateChatUserApiChatUsersUserIdPatchResponse, UpdateRoleApiRolesRoleIdPatchData, UpdateRoleApiRolesRoleIdPatchError, UpdateRoleApiRolesRoleIdPatchResponse, UpdateWebhookApiWebhooksWebhookIdPutData, UpdateWebhookApiWebhooksWebhookIdPutError, UpdateWebhookApiWebhooksWebhookIdPutResponse, UpdateWebhookGlWebhooksWebhookIdPatchData, UpdateWebhookGlWebhooksWebhookIdPatchError, UpdateWebhookGlWebhooksWebhookIdPatchResponse } from '../types.gen';
 
 /**
  * Login
@@ -83,7 +83,7 @@ export const listChatsApiChatsGetQueryKey = (options?: Options<ListChatsApiChats
 /**
  * List Chats
  *
- * List all chats with pagination.
+ * List all chats with pagination. Optional search by title or id.
  */
 export const listChatsApiChatsGetOptions = (options?: Options<ListChatsApiChatsGetData>) => queryOptions<ListChatsApiChatsGetResponse, ListChatsApiChatsGetError, ListChatsApiChatsGetResponse, ReturnType<typeof listChatsApiChatsGetQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -132,7 +132,7 @@ export const listChatsApiChatsGetInfiniteQueryKey = (options?: Options<ListChats
 /**
  * List Chats
  *
- * List all chats with pagination.
+ * List all chats with pagination. Optional search by title or id.
  */
 export const listChatsApiChatsGetInfiniteOptions = (options?: Options<ListChatsApiChatsGetData>) => infiniteQueryOptions<ListChatsApiChatsGetResponse, ListChatsApiChatsGetError, InfiniteData<ListChatsApiChatsGetResponse>, QueryKey<Options<ListChatsApiChatsGetData>>, number | Pick<QueryKey<Options<ListChatsApiChatsGetData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
 // @ts-ignore
@@ -282,6 +282,26 @@ export const deleteRoleApiRolesRoleIdDeleteMutation = (options?: Partial<Options
     return mutationOptions;
 };
 
+export const getRoleApiRolesRoleIdGetQueryKey = (options: Options<GetRoleApiRolesRoleIdGetData>) => createQueryKey('getRoleApiRolesRoleIdGet', options);
+
+/**
+ * Get Role
+ *
+ * Get role by ID with its members.
+ */
+export const getRoleApiRolesRoleIdGetOptions = (options: Options<GetRoleApiRolesRoleIdGetData>) => queryOptions<GetRoleApiRolesRoleIdGetResponse, GetRoleApiRolesRoleIdGetError, GetRoleApiRolesRoleIdGetResponse, ReturnType<typeof getRoleApiRolesRoleIdGetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getRoleApiRolesRoleIdGet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getRoleApiRolesRoleIdGetQueryKey(options)
+});
+
 /**
  * Update Role
  *
@@ -301,12 +321,50 @@ export const updateRoleApiRolesRoleIdPatchMutation = (options?: Partial<Options<
     return mutationOptions;
 };
 
+/**
+ * Add Role Member
+ *
+ * Add member to role. Admin only.
+ */
+export const addRoleMemberApiRolesRoleIdMembersPostMutation = (options?: Partial<Options<AddRoleMemberApiRolesRoleIdMembersPostData>>): UseMutationOptions<AddRoleMemberApiRolesRoleIdMembersPostResponse, AddRoleMemberApiRolesRoleIdMembersPostError, Options<AddRoleMemberApiRolesRoleIdMembersPostData>> => {
+    const mutationOptions: UseMutationOptions<AddRoleMemberApiRolesRoleIdMembersPostResponse, AddRoleMemberApiRolesRoleIdMembersPostError, Options<AddRoleMemberApiRolesRoleIdMembersPostData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await addRoleMemberApiRolesRoleIdMembersPost({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Remove Role Member
+ *
+ * Remove member from role. Admin only.
+ */
+export const removeRoleMemberApiRolesRoleIdMembersUserIdDeleteMutation = (options?: Partial<Options<RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteData>>): UseMutationOptions<RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteResponse, RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteError, Options<RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteData>> => {
+    const mutationOptions: UseMutationOptions<RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteResponse, RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteError, Options<RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await removeRoleMemberApiRolesRoleIdMembersUserIdDelete({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
 export const listChatUsersApiChatUsersGetQueryKey = (options?: Options<ListChatUsersApiChatUsersGetData>) => createQueryKey('listChatUsersApiChatUsersGet', options);
 
 /**
  * List Chat Users
  *
- * List all chat users with pagination.
+ * List all chat users with pagination. Optional search by name or id.
  */
 export const listChatUsersApiChatUsersGetOptions = (options?: Options<ListChatUsersApiChatUsersGetData>) => queryOptions<ListChatUsersApiChatUsersGetResponse, ListChatUsersApiChatUsersGetError, ListChatUsersApiChatUsersGetResponse, ReturnType<typeof listChatUsersApiChatUsersGetQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -326,7 +384,7 @@ export const listChatUsersApiChatUsersGetInfiniteQueryKey = (options?: Options<L
 /**
  * List Chat Users
  *
- * List all chat users with pagination.
+ * List all chat users with pagination. Optional search by name or id.
  */
 export const listChatUsersApiChatUsersGetInfiniteOptions = (options?: Options<ListChatUsersApiChatUsersGetData>) => infiniteQueryOptions<ListChatUsersApiChatUsersGetResponse, ListChatUsersApiChatUsersGetError, InfiniteData<ListChatUsersApiChatUsersGetResponse>, QueryKey<Options<ListChatUsersApiChatUsersGetData>>, number | Pick<QueryKey<Options<ListChatUsersApiChatUsersGetData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
 // @ts-ignore
@@ -573,6 +631,26 @@ export const getLogApiLogsLogIdGetOptions = (options: Options<GetLogApiLogsLogId
         return data;
     },
     queryKey: getLogApiLogsLogIdGetQueryKey(options)
+});
+
+export const getOverviewApiOverviewGetQueryKey = (options?: Options<GetOverviewApiOverviewGetData>) => createQueryKey('getOverviewApiOverviewGet', options);
+
+/**
+ * Get Overview
+ *
+ * Счётчики и активность для главной страницы.
+ */
+export const getOverviewApiOverviewGetOptions = (options?: Options<GetOverviewApiOverviewGetData>) => queryOptions<GetOverviewApiOverviewGetResponse, GetOverviewApiOverviewGetError, GetOverviewApiOverviewGetResponse, ReturnType<typeof getOverviewApiOverviewGetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getOverviewApiOverviewGet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getOverviewApiOverviewGetQueryKey(options)
 });
 
 export const listWebhooksApiWebhooksGetQueryKey = (options?: Options<ListWebhooksApiWebhooksGetData>) => createQueryKey('listWebhooksApiWebhooksGet', options);

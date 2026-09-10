@@ -17,12 +17,15 @@ class RoleUpdate(BaseModel):
 
 class RoleResponse(RoleBase):
     id: UUID
+    member_count: int
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class RoleMemberResponse(BaseModel):
     user_id: str
+    display_name: str
+    is_bot: bool
 
     model_config = ConfigDict(from_attributes=True)
 

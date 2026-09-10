@@ -1,9 +1,12 @@
 import { client } from './client/client.gen'
 
-// Configure client with base URL and auth interceptor
-client.setConfig({
-  baseUrl: 'http://localhost:8765',
-})
+/**
+ * Адрес бэкенда. Он же нужен для публичных ссылок вебхуков, поэтому вынесен:
+ * фронт в dev живёт на другом порту, и `window.location.origin` там врёт.
+ */
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8765'
+
+client.setConfig({ baseUrl: API_BASE_URL })
 
 const LOGIN_PATH = '/api/auth/login'
 

@@ -1,35 +1,26 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { Pencil, Plus, ShieldCheck, Trash2 } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
+import type { RoleResponse } from '@/client'
 import {
-  listRolesApiRolesGet,
-  createRoleApiRolesPost,
-  deleteRoleApiRolesRoleIdDelete,
-  updateRoleApiRolesRoleIdPatch,
-  type RoleCreate,
-  type RoleUpdate,
-  type RoleResponse,
-} from '@/client'
+  createRoleApiRolesPostMutation,
+  deleteRoleApiRolesRoleIdDeleteMutation,
+  listRolesApiRolesGetOptions,
+  listRolesApiRolesGetQueryKey,
+  updateRoleApiRolesRoleIdPatchMutation,
+} from '@/client/@tanstack/vue-query.gen'
 import { useAuthStore } from '@/stores/auth'
-import { Card, CardContent } from '@/components/ui/card'
+import PageHeader from '@/components/layout/PageHeader.vue'
+import DataTableShell from '@/components/data/DataTableShell.vue'
+import TablePagination from '@/components/data/TablePagination.vue'
+import RowActions from '@/components/data/RowActions.vue'
+import RoleFormDialog from '@/components/RoleFormDialog.vue'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from '@/components/ui/table'
-import {
-  Dialog,
-  DialogTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,215 +31,176 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Plus, Trash2, Edit } from 'lucide-vue-next'
+import { useListQuery } from '@/composables/useListQuery'
+import { plural } from '@/lib/plural'
 
+const router = useRouter()
 const queryClient = useQueryClient()
 const authStore = useAuthStore()
 const isAdmin = computed(() => authStore.isAdmin)
-const page = ref(1)
-const size = ref(10)
-const showCreateDialog = ref(false)
-const showEditDialog = ref(false)
-const selectedRole = ref<RoleResponse | null>(null)
-const showDeleteDialog = ref(false)
-const roleToDelete = ref<string | null>(null)
+const { page, pageSize } = useListQuery()
 
-const newRole = ref<RoleCreate>({
-  name: '',
-})
+/** `null` — диалог закрыт, объект без id — создание, с id — переименование. */
+const editing = ref<{ id?: string; name: string } | null>(null)
+const roleToDelete = ref<RoleResponse | null>(null)
 
-const editRole = ref<RoleUpdate>({
-  name: null,
-})
+const { data, isPending, isError, refetch } = useQuery(
+  computed(() => listRolesApiRolesGetOptions({ query: { page: page.value, size: pageSize.value } })),
+)
 
-const { data: rolesData, isLoading } = useQuery({
-  queryKey: ['roles', page, size],
-  queryFn: async () => {
-    const response = await listRolesApiRolesGet({
-      query: { page: page.value, size: size.value },
-    })
-    return response.data
-  },
-})
-
-const createMutation = useMutation({
-  mutationFn: async (role: RoleCreate) => {
-    return await createRoleApiRolesPost({ body: role })
-  },
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ['roles'] })
-    showCreateDialog.value = false
-    newRole.value = { name: '' }
-  },
-})
-
-const deleteMutation = useMutation({
-  mutationFn: async (roleId: string) => {
-    return await deleteRoleApiRolesRoleIdDelete({
-      path: { role_id: roleId },
-    })
-  },
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ['roles'] })
-  },
-})
-
-const updateMutation = useMutation({
-  mutationFn: async ({ roleId, data }: { roleId: string; data: RoleUpdate }) => {
-    return await updateRoleApiRolesRoleIdPatch({
-      path: { role_id: roleId },
-      body: data,
-    })
-  },
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ['roles'] })
-    showEditDialog.value = false
-    selectedRole.value = null
-  },
-})
-
-const handleCreate = () => {
-  createMutation.mutate(newRole.value)
+function invalidate() {
+  queryClient.invalidateQueries({ queryKey: listRolesApiRolesGetQueryKey() })
 }
 
-const handleDelete = (roleId: string) => {
-  roleToDelete.value = roleId
-  showDeleteDialog.value = true
-}
+const createRole = useMutation({
+  ...createRoleApiRolesPostMutation(),
+  onSuccess: (role) => {
+    invalidate()
+    editing.value = null
+    toast.success(`Роль «${role.name}» создана`)
+  },
+  onError: () => toast.error('Роль с таким названием уже есть'),
+})
 
-const confirmDelete = () => {
-  if (roleToDelete.value) {
-    deleteMutation.mutate(roleToDelete.value)
-    showDeleteDialog.value = false
+const renameRole = useMutation({
+  ...updateRoleApiRolesRoleIdPatchMutation(),
+  onSuccess: (role) => {
+    invalidate()
+    editing.value = null
+    toast.success(`Роль переименована в «${role.name}»`)
+  },
+  onError: () => toast.error('Роль с таким названием уже есть'),
+})
+
+const deleteRole = useMutation({
+  ...deleteRoleApiRolesRoleIdDeleteMutation(),
+  onSuccess: () => {
+    invalidate()
+    toast.success(`Роль «${roleToDelete.value?.name}» удалена`)
     roleToDelete.value = null
-  }
-}
+  },
+  onError: () => toast.error('Не удалось удалить роль'),
+})
 
-const openEditDialog = (role: RoleResponse) => {
-  selectedRole.value = role
-  editRole.value = { name: role.name }
-  showEditDialog.value = true
-}
-
-const handleUpdate = () => {
-  if (selectedRole.value) {
-    updateMutation.mutate({
-      roleId: selectedRole.value.id,
-      data: editRole.value,
-    })
-  }
+function submit(name: string) {
+  const role = editing.value
+  if (!role) return
+  if (role.id) renameRole.mutate({ path: { role_id: role.id }, body: { name } })
+  else createRole.mutate({ body: { name } })
 }
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div v-if="isAdmin" class="flex items-center justify-end">
-      <Dialog v-model:open="showCreateDialog">
-        <DialogTrigger as-child>
-          <Button>
-            <Plus class="mr-2 h-4 w-4" />
-            Добавить роль
-          </Button>
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Создать роль</DialogTitle>
-          </DialogHeader>
-          <form @submit.prevent="handleCreate" class="space-y-4">
-            <div class="space-y-2">
-              <Label for="name">Название роли</Label>
-              <Input id="name" v-model="newRole.name" required />
-            </div>
-            <Button type="submit" class="w-full" :disabled="createMutation.isPending.value">
-              Создать
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </div>
-
-    <!-- <Card>
-      <CardContent class="pt-6"> -->
-        <Table v-if="!isLoading && rolesData">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Название</TableHead>
-              <TableHead>ID</TableHead>
-              <TableHead v-if="isAdmin" class="text-right">Действия</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow v-for="role in rolesData.items" :key="role.id">
-              <TableCell class="font-medium">{{ role.name }}</TableCell>
-              <TableCell class="font-mono text-sm">{{ role.id }}</TableCell>
-              <TableCell v-if="isAdmin" class="text-right">
-                <div class="flex justify-end gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    @click="openEditDialog(role)"
-                  >
-                    <Edit class="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    @click="handleDelete(role.id)"
-                  >
-                    <Trash2 class="h-4 w-4" />
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-        <div v-else class="py-8 text-center">Загрузка...</div>
-      <!-- </CardContent>
-    </Card> -->
-
-    <div v-if="rolesData" class="flex items-center justify-between">
-      <div class="text-sm text-muted-foreground">
-        Показано {{ rolesData.items.length }} из {{ rolesData.total }} ролей
-      </div>
-      <div class="flex gap-2">
-        <Button variant="outline" :disabled="page <= 1" @click="page--">Назад</Button>
-        <Button variant="outline" :disabled="page >= rolesData.pages" @click="page++">
-          Далее
+  <div>
+    <PageHeader>
+      <template v-if="isAdmin" #actions>
+        <Button size="sm" @click="editing = { name: '' }">
+          <Plus class="size-4" />
+          Новая роль
         </Button>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
-    <Dialog v-model:open="showEditDialog">
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Редактировать роль</DialogTitle>
-        </DialogHeader>
-        <form @submit.prevent="handleUpdate" class="space-y-4">
-          <div class="space-y-2">
-            <Label for="edit-name">Название роли</Label>
-            <Input id="edit-name" v-model="editRole.name" />
-          </div>
-          <Button type="submit" class="w-full" :disabled="updateMutation.isPending.value">
-            Сохранить
-          </Button>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <DataTableShell
+      :loading="isPending"
+      :error="isError ? true : undefined"
+      :empty="!data?.items.length"
+      :columns="isAdmin ? 3 : 2"
+      :empty-icon="ShieldCheck"
+      empty-title="Ролей пока нет"
+      empty-description="Роль — это группа участников, которую можно призвать в чате через #название."
+      @retry="refetch()"
+    >
+      <template #empty-action>
+        <Button v-if="isAdmin" @click="editing = { name: '' }">
+          <Plus class="size-4" />
+          Новая роль
+        </Button>
+      </template>
 
-    <!-- Диалог подтверждения удаления роли -->
-    <AlertDialog v-model:open="showDeleteDialog">
+      <template #header>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Роль</TableHead>
+            <TableHead class="w-40">Участников</TableHead>
+            <TableHead v-if="isAdmin" class="w-16 text-right">
+              <span class="sr-only">Действия</span>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+      </template>
+
+      <template #body>
+        <TableBody>
+          <TableRow
+            v-for="role in data?.items ?? []"
+            :key="role.id"
+            class="cursor-pointer"
+            @click="router.push(`/roles/${role.id}`)"
+          >
+            <TableCell>
+              <span class="font-medium">{{ role.name }}</span>
+              <span class="ml-2 font-mono text-xs text-muted-foreground">#{{ role.name }}</span>
+            </TableCell>
+            <TableCell class="tabular-nums">
+              {{ role.member_count ?? 0 }}
+              <span class="text-muted-foreground">
+                {{ plural(role.member_count ?? 0, 'участник', 'участника', 'участников') }}
+              </span>
+            </TableCell>
+            <TableCell v-if="isAdmin" class="text-right">
+              <RowActions>
+                <DropdownMenuItem @click="editing = { id: role.id, name: role.name }">
+                  <Pencil />
+                  Переименовать
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" @click="roleToDelete = role">
+                  <Trash2 />
+                  Удалить
+                </DropdownMenuItem>
+              </RowActions>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </template>
+    </DataTableShell>
+
+    <TablePagination
+      v-if="data"
+      :page="page"
+      :size="pageSize"
+      :total="data.total"
+      :pages="data.pages"
+      items-label="ролей"
+      @update:page="page = $event"
+    />
+
+    <RoleFormDialog
+      :role="editing"
+      :pending="createRole.isPending.value || renameRole.isPending.value"
+      @submit="submit"
+      @close="editing = null"
+    />
+
+    <AlertDialog :open="roleToDelete !== null" @update:open="roleToDelete = null">
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Удаление роли</AlertDialogTitle>
+          <AlertDialogTitle>Удалить роль «{{ roleToDelete?.name }}»?</AlertDialogTitle>
           <AlertDialogDescription>
-            Вы уверены, что хотите удалить эту роль?
-            Это действие нельзя отменить.
+            Роль исчезнет у всех
+            {{ roleToDelete?.member_count ?? 0 }}
+            {{
+              plural(roleToDelete?.member_count ?? 0, 'участника', 'участников', 'участников')
+            }}, и призыв #{{ roleToDelete?.name }} перестанет работать. Отменить нельзя.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Отмена</AlertDialogCancel>
-          <AlertDialogAction @click="confirmDelete">
-            Удалить
+          <AlertDialogAction
+            @click="roleToDelete && deleteRole.mutate({ path: { role_id: roleToDelete.id } })"
+          >
+            Удалить роль
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

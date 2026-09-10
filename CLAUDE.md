@@ -38,6 +38,35 @@ This is a **uv workspace** with three main components:
 - API client auto-generated from OpenAPI spec via Hey API
 - Located in separate directory with own package.json
 
+**Структура `src/`:**
+- `components/layout/` — хром панели: `AppSidebar`, `AppHeader`,
+  `AppBreadcrumbs`, `CommandPalette`, и каркас страницы: `PageContainer`,
+  `PageHeader`, `PageSection`, `FieldRow`, `StickySaveBar`.
+- `components/data/` — общие примитивы списков: `DataToolbar`,
+  `DataTableShell` (рамка, залипающая шапка и три состояния — загрузка,
+  ошибка, пусто), `TablePagination`, `EmptyState`, `CopyableId`,
+  `RowActions`, `StatTile`.
+- `components/ui/` — вендоренный shadcn-vue: ставится и обновляется через CLI,
+  руками не правится (для него в `eslint.config.ts` отдельный блок правил).
+- `composables/` — `useListQuery` (страница + поиск с задержкой),
+  `useCommandPalette`, `useTheme`.
+- `lib/` — `format` (даты), `plural` (склонения), `audit` и `chats` (подписи
+  перечислений API по-русски).
+- `views/` — страницы, по одной на маршрут.
+
+**Правила страниц:**
+- Заголовок на странице ровно один — `PageHeader`; в шапке приложения только
+  хлебные крошки. Название и описание берутся из `meta` маршрута.
+- Контент не на всю ширину: `PageContainer` центрирует колонку, ширину задаёт
+  `meta.width` маршрута — `wide` (84rem, таблицы), `medium` (64rem, карточки),
+  `narrow` (42rem, формы и настройки).
+- Меню сайдбара и палитра команд (`⌘K`) строятся из `router.getRoutes()` по
+  `meta.nav` (`router/nav.ts`) — второго списка пунктов не существует.
+- Реже используем `Card`: разделы группируются `PageSection` с
+  правилом-разделителем.
+- Действия строки — в меню `RowActions` (`⋯`), а не рядом кнопками.
+- Счётчик найденного живёт в `TablePagination`, в `DataToolbar` его нет.
+
 ## Development Commands
 
 ### Running the Bot
@@ -221,9 +250,14 @@ Plugins use Python entry points for auto-discovery:
   - `auth.py`: one-time token login, JWT issuing, current user (`/api/auth/me`)
   - `chats.py`: Chat viewing (admin only)
   - `chat_users.py`: Chat user management (admin only)
-  - `roles.py`: Role management CRUD and members (admin only)
+  - `roles.py`: Role management CRUD, role detail with members, and member
+    add/remove (admin only for writes)
   - `bot_settings.py`: Bot settings (admin only)
   - `logs.py`: Audit log viewing (admin only)
+  - `overview.py`: счётчики и активность по дням для главной страницы панели.
+    Активность собирается из `log_entries` группировкой по `date(timestamp)`
+    (работает и в SQLite, и в PostgreSQL — типы возврата разные, приводятся в
+    `as_date`) и отдаётся только админам: журнал остальным недоступен
   - `webhooks.py`: Webhook CRUD plus a public router for incoming calls
 - `schemas/`: Pydantic schemas for request/response validation
 - `dependencies.py`: Dependency injection (session, auth, admin check)
@@ -309,9 +343,17 @@ Structured logging with multiple loggers:
 
 5. **Frontend changes:**
    - Frontend in `control-panel-app/` directory
-   - Regenerate API client after OpenAPI changes: `cd control-panel-app && pnpm openapi-ts`
-   - API base URL is set in `src/hey-api.ts` (`http://localhost:8765`)
+   - Regenerate API client after OpenAPI changes: `make generate_client`
+     (экспортирует `openapi.json` и перегенерирует клиент; тест
+     `tests/webapp/test_openapi.py` падает, если схема в репозитории устарела)
+   - Адрес бэкенда — `API_BASE_URL` в `src/hey-api.ts`: берётся из
+     `VITE_API_BASE_URL`, по умолчанию `http://localhost:8765`. Он же нужен для
+     публичных ссылок вебхуков — `window.location.origin` в dev врёт (фронт на
+     другом порту)
    - Uses JWT token from localStorage for authentication
+   - Проверки: `pnpm type-check`, `pnpm lint`, `pnpm build` должны быть зелёными
+   - Новое поле в ответе API делайте обязательным (без значения по умолчанию),
+     иначе в TS оно станет опциональным и по всему фронту расползутся `?.`
 
 6. **Signing in to the panel:**
    - Send `/login` to the bot, then open the link it replies with

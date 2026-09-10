@@ -1,31 +1,46 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
+import { computed, ref } from 'vue'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { useClipboard } from '@vueuse/core'
+import { Check, Copy, GitBranch, Link2, Pencil, Plus, Trash2 } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
+import type { GlWebhookRead } from '@/client'
 import {
-  listWebhooksGlWebhooksGet,
-  deleteWebhookGlWebhooksWebhookIdDelete,
-  createWebhookGlWebhooksPost,
-  updateWebhookGlWebhooksWebhookIdPatch,
-} from '@/client'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+  createWebhookGlWebhooksPostMutation,
+  deleteWebhookGlWebhooksWebhookIdDeleteMutation,
+  listChatsApiChatsGetOptions,
+  listWebhooksGlWebhooksGetOptions,
+  listWebhooksGlWebhooksGetQueryKey,
+  updateWebhookGlWebhooksWebhookIdPatchMutation,
+} from '@/client/@tanstack/vue-query.gen'
+import { API_BASE_URL } from '@/hey-api'
+import PageHeader from '@/components/layout/PageHeader.vue'
+import PageSection from '@/components/layout/PageSection.vue'
+import DataToolbar from '@/components/data/DataToolbar.vue'
+import DataTableShell from '@/components/data/DataTableShell.vue'
+import TablePagination from '@/components/data/TablePagination.vue'
+import RowActions from '@/components/data/RowActions.vue'
 import { Button } from '@/components/ui/button'
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from '@/components/ui/table'
+import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-  DialogDescription,
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Spinner } from '@/components/ui/spinner'
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,290 +51,325 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Label } from '@/components/ui/label'
-import { Search, Plus, Trash2, Edit, Copy, ExternalLink } from 'lucide-vue-next'
-import { toast } from 'vue-sonner'
+import { useListQuery } from '@/composables/useListQuery'
+import { formatRelative } from '@/lib/format'
 
 const queryClient = useQueryClient()
+const { copy, copied } = useClipboard({ legacy: true })
+const { page, pageSize, searchInput, search } = useListQuery()
 
-const page = ref(1)
-const size = ref(10)
-const searchQuery = ref('')
+const creating = ref(false)
+const renaming = ref<GlWebhookRead | null>(null)
+const toDelete = ref<GlWebhookRead | null>(null)
 
-const showCreateDialog = ref(false)
-const showEditDialog = ref(false)
-const showDeleteDialog = ref(false)
-const selectedWebhook = ref<any>(null)
+const form = ref({ name: '', secret: '', chatId: '' })
+const newName = ref('')
 
-const newWebhook = ref({
-  name: '',
-  secret: '',
-  chat_id: '',
-})
+const { data, isPending, isError, refetch } = useQuery(
+  computed(() =>
+    listWebhooksGlWebhooksGetOptions({ query: { page: page.value, size: pageSize.value } }),
+  ),
+)
 
-const editWebhook = ref({
-  name: '',
-})
+const { data: chatsData } = useQuery(
+  listChatsApiChatsGetOptions({ query: { page: 1, size: 200 } }),
+)
 
-const { data: webhooksData, isLoading } = useQuery({
-  queryKey: ['gitlab-webhooks', page, size],
-  queryFn: async () => {
-    const response = await listWebhooksGlWebhooksGet({
-      query: { page: page.value, size: size.value },
-    })
-    return response.data
-  },
-})
+const chats = computed(() => chatsData.value?.items ?? [])
 
-const filteredWebhooks = computed(() => {
-  if (!webhooksData.value?.items) return []
-  if (!searchQuery.value) return webhooksData.value.items
-
-  const query = searchQuery.value.toLowerCase()
-  return webhooksData.value.items.filter(
-    (webhook: any) =>
+/** У ручки списка нет поиска, поэтому фильтруем загруженную страницу. */
+const rows = computed(() => {
+  const items = data.value?.items ?? []
+  const query = search.value.trim().toLowerCase()
+  if (!query) return items
+  return items.filter(
+    (webhook) =>
       webhook.name?.toLowerCase().includes(query) ||
       webhook.chat_title?.toLowerCase().includes(query),
   )
 })
 
-const createMutation = useMutation({
-  mutationFn: async () => {
-    const response = await createWebhookGlWebhooksPost({
-      body: {
-        name: newWebhook.value.name,
-        secret: newWebhook.value.secret,
-        chat_id: newWebhook.value.chat_id,
-      },
-    })
-    return response.data
-  },
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ['gitlab-webhooks'] })
-    showCreateDialog.value = false
-    newWebhook.value = { name: '', secret: '', chat_id: '' }
-    toast.success('Webhook создан успешно')
-  },
-  onError: (error: any) => {
-    toast.error(error.message || 'Не удалось создать webhook')
-  },
-})
+function triggerUrl(id: string) {
+  return `${API_BASE_URL}/gl/webhooks/${id}/trigger`
+}
 
-const updateMutation = useMutation({
-  mutationFn: async () => {
-    const response = await updateWebhookGlWebhooksWebhookIdPatch({
-      path: { webhook_id: selectedWebhook.value.id },
-      body: { name: editWebhook.value.name },
-    })
-    return response.data
-  },
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ['gitlab-webhooks'] })
-    showEditDialog.value = false
-    selectedWebhook.value = null
-    toast.success('Webhook обновлен успешно')
-  },
-  onError: (error: any) => {
-    toast.error(error.message || 'Не удалось обновить webhook')
-  },
-})
+function invalidate() {
+  queryClient.invalidateQueries({ queryKey: listWebhooksGlWebhooksGetQueryKey() })
+}
 
-const deleteMutation = useMutation({
-  mutationFn: async (webhookId: string) => {
-    await deleteWebhookGlWebhooksWebhookIdDelete({
-      path: { webhook_id: webhookId },
+const createWebhook = useMutation({
+  ...createWebhookGlWebhooksPostMutation(),
+  onSuccess: (created) => {
+    invalidate()
+    creating.value = false
+    form.value = { name: '', secret: '', chatId: '' }
+    copy(triggerUrl(created.id))
+    toast.success('Вебхук создан, адрес скопирован', {
+      description: 'Вставьте его в настройки проекта GitLab.',
     })
   },
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ['gitlab-webhooks'] })
-    showDeleteDialog.value = false
-    selectedWebhook.value = null
-    toast.success('Webhook удален успешно')
-  },
-  onError: (error: any) => {
-    toast.error(error.message || 'Не удалось удалить webhook')
-  },
+  onError: () => toast.error('Не удалось создать вебхук'),
 })
 
-function openCreateDialog() {
-  newWebhook.value = { name: '', secret: '', chat_id: '' }
-  showCreateDialog.value = true
-}
+const renameWebhook = useMutation({
+  ...updateWebhookGlWebhooksWebhookIdPatchMutation(),
+  onSuccess: () => {
+    invalidate()
+    renaming.value = null
+    toast.success('Название сохранено')
+  },
+  onError: () => toast.error('Не удалось сохранить название'),
+})
 
-function openEditDialog(webhook: any) {
-  selectedWebhook.value = webhook
-  editWebhook.value = { name: webhook.name }
-  showEditDialog.value = true
-}
+const deleteWebhook = useMutation({
+  ...deleteWebhookGlWebhooksWebhookIdDeleteMutation(),
+  onSuccess: () => {
+    invalidate()
+    toast.success('Вебхук удалён')
+    toDelete.value = null
+  },
+  onError: () => toast.error('Не удалось удалить вебхук'),
+})
 
-function openDeleteDialog(webhook: any) {
-  selectedWebhook.value = webhook
-  showDeleteDialog.value = true
-}
-
-function copyWebhookUrl(webhookId: string) {
-  const url = `${window.location.origin}/api/gl/webhooks/${webhookId}/trigger`
-  navigator.clipboard.writeText(url)
-  toast.success('URL webhook скопирован в буфер обмена')
-}
-
-function formatDate(dateString: string | null) {
-  if (!dateString) return '—'
-  return new Date(dateString).toLocaleString('ru-RU')
+function openRename(webhook: GlWebhookRead) {
+  renaming.value = webhook
+  newName.value = webhook.name ?? ''
 }
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div class="flex items-center justify-between">
-      <div class="relative flex-1 max-w-sm">
-        <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input v-model="searchQuery" placeholder="Поиск по названию или чату..." class="pl-9" />
-      </div>
-      <Button @click="openCreateDialog">
-        <Plus class="mr-2 h-4 w-4" />
-        Создать webhook
-      </Button>
-    </div>
-
-    <Table v-if="!isLoading && webhooksData">
-      <TableHeader>
-        <TableRow>
-          <TableHead>Название</TableHead>
-          <TableHead>Чат</TableHead>
-          <TableHead>Создал</TableHead>
-          <TableHead>Последнее использование</TableHead>
-          <TableHead>Создан</TableHead>
-          <TableHead class="text-right">Действия</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        <TableRow v-for="webhook in filteredWebhooks" :key="webhook.id">
-          <TableCell class="font-medium">{{ webhook.name || '—' }}</TableCell>
-          <TableCell>{{ webhook.chat_title || webhook.chat_id }}</TableCell>
-          <TableCell>{{ webhook.created_by_name || '—' }}</TableCell>
-          <TableCell>{{ formatDate(webhook.last_used_at) }}</TableCell>
-          <TableCell>{{ formatDate(webhook.created_at) }}</TableCell>
-          <TableCell class="text-right">
-            <div class="flex items-center justify-end gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                @click="copyWebhookUrl(webhook.id)"
-                title="Скопировать URL"
-              >
-                <Copy class="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                @click="openEditDialog(webhook)"
-                title="Редактировать"
-              >
-                <Edit class="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                @click="openDeleteDialog(webhook)"
-                title="Удалить"
-              >
-                <Trash2 class="h-4 w-4 text-destructive" />
-              </Button>
-            </div>
-          </TableCell>
-        </TableRow>
-      </TableBody>
-    </Table>
-    <div v-else class="py-8 text-center">Загрузка...</div>
-
-    <div v-if="webhooksData" class="flex items-center justify-between">
-      <div class="text-sm text-muted-foreground">
-        Показано {{ filteredWebhooks.length }} из {{ webhooksData.total }} webhooks
-      </div>
-      <div class="flex gap-2">
-        <Button variant="outline" :disabled="page <= 1" @click="page--">Назад</Button>
-        <Button variant="outline" :disabled="page >= webhooksData.pages" @click="page++">
-          Далее
+  <div class="space-y-8">
+    <PageHeader>
+      <template #actions>
+        <Button size="sm" :disabled="!chats.length" @click="creating = true">
+          <Plus class="size-4" />
+          Новый вебхук
         </Button>
-      </div>
+      </template>
+    </PageHeader>
+
+    <div>
+      <DataToolbar v-model:search="searchInput" placeholder="Название или чат" />
+
+      <DataTableShell
+        :loading="isPending"
+        :error="isError ? true : undefined"
+        :empty="!rows.length"
+        :columns="4"
+        :empty-icon="GitBranch"
+        :empty-title="search ? 'Вебхук не нашёлся' : 'Вебхуков GitLab пока нет'"
+        :empty-description="
+          search
+            ? 'Проверьте название или имя чата.'
+            : 'Вебхук даёт GitLab адрес, по которому он сообщает о пайплайнах в чат.'
+        "
+        @retry="refetch()"
+      >
+        <template #empty-action>
+          <Button v-if="!search" :disabled="!chats.length" @click="creating = true">
+            <Plus class="size-4" />
+            Новый вебхук
+          </Button>
+        </template>
+
+        <template #header>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Вебхук</TableHead>
+              <TableHead>Чат</TableHead>
+              <TableHead class="w-44">Последний вызов</TableHead>
+              <TableHead class="w-16 text-right">
+                <span class="sr-only">Действия</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+        </template>
+
+        <template #body>
+          <TableBody>
+            <TableRow v-for="webhook in rows" :key="webhook.id">
+              <TableCell>
+                <div class="font-medium">{{ webhook.name || 'Без названия' }}</div>
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-1 font-mono text-xs text-muted-foreground hover:text-foreground"
+                  @click="copy(triggerUrl(webhook.id))"
+                >
+                  <Check v-if="copied" class="size-3" />
+                  <Link2 v-else class="size-3" />
+                  /gl/webhooks/{{ webhook.id }}/trigger
+                </button>
+              </TableCell>
+              <TableCell>{{ webhook.chat_title || webhook.chat_id }}</TableCell>
+              <TableCell class="text-muted-foreground">
+                {{ webhook.last_used_at ? formatRelative(webhook.last_used_at) : 'ещё не звали' }}
+              </TableCell>
+              <TableCell class="text-right">
+                <RowActions>
+                  <DropdownMenuItem @click="copy(triggerUrl(webhook.id))">
+                    <Copy />
+                    Скопировать адрес
+                  </DropdownMenuItem>
+                  <DropdownMenuItem @click="openRename(webhook)">
+                    <Pencil />
+                    Переименовать
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" @click="toDelete = webhook">
+                    <Trash2 />
+                    Удалить
+                  </DropdownMenuItem>
+                </RowActions>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </template>
+      </DataTableShell>
+
+      <TablePagination
+        v-if="data"
+        :page="page"
+        :size="pageSize"
+        :total="data.total"
+        :pages="data.pages"
+        items-label="вебхуков"
+        @update:page="page = $event"
+      />
     </div>
 
-    <!-- Create Dialog -->
-    <Dialog v-model:open="showCreateDialog">
-      <DialogContent>
+    <PageSection title="Как подключить">
+      <ol class="ml-4 list-decimal space-y-1.5 text-sm text-muted-foreground">
+        <li>Создайте здесь вебхук и выберите чат — адрес скопируется сам.</li>
+        <li>
+          В GitLab откройте Settings → Webhooks, вставьте адрес и тот же секретный
+          токен в поле Secret token.
+        </li>
+        <li>Включите триггер Pipeline events и сохраните.</li>
+      </ol>
+    </PageSection>
+
+    <Dialog v-model:open="creating">
+      <DialogContent class="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Создать GitLab Webhook</DialogTitle>
+          <DialogTitle>Новый вебхук GitLab</DialogTitle>
           <DialogDescription>
-            Создайте новый webhook для получения уведомлений от GitLab
+            Секретный токен придумываете вы — его же нужно вписать в GitLab.
           </DialogDescription>
         </DialogHeader>
-        <div class="space-y-4 py-4">
+
+        <form class="space-y-4" @submit.prevent>
           <div class="space-y-2">
-            <Label for="name">Название</Label>
-            <Input id="name" v-model="newWebhook.name" placeholder="Мой проект" />
-          </div>
-          <div class="space-y-2">
-            <Label for="secret">Секретный токен</Label>
+            <Label for="gl-name">Название</Label>
             <Input
-              id="secret"
-              v-model="newWebhook.secret"
-              type="password"
-              placeholder="Введите секретный токен"
+              id="gl-name"
+              v-model="form.name"
+              autofocus
+              placeholder="backend / main"
+              :disabled="createWebhook.isPending.value"
             />
           </div>
           <div class="space-y-2">
-            <Label for="chat_id">ID чата</Label>
-            <Input id="chat_id" v-model="newWebhook.chat_id" placeholder="chat@conference..." />
+            <Label for="gl-chat">Чат</Label>
+            <Select v-model="form.chatId" :disabled="createWebhook.isPending.value">
+              <SelectTrigger id="gl-chat">
+                <SelectValue placeholder="Куда писать о пайплайнах" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="chat in chats" :key="chat.id" :value="chat.id">
+                  {{ chat.title || chat.id }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" @click="showCreateDialog = false">Отмена</Button>
-          <Button @click="createMutation.mutate()" :disabled="createMutation.isPending.value">
-            {{ createMutation.isPending.value ? 'Создание...' : 'Создать' }}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-
-    <!-- Edit Dialog -->
-    <Dialog v-model:open="showEditDialog">
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Редактировать webhook</DialogTitle>
-        </DialogHeader>
-        <div class="space-y-4 py-4">
           <div class="space-y-2">
-            <Label for="edit-name">Название</Label>
-            <Input id="edit-name" v-model="editWebhook.name" placeholder="Мой проект" />
+            <Label for="gl-secret">Секретный токен</Label>
+            <Input
+              id="gl-secret"
+              v-model="form.secret"
+              class="font-mono"
+              placeholder="строка, которую вы вставите в GitLab"
+              :disabled="createWebhook.isPending.value"
+            />
           </div>
-        </div>
+        </form>
+
         <DialogFooter>
-          <Button variant="outline" @click="showEditDialog = false">Отмена</Button>
-          <Button @click="updateMutation.mutate()" :disabled="updateMutation.isPending.value">
-            {{ updateMutation.isPending.value ? 'Сохранение...' : 'Сохранить' }}
+          <Button
+            variant="ghost"
+            :disabled="createWebhook.isPending.value"
+            @click="creating = false"
+          >
+            Отмена
+          </Button>
+          <Button
+            :disabled="
+              !form.secret.trim() || !form.chatId || createWebhook.isPending.value
+            "
+            @click="
+              createWebhook.mutate({
+                body: {
+                  name: form.name.trim() || undefined,
+                  secret: form.secret.trim(),
+                  chat_id: form.chatId,
+                },
+              })
+            "
+          >
+            <Spinner v-if="createWebhook.isPending.value" class="size-4" />
+            Создать вебхук
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
 
-    <!-- Delete Dialog -->
-    <AlertDialog v-model:open="showDeleteDialog">
+    <Dialog :open="renaming !== null" @update:open="renaming = null">
+      <DialogContent class="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Переименовать вебхук</DialogTitle>
+          <DialogDescription>
+            Название видно только в панели — в GitLab оно не передаётся.
+          </DialogDescription>
+        </DialogHeader>
+        <div class="space-y-2">
+          <Label for="gl-new-name">Название</Label>
+          <Input id="gl-new-name" v-model="newName" autofocus />
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" @click="renaming = null">Отмена</Button>
+          <Button
+            :disabled="renameWebhook.isPending.value"
+            @click="
+              renaming &&
+                renameWebhook.mutate({
+                  path: { webhook_id: renaming.id },
+                  body: { name: newName.trim() },
+                })
+            "
+          >
+            <Spinner v-if="renameWebhook.isPending.value" class="size-4" />
+            Сохранить
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <AlertDialog :open="toDelete !== null" @update:open="toDelete = null">
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Удалить webhook?</AlertDialogTitle>
+          <AlertDialogTitle>
+            Удалить вебхук «{{ toDelete?.name || toDelete?.id }}»?
+          </AlertDialogTitle>
           <AlertDialogDescription>
-            Вы уверены, что хотите удалить webhook "{{ selectedWebhook?.name }}"? Это действие
-            нельзя отменить.
+            GitLab начнёт получать ошибку на этот адрес, а уведомления о пайплайнах
+            в чат перестанут приходить.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Отмена</AlertDialogCancel>
           <AlertDialogAction
-            @click="deleteMutation.mutate(selectedWebhook.id)"
-            :disabled="deleteMutation.isPending.value"
+            @click="toDelete && deleteWebhook.mutate({ path: { webhook_id: toDelete.id } })"
           >
-            {{ deleteMutation.isPending.value ? 'Удаление...' : 'Удалить' }}
+            Удалить вебхук
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -1,24 +1,20 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useQuery } from '@tanstack/vue-query'
-import {
-  listLogsApiLogsGet,
-  type ActionType,
-  type ActorType,
-  type EntityType,
-} from '@/client'
+import { ScrollText, SlidersHorizontal, X } from 'lucide-vue-next'
+import type { ActionType, ActorType, EntityType, LogEntryResponse } from '@/client'
+import { listLogsApiLogsGetOptions } from '@/client/@tanstack/vue-query.gen'
+import PageHeader from '@/components/layout/PageHeader.vue'
+import DataToolbar from '@/components/data/DataToolbar.vue'
+import DataTableShell from '@/components/data/DataTableShell.vue'
+import TablePagination from '@/components/data/TablePagination.vue'
+import CopyableId from '@/components/data/CopyableId.vue'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from '@/components/ui/table'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -26,304 +22,314 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Search, X } from 'lucide-vue-next'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useListQuery } from '@/composables/useListQuery'
+import {
+  ACTION_LABELS,
+  ACTION_VARIANTS,
+  ACTOR_LABELS,
+  ENTITY_LABELS,
+} from '@/lib/audit'
+import { formatDateTime, formatRelative } from '@/lib/format'
 
-const page = ref(1)
-const size = ref(20)
+const ALL = 'all'
 
-// Фильтры
-const actorTypeFilter = ref<ActorType | undefined>(undefined)
-const actorIdFilter = ref<string | undefined>(undefined)
-const actionTypeFilter = ref<ActionType | undefined>(undefined)
-const entityTypeFilter = ref<EntityType | undefined>(undefined)
-const entityIdFilter = ref<string | undefined>(undefined)
-const searchQuery = ref<string | undefined>(undefined)
+const route = useRoute()
+const { page, pageSize, searchInput, search } = useListQuery({ size: 25 })
 
-const { data: logsData, isLoading } = useQuery({
-  queryKey: [
-    'logs',
-    page,
-    size,
-    actorTypeFilter,
-    actorIdFilter,
-    actionTypeFilter,
-    entityTypeFilter,
-    entityIdFilter,
-    searchQuery,
-  ],
-  queryFn: async () => {
-    const response = await listLogsApiLogsGet({
-      query: {
-        page: page.value,
-        size: size.value,
-        actor_type: actorTypeFilter.value,
-        actor_id: actorIdFilter.value,
-        action_type: actionTypeFilter.value,
-        entity_type: entityTypeFilter.value,
-        entity_id: entityIdFilter.value,
-        search_query: searchQuery.value,
-      },
-    })
-    return response.data
+const actorType = ref<ActorType | typeof ALL>(ALL)
+const actionType = ref<ActionType | typeof ALL>(ALL)
+const entityType = ref<EntityType | typeof ALL>(ALL)
+const actorId = ref('')
+const entityId = ref('')
+const selected = ref<LogEntryResponse | null>(null)
+
+/** Ссылка «в журнале» из карточки участника приходит с готовым фильтром. */
+watch(
+  () => route.query.actor_id,
+  (value) => {
+    actorId.value = typeof value === 'string' ? value : ''
   },
+  { immediate: true },
+)
+
+const filters = computed(() => ({
+  actor_type: actorType.value === ALL ? undefined : actorType.value,
+  action_type: actionType.value === ALL ? undefined : actionType.value,
+  entity_type: entityType.value === ALL ? undefined : entityType.value,
+  actor_id: actorId.value || undefined,
+  entity_id: entityId.value || undefined,
+  search_query: search.value || undefined,
+}))
+
+watch(filters, () => {
+  page.value = 1
 })
 
-const totalPages = computed(() => logsData.value?.pages || 0)
+const { data, isPending, isError, refetch } = useQuery(
+  computed(() =>
+    listLogsApiLogsGetOptions({
+      query: { page: page.value, size: pageSize.value, ...filters.value },
+    }),
+  ),
+)
 
-function nextPage() {
-  if (page.value < totalPages.value) {
-    page.value++
-  }
+/** Активные фильтры показываем чипами: иначе непонятно, почему список короткий. */
+const chips = computed(() => {
+  const items: { key: string; label: string; clear: () => void }[] = []
+  if (actorType.value !== ALL)
+    items.push({
+      key: 'actor_type',
+      label: `Источник: ${ACTOR_LABELS[actorType.value]}`,
+      clear: () => (actorType.value = ALL),
+    })
+  if (actionType.value !== ALL)
+    items.push({
+      key: 'action_type',
+      label: `Действие: ${ACTION_LABELS[actionType.value]}`,
+      clear: () => (actionType.value = ALL),
+    })
+  if (entityType.value !== ALL)
+    items.push({
+      key: 'entity_type',
+      label: `Объект: ${ENTITY_LABELS[entityType.value]}`,
+      clear: () => (entityType.value = ALL),
+    })
+  if (actorId.value)
+    items.push({
+      key: 'actor_id',
+      label: `Кто: ${actorId.value}`,
+      clear: () => (actorId.value = ''),
+    })
+  if (entityId.value)
+    items.push({
+      key: 'entity_id',
+      label: `Объект: ${entityId.value}`,
+      clear: () => (entityId.value = ''),
+    })
+  return items
+})
+
+function clearAll() {
+  actorType.value = ALL
+  actionType.value = ALL
+  entityType.value = ALL
+  actorId.value = ''
+  entityId.value = ''
+  searchInput.value = ''
 }
 
-function prevPage() {
-  if (page.value > 1) {
-    page.value--
-  }
-}
-
-function clearFilters() {
-  actorTypeFilter.value = undefined
-  actorIdFilter.value = undefined
-  actionTypeFilter.value = undefined
-  entityTypeFilter.value = undefined
-  entityIdFilter.value = undefined
-  searchQuery.value = undefined
-  page.value = 1
-}
-
-function formatTimestamp(timestamp: string) {
-  return new Date(timestamp).toLocaleString('ru-RU')
-}
-
-function getActionBadgeVariant(actionType: ActionType): 'default' | 'destructive' | 'outline' | 'secondary' {
-  switch (actionType) {
-    case 'create':
-      return 'default'
-    case 'update':
-      return 'secondary'
-    case 'delete':
-      return 'destructive'
-    case 'assign':
-    case 'unassign':
-      return 'outline'
-    default:
-      return 'default'
-  }
-}
-
-function getActorBadgeVariant(actorType: ActorType): 'default' | 'destructive' | 'outline' | 'secondary' {
-  switch (actorType) {
-    case 'web_user':
-      return 'default'
-    case 'bot_user':
-      return 'secondary'
-    case 'system':
-      return 'outline'
-    default:
-      return 'default'
-  }
-}
-
-const actorTypeLabels: Record<ActorType, string> = {
-  web_user: 'Веб-пользователь',
-  bot_user: 'Пользователь бота',
-  system: 'Система',
-}
-
-const actionTypeLabels: Record<ActionType, string> = {
-  create: 'Создание',
-  update: 'Обновление',
-  delete: 'Удаление',
-  assign: 'Назначение',
-  unassign: 'Снятие',
-}
-
-const entityTypeLabels: Record<EntityType, string> = {
-  user: 'Пользователь',
-  chat_user: 'Пользователь чата',
-  role: 'Роль',
-  chat: 'Чат',
-  role_assignment: 'Назначение роли',
-  chat_membership: 'Членство в чате',
-  bot_settings: 'Настройки бота',
+function prettyDetails(details: unknown) {
+  return JSON.stringify(details, null, 2)
 }
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div class="flex justify-between items-center">
-      <div>
-        <h1 class="text-3xl font-bold">Логи аудита</h1>
-        <p class="text-muted-foreground">История действий в системе</p>
-      </div>
+  <div>
+    <PageHeader />
+
+    <DataToolbar
+      v-model:search="searchInput"
+      placeholder="Поиск по описанию"
+    >
+      <template #filters>
+        <Select v-model="actorType">
+          <SelectTrigger size="sm" class="w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem :value="ALL">Любой источник</SelectItem>
+            <SelectItem v-for="(label, value) in ACTOR_LABELS" :key="value" :value="value">
+              {{ label }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select v-model="actionType">
+          <SelectTrigger size="sm" class="w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem :value="ALL">Любое действие</SelectItem>
+            <SelectItem v-for="(label, value) in ACTION_LABELS" :key="value" :value="value">
+              {{ label }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select v-model="entityType">
+          <SelectTrigger size="sm" class="w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem :value="ALL">Любой объект</SelectItem>
+            <SelectItem v-for="(label, value) in ENTITY_LABELS" :key="value" :value="value">
+              {{ label }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Popover>
+          <PopoverTrigger as-child>
+            <Button variant="outline" size="sm">
+              <SlidersHorizontal class="size-4" />
+              Ещё
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent class="w-72 space-y-3" align="start">
+            <div class="space-y-1.5">
+              <Label for="actor-id">Кто (id)</Label>
+              <Input id="actor-id" v-model="actorId" placeholder="user@example.com" />
+            </div>
+            <div class="space-y-1.5">
+              <Label for="entity-id">Объект (id)</Label>
+              <Input id="entity-id" v-model="entityId" placeholder="id роли, чата, участника" />
+            </div>
+          </PopoverContent>
+        </Popover>
+      </template>
+    </DataToolbar>
+
+    <div v-if="chips.length" class="mb-4 flex flex-wrap items-center gap-2">
+      <Badge
+        v-for="chip in chips"
+        :key="chip.key"
+        variant="secondary"
+        class="cursor-pointer gap-1 pr-1"
+        @click="chip.clear()"
+      >
+        {{ chip.label }}
+        <X class="size-3" />
+      </Badge>
+      <Button variant="ghost" size="sm" class="h-6 text-muted-foreground" @click="clearAll">
+        Сбросить всё
+      </Button>
     </div>
 
-    <!-- Фильтры -->
-    <div class="bg-card border rounded-lg p-4 space-y-4">
-      <div class="flex items-center justify-between">
-        <h3 class="text-lg font-semibold">Фильтры</h3>
-        <Button variant="ghost" size="sm" @click="clearFilters">
-          <X class="h-4 w-4 mr-2" />
-          Очистить
-        </Button>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="space-y-2">
-          <Label>Тип актора</Label>
-          <Select v-model="actorTypeFilter">
-            <SelectTrigger>
-              <SelectValue placeholder="Все типы" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem :value="undefined">Все типы</SelectItem>
-              <SelectItem value="web_user">Веб-пользователь</SelectItem>
-              <SelectItem value="bot_user">Пользователь бота</SelectItem>
-              <SelectItem value="system">Система</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div class="space-y-2">
-          <Label>Тип действия</Label>
-          <Select v-model="actionTypeFilter">
-            <SelectTrigger>
-              <SelectValue placeholder="Все действия" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem :value="undefined">Все действия</SelectItem>
-              <SelectItem value="create">Создание</SelectItem>
-              <SelectItem value="update">Обновление</SelectItem>
-              <SelectItem value="delete">Удаление</SelectItem>
-              <SelectItem value="assign">Назначение</SelectItem>
-              <SelectItem value="unassign">Снятие</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div class="space-y-2">
-          <Label>Тип сущности</Label>
-          <Select v-model="entityTypeFilter">
-            <SelectTrigger>
-              <SelectValue placeholder="Все сущности" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem :value="undefined">Все сущности</SelectItem>
-              <SelectItem value="user">Пользователь</SelectItem>
-              <SelectItem value="chat_user">Пользователь чата</SelectItem>
-              <SelectItem value="role">Роль</SelectItem>
-              <SelectItem value="chat">Чат</SelectItem>
-              <SelectItem value="role_assignment">Назначение роли</SelectItem>
-              <SelectItem value="chat_membership">Членство в чате</SelectItem>
-              <SelectItem value="bot_settings">Настройки бота</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div class="space-y-2">
-          <Label>ID актора</Label>
-          <Input v-model="actorIdFilter" placeholder="Введите ID" />
-        </div>
-
-        <div class="space-y-2">
-          <Label>ID сущности</Label>
-          <Input v-model="entityIdFilter" placeholder="Введите ID" />
-        </div>
-
-        <div class="space-y-2">
-          <Label>Поиск по описанию</Label>
-          <div class="relative">
-            <Search class="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input v-model="searchQuery" placeholder="Поиск..." class="pl-8" />
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Таблица логов -->
-    <div class="border rounded-lg">
-      <Table>
+    <DataTableShell
+      :loading="isPending"
+      :error="isError ? true : undefined"
+      :empty="!data?.items.length"
+      :columns="4"
+      :rows="8"
+      :empty-icon="ScrollText"
+      :empty-title="chips.length || search ? 'Под фильтры ничего не подошло' : 'Записей пока нет'"
+      :empty-description="
+        chips.length || search
+          ? 'Сбросьте часть фильтров или измените запрос.'
+          : 'Здесь появятся изменения, сделанные через панель и бота.'
+      "
+      @retry="refetch()"
+    >
+      <template #header>
         <TableHeader>
           <TableRow>
-            <TableHead>Время</TableHead>
-            <TableHead>Актор</TableHead>
-            <TableHead>Действие</TableHead>
-            <TableHead>Сущность</TableHead>
-            <TableHead>Описание</TableHead>
+            <TableHead class="w-36">Когда</TableHead>
+            <TableHead class="w-32">Действие</TableHead>
+            <TableHead>Что произошло</TableHead>
+            <TableHead class="w-44">Кто</TableHead>
           </TableRow>
         </TableHeader>
+      </template>
+
+      <template #body>
         <TableBody>
-          <TableRow v-if="isLoading">
-            <TableCell colspan="5" class="text-center py-8 text-muted-foreground">
-              Загрузка...
-            </TableCell>
-          </TableRow>
-          <TableRow v-else-if="!logsData?.items.length">
-            <TableCell colspan="5" class="text-center py-8 text-muted-foreground">
-              Нет логов
-            </TableCell>
-          </TableRow>
-          <TableRow v-for="log in logsData?.items" :key="log.id">
-            <TableCell class="whitespace-nowrap">
-              {{ formatTimestamp(log.timestamp) }}
+          <TableRow
+            v-for="entry in data?.items ?? []"
+            :key="entry.id"
+            class="cursor-pointer"
+            @click="selected = entry"
+          >
+            <TableCell class="whitespace-nowrap text-muted-foreground">
+              <Tooltip :delay-duration="400">
+                <TooltipTrigger as="span">{{ formatRelative(entry.timestamp) }}</TooltipTrigger>
+                <TooltipContent>{{ formatDateTime(entry.timestamp) }}</TooltipContent>
+              </Tooltip>
             </TableCell>
             <TableCell>
-              <div class="space-y-1">
-                <Badge :variant="getActorBadgeVariant(log.actor_type)">
-                  {{ actorTypeLabels[log.actor_type] }}
-                </Badge>
-                <div v-if="log.actor_id" class="text-xs text-muted-foreground">
-                  {{ log.actor_id }}
-                </div>
-              </div>
-            </TableCell>
-            <TableCell>
-              <Badge :variant="getActionBadgeVariant(log.action_type)">
-                {{ actionTypeLabels[log.action_type] }}
+              <Badge :variant="ACTION_VARIANTS[entry.action_type]">
+                {{ ACTION_LABELS[entry.action_type] }}
               </Badge>
             </TableCell>
             <TableCell>
-              <div class="space-y-1">
-                <Badge variant="outline">
-                  {{ entityTypeLabels[log.entity_type] }}
-                </Badge>
-                <div class="text-xs text-muted-foreground">
-                  {{ log.entity_id }}
-                </div>
+              <div class="truncate">{{ entry.description ?? '—' }}</div>
+              <div class="flex items-center gap-1.5 text-xs text-muted-foreground">
+                {{ ENTITY_LABELS[entry.entity_type] }}
+                <CopyableId :value="entry.entity_id" :max="24" />
               </div>
             </TableCell>
             <TableCell>
-              <div class="max-w-md">
-                <div class="text-sm">{{ log.description }}</div>
-                <div v-if="log.details" class="text-xs text-muted-foreground mt-1">
-                  {{ JSON.stringify(log.details) }}
-                </div>
-              </div>
+              <div class="text-sm">{{ ACTOR_LABELS[entry.actor_type] }}</div>
+              <CopyableId v-if="entry.actor_id" :value="entry.actor_id" :max="22" />
             </TableCell>
           </TableRow>
         </TableBody>
-      </Table>
-    </div>
+      </template>
+    </DataTableShell>
 
-    <!-- Пагинация -->
-    <div class="flex items-center justify-between">
-      <div class="text-sm text-muted-foreground">
-        Страница {{ page }} из {{ totalPages }} (всего записей: {{ logsData?.total || 0 }})
-      </div>
-      <div class="flex gap-2">
-        <Button variant="outline" size="sm" :disabled="page === 1" @click="prevPage">
-          Назад
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          :disabled="page === totalPages || totalPages === 0"
-          @click="nextPage"
-        >
-          Вперёд
-        </Button>
-      </div>
-    </div>
+    <TablePagination
+      v-if="data"
+      :page="page"
+      :size="pageSize"
+      :total="data.total"
+      :pages="data.pages"
+      items-label="записей"
+      @update:page="page = $event"
+    />
+
+    <Sheet :open="selected !== null" @update:open="selected = null">
+      <SheetContent class="w-full gap-0 sm:max-w-lg">
+        <SheetHeader>
+          <SheetTitle>{{ selected?.description ?? 'Запись журнала' }}</SheetTitle>
+          <SheetDescription>
+            {{ selected ? formatDateTime(selected.timestamp) : '' }}
+          </SheetDescription>
+        </SheetHeader>
+        <div v-if="selected" class="space-y-4 overflow-y-auto px-4 pb-6 text-sm">
+          <dl class="divide-y">
+            <div class="flex justify-between gap-4 py-2">
+              <dt class="text-muted-foreground">Действие</dt>
+              <dd>{{ ACTION_LABELS[selected.action_type] }}</dd>
+            </div>
+            <div class="flex justify-between gap-4 py-2">
+              <dt class="text-muted-foreground">Объект</dt>
+              <dd class="text-right">
+                {{ ENTITY_LABELS[selected.entity_type] }}
+                <CopyableId :value="selected.entity_id" :max="30" class="block" />
+              </dd>
+            </div>
+            <div class="flex justify-between gap-4 py-2">
+              <dt class="text-muted-foreground">Источник</dt>
+              <dd>{{ ACTOR_LABELS[selected.actor_type] }}</dd>
+            </div>
+            <div v-if="selected.actor_id" class="flex justify-between gap-4 py-2">
+              <dt class="text-muted-foreground">Кто</dt>
+              <dd>
+                <RouterLink
+                  :to="`/chat-users/${selected.actor_id}`"
+                  class="font-mono text-xs hover:underline"
+                >
+                  {{ selected.actor_id }}
+                </RouterLink>
+              </dd>
+            </div>
+          </dl>
+          <div v-if="selected.details">
+            <p class="mb-1.5 text-xs text-muted-foreground">Подробности</p>
+            <pre
+              class="overflow-x-auto rounded-lg border bg-muted/40 p-3 font-mono text-xs"
+            >{{ prettyDetails(selected.details) }}</pre>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
   </div>
 </template>

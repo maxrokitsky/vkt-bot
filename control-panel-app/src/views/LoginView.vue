@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMutation } from '@tanstack/vue-query'
+import { Bot } from 'lucide-vue-next'
+import { getCurrentUserInfoApiAuthMeGet, loginApiAuthLoginPost } from '@/client'
 import { useAuthStore } from '@/stores/auth'
-import { loginApiAuthLoginPost, getCurrentUserInfoApiAuthMeGet } from '@/client'
-import { Input } from '@/components/ui/input'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Spinner } from '@/components/ui/spinner'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,6 +17,8 @@ const authStore = useAuthStore()
 
 const token = ref('')
 const error = ref('')
+/** Переход по ссылке из сообщения бота: токен уже в адресе, форма не нужна. */
+const fromLink = ref(false)
 
 const redirectTarget = (route.query.redirect as string) || '/'
 
@@ -21,79 +27,97 @@ onMounted(() => {
   if (!urlToken) return
 
   token.value = urlToken
-  // Keep the single-use token out of the address bar and browser history.
+  fromLink.value = true
+  // Одноразовый токен не должен остаться в адресной строке и истории.
   const query = { ...route.query }
   delete query.token
   router.replace({ path: '/login', query })
-  handleSubmit()
+  submit()
 })
 
-const loginMutation = useMutation({
+const login = useMutation({
   mutationFn: async () => {
-    const response = await loginApiAuthLoginPost({
-      body: {
-        token: token.value,
-      },
-    })
-    if (response.error) {
-      throw response.error
-    }
+    const response = await loginApiAuthLoginPost({ body: { token: token.value } })
+    if (response.error) throw response.error
     return response.data
   },
   onSuccess: async (data) => {
-    if (data) {
-      authStore.setToken(data.access_token)
-
-      const userResponse = await getCurrentUserInfoApiAuthMeGet()
-      if (userResponse.data) {
-        authStore.setUser(userResponse.data)
-      }
-
-      router.replace(redirectTarget)
-    }
+    if (!data) return
+    authStore.setToken(data.access_token)
+    const me = await getCurrentUserInfoApiAuthMeGet()
+    if (me.data) authStore.setUser(me.data)
+    router.replace(redirectTarget)
   },
   onError: (err: unknown) => {
-    // hey-api returns error in err.error.detail or err.detail
-    const errObj = err as { error?: { detail?: string }; detail?: string }
-    const detail = errObj?.error?.detail || errObj?.detail
+    fromLink.value = false
+    const detail =
+      (err as { error?: { detail?: string }; detail?: string })?.error?.detail ??
+      (err as { detail?: string })?.detail
     if (detail === 'Token expired') {
-      error.value = 'Токен просрочен. Запросите новый командой /login'
+      error.value = 'Срок токена истёк. Отправьте боту /login ещё раз.'
     } else if (detail === 'Token already used') {
-      error.value = 'Токен уже использован. Запросите новый командой /login'
+      error.value = 'Этот токен уже использован. Отправьте боту /login ещё раз.'
     } else if (detail === 'Invalid token') {
-      error.value = 'Неверный токен'
+      error.value = 'Токен не подошёл. Скопируйте его из сообщения бота целиком.'
     } else {
-      error.value = 'Ошибка входа. Попробуйте ещё раз'
+      error.value = 'Войти не удалось. Попробуйте ещё раз.'
     }
   },
 })
 
-const handleSubmit = () => {
+const pending = computed(() => login.isPending.value)
+
+function submit() {
   error.value = ''
-  loginMutation.mutate()
+  login.mutate()
 }
 </script>
 
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-    <div class="w-full max-w-md space-y-6">
-      <div class="text-center">
-        <h1 class="text-2xl font-bold">Панель управления VKT Bot</h1>
-        <p class="mt-2 text-muted-foreground">
-          Введите токен, полученный от бота командой /login
-        </p>
+  <div class="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+    <div class="w-full max-w-sm space-y-8">
+      <div class="space-y-3">
+        <div
+          class="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground"
+        >
+          <Bot class="size-5" />
+        </div>
+        <div class="space-y-1">
+          <h1 class="text-xl font-semibold tracking-tight">Панель управления VKT Bot</h1>
+          <p class="text-sm text-muted-foreground">
+            Вход — по одноразовому токену от бота. Отправьте ему
+            <code class="rounded bg-muted px-1 py-0.5 font-mono text-xs">/login</code>
+            и откройте ссылку из ответа.
+          </p>
+        </div>
       </div>
-      <form @submit.prevent="handleSubmit" class="space-y-4">
-        <Input
-          v-model="token"
-          type="text"
-          placeholder="Введите токен"
-          class="font-mono"
-          required
-        />
-        <div v-if="error" class="text-sm text-red-600">{{ error }}</div>
-        <Button type="submit" class="w-full" :disabled="loginMutation.isPending.value">
-          {{ loginMutation.isPending.value ? 'Вход...' : 'Войти' }}
+
+      <div v-if="fromLink && pending" class="flex items-center gap-2 text-sm text-muted-foreground">
+        <Spinner class="size-4" />
+        Проверяем токен…
+      </div>
+
+      <form v-else class="space-y-4" @submit.prevent="submit">
+        <div class="space-y-2">
+          <Label for="token">Токен</Label>
+          <Input
+            id="token"
+            v-model="token"
+            class="font-mono"
+            placeholder="Вставьте токен из сообщения"
+            autocomplete="off"
+            required
+            :disabled="pending"
+          />
+        </div>
+
+        <Alert v-if="error" variant="destructive">
+          <AlertDescription>{{ error }}</AlertDescription>
+        </Alert>
+
+        <Button type="submit" class="w-full" :disabled="!token.trim() || pending">
+          <Spinner v-if="pending" class="size-4" />
+          Войти
         </Button>
       </form>
     </div>

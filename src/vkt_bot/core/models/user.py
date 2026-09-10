@@ -5,8 +5,8 @@ from sqlalchemy import orm
 
 from vkt_bot.db.base import Model
 
-from .chat import ChatMembership
-from .role import RoleAssignment
+from .chat import Chat, ChatMembership
+from .role import Role, RoleAssignment
 
 
 class ChatUser(Model):
@@ -39,3 +39,13 @@ class ChatUser(Model):
         """Имя для показа. Пока имя неизвестно — остаётся ``id``."""
         full_name = " ".join(filter(None, (self.first_name, self.last_name)))
         return full_name or self.nick or self.id
+
+    @property
+    def roles(self) -> list[Role]:
+        """Роли участника. Требует загруженных ``role_assignments``."""
+        return [assignment.role for assignment in self.role_assignments]
+
+    @property
+    def chats(self) -> list[Chat]:
+        """Чаты участника. Требует загруженных ``chat_memberships``."""
+        return [membership.chat for membership in self.chat_memberships]

@@ -12,11 +12,37 @@ export type ClientOptions = {
 export type ActionType = 'create' | 'update' | 'delete' | 'assign' | 'unassign';
 
 /**
+ * ActivityPoint
+ *
+ * Число действий за один день.
+ */
+export type ActivityPoint = {
+    /**
+     * Date
+     */
+    date: string;
+    /**
+     * Count
+     */
+    count: number;
+};
+
+/**
  * ActorType
  *
  * Тип актора, совершившего действие.
  */
 export type ActorType = 'web_user' | 'bot_user' | 'system';
+
+/**
+ * AddRoleMemberRequest
+ */
+export type AddRoleMemberRequest = {
+    /**
+     * User Id
+     */
+    user_id: string;
+};
 
 /**
  * BotSettingsResponse
@@ -50,11 +76,19 @@ export type ChatResponse = {
      * Id
      */
     id: string;
+    type: ChatType;
     /**
      * Title
      */
     title?: string | null;
 };
+
+/**
+ * ChatType
+ *
+ * ChatType.
+ */
+export type ChatType = 'private' | 'group' | 'channel';
 
 /**
  * ChatUserChatResponse
@@ -64,10 +98,11 @@ export type ChatUserChatResponse = {
      * Id
      */
     id: string;
+    type: ChatType;
     /**
-     * Type
+     * Title
      */
-    type: string;
+    title?: string | null;
 };
 
 /**
@@ -85,7 +120,7 @@ export type ChatUserDetailResponse = {
     /**
      * Is Bot
      */
-    is_bot?: boolean;
+    is_bot: boolean;
     /**
      * First Name
      */
@@ -109,7 +144,7 @@ export type ChatUserDetailResponse = {
     /**
      * Is Owner
      *
-     * Check if this user is the owner.
+     * Пользователь — владелец бота (``OWNER_ID``).
      */
     readonly is_owner: boolean;
     /**
@@ -122,6 +157,8 @@ export type ChatUserDetailResponse = {
 
 /**
  * ChatUserResponse
+ *
+ * Участник в списке — со ролями, чтобы список отвечал на «у кого что».
  */
 export type ChatUserResponse = {
     /**
@@ -135,7 +172,7 @@ export type ChatUserResponse = {
     /**
      * Is Bot
      */
-    is_bot?: boolean;
+    is_bot: boolean;
     /**
      * First Name
      */
@@ -149,9 +186,13 @@ export type ChatUserResponse = {
      */
     nick?: string | null;
     /**
+     * Roles
+     */
+    roles: Array<ChatUserRoleResponse>;
+    /**
      * Is Owner
      *
-     * Check if this user is the owner.
+     * Пользователь — владелец бота (``OWNER_ID``).
      */
     readonly is_owner: boolean;
     /**
@@ -343,6 +384,49 @@ export type LogEntryResponse = {
 };
 
 /**
+ * OverviewCounts
+ *
+ * Счётчики для плиток обзора.
+ */
+export type OverviewCounts = {
+    /**
+     * Chats
+     */
+    chats: number;
+    /**
+     * Chat Users
+     */
+    chat_users: number;
+    /**
+     * Roles
+     */
+    roles: number;
+    /**
+     * Webhooks
+     */
+    webhooks: number;
+    /**
+     * Webhooks Active
+     */
+    webhooks_active: number;
+};
+
+/**
+ * OverviewResponse
+ */
+export type OverviewResponse = {
+    counts: OverviewCounts;
+    /**
+     * Activity
+     */
+    activity?: Array<ActivityPoint>;
+    /**
+     * Activity Days
+     */
+    activity_days: number;
+};
+
+/**
  * PaginatedChatUsersResponse
  */
 export type PaginatedChatUsersResponse = {
@@ -459,6 +543,24 @@ export type RoleCreate = {
 };
 
 /**
+ * RoleMemberResponse
+ */
+export type RoleMemberResponse = {
+    /**
+     * User Id
+     */
+    user_id: string;
+    /**
+     * Display Name
+     */
+    display_name: string;
+    /**
+     * Is Bot
+     */
+    is_bot: boolean;
+};
+
+/**
  * RoleResponse
  */
 export type RoleResponse = {
@@ -470,6 +572,10 @@ export type RoleResponse = {
      * Id
      */
     id: string;
+    /**
+     * Member Count
+     */
+    member_count: number;
 };
 
 /**
@@ -480,6 +586,28 @@ export type RoleUpdate = {
      * Name
      */
     name?: string | null;
+};
+
+/**
+ * RoleWithMembersResponse
+ */
+export type RoleWithMembersResponse = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Member Count
+     */
+    member_count: number;
+    /**
+     * Members
+     */
+    members: Array<RoleMemberResponse>;
 };
 
 /**
@@ -566,6 +694,8 @@ export type UpdateChatUserRequest = {
 
 /**
  * UserResponse
+ *
+ * Текущий пользователь панели.
  */
 export type UserResponse = {
     /**
@@ -577,11 +707,33 @@ export type UserResponse = {
      */
     is_superuser: boolean;
     /**
+     * Is Bot
+     */
+    is_bot: boolean;
+    /**
+     * First Name
+     */
+    first_name?: string | null;
+    /**
+     * Last Name
+     */
+    last_name?: string | null;
+    /**
+     * Nick
+     */
+    nick?: string | null;
+    /**
      * Is Owner
      *
-     * Check if this user is the owner.
+     * Пользователь — владелец бота (``OWNER_ID``).
      */
     readonly is_owner: boolean;
+    /**
+     * Display Name
+     *
+     * Имя для показа. Пока имя неизвестно — остаётся ``id``.
+     */
+    readonly display_name: string;
 };
 
 /**
@@ -875,7 +1027,7 @@ export type ChatUserDetailResponseWritable = {
     /**
      * Is Bot
      */
-    is_bot?: boolean;
+    is_bot: boolean;
     /**
      * First Name
      */
@@ -900,6 +1052,8 @@ export type ChatUserDetailResponseWritable = {
 
 /**
  * ChatUserResponse
+ *
+ * Участник в списке — со ролями, чтобы список отвечал на «у кого что».
  */
 export type ChatUserResponseWritable = {
     /**
@@ -913,7 +1067,7 @@ export type ChatUserResponseWritable = {
     /**
      * Is Bot
      */
-    is_bot?: boolean;
+    is_bot: boolean;
     /**
      * First Name
      */
@@ -926,6 +1080,10 @@ export type ChatUserResponseWritable = {
      * Nick
      */
     nick?: string | null;
+    /**
+     * Roles
+     */
+    roles: Array<ChatUserRoleResponse>;
 };
 
 /**
@@ -956,6 +1114,8 @@ export type PaginatedChatUsersResponseWritable = {
 
 /**
  * UserResponse
+ *
+ * Текущий пользователь панели.
  */
 export type UserResponseWritable = {
     /**
@@ -966,6 +1126,22 @@ export type UserResponseWritable = {
      * Is Superuser
      */
     is_superuser: boolean;
+    /**
+     * Is Bot
+     */
+    is_bot: boolean;
+    /**
+     * First Name
+     */
+    first_name?: string | null;
+    /**
+     * Last Name
+     */
+    last_name?: string | null;
+    /**
+     * Nick
+     */
+    nick?: string | null;
 };
 
 export type LoginApiAuthLoginPostData = {
@@ -1021,6 +1197,10 @@ export type ListChatsApiChatsGetData = {
          * Size
          */
         size?: number;
+        /**
+         * Search
+         */
+        search?: string | null;
     };
     url: '/api/chats';
 };
@@ -1192,6 +1372,36 @@ export type DeleteRoleApiRolesRoleIdDeleteResponses = {
 
 export type DeleteRoleApiRolesRoleIdDeleteResponse = DeleteRoleApiRolesRoleIdDeleteResponses[keyof DeleteRoleApiRolesRoleIdDeleteResponses];
 
+export type GetRoleApiRolesRoleIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Role Id
+         */
+        role_id: string;
+    };
+    query?: never;
+    url: '/api/roles/{role_id}';
+};
+
+export type GetRoleApiRolesRoleIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetRoleApiRolesRoleIdGetError = GetRoleApiRolesRoleIdGetErrors[keyof GetRoleApiRolesRoleIdGetErrors];
+
+export type GetRoleApiRolesRoleIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: RoleWithMembersResponse;
+};
+
+export type GetRoleApiRolesRoleIdGetResponse = GetRoleApiRolesRoleIdGetResponses[keyof GetRoleApiRolesRoleIdGetResponses];
+
 export type UpdateRoleApiRolesRoleIdPatchData = {
     body: RoleUpdate;
     path: {
@@ -1222,6 +1432,70 @@ export type UpdateRoleApiRolesRoleIdPatchResponses = {
 
 export type UpdateRoleApiRolesRoleIdPatchResponse = UpdateRoleApiRolesRoleIdPatchResponses[keyof UpdateRoleApiRolesRoleIdPatchResponses];
 
+export type AddRoleMemberApiRolesRoleIdMembersPostData = {
+    body: AddRoleMemberRequest;
+    path: {
+        /**
+         * Role Id
+         */
+        role_id: string;
+    };
+    query?: never;
+    url: '/api/roles/{role_id}/members';
+};
+
+export type AddRoleMemberApiRolesRoleIdMembersPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AddRoleMemberApiRolesRoleIdMembersPostError = AddRoleMemberApiRolesRoleIdMembersPostErrors[keyof AddRoleMemberApiRolesRoleIdMembersPostErrors];
+
+export type AddRoleMemberApiRolesRoleIdMembersPostResponses = {
+    /**
+     * Successful Response
+     */
+    201: RoleMemberResponse;
+};
+
+export type AddRoleMemberApiRolesRoleIdMembersPostResponse = AddRoleMemberApiRolesRoleIdMembersPostResponses[keyof AddRoleMemberApiRolesRoleIdMembersPostResponses];
+
+export type RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Role Id
+         */
+        role_id: string;
+        /**
+         * User Id
+         */
+        user_id: string;
+    };
+    query?: never;
+    url: '/api/roles/{role_id}/members/{user_id}';
+};
+
+export type RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteError = RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteErrors[keyof RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteErrors];
+
+export type RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteResponse = RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteResponses[keyof RemoveRoleMemberApiRolesRoleIdMembersUserIdDeleteResponses];
+
 export type ListChatUsersApiChatUsersGetData = {
     body?: never;
     path?: never;
@@ -1234,6 +1508,10 @@ export type ListChatUsersApiChatUsersGetData = {
          * Size
          */
         size?: number;
+        /**
+         * Search
+         */
+        search?: string | null;
     };
     url: '/api/chat-users';
 };
@@ -1561,6 +1839,36 @@ export type GetLogApiLogsLogIdGetResponses = {
 };
 
 export type GetLogApiLogsLogIdGetResponse = GetLogApiLogsLogIdGetResponses[keyof GetLogApiLogsLogIdGetResponses];
+
+export type GetOverviewApiOverviewGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Days
+         */
+        days?: number;
+    };
+    url: '/api/overview';
+};
+
+export type GetOverviewApiOverviewGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetOverviewApiOverviewGetError = GetOverviewApiOverviewGetErrors[keyof GetOverviewApiOverviewGetErrors];
+
+export type GetOverviewApiOverviewGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: OverviewResponse;
+};
+
+export type GetOverviewApiOverviewGetResponse = GetOverviewApiOverviewGetResponses[keyof GetOverviewApiOverviewGetResponses];
 
 export type ListWebhooksApiWebhooksGetData = {
     body?: never;

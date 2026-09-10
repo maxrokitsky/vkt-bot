@@ -37,6 +37,7 @@ class TestSchema:
             "/api/chat-users",
             "/api/bot-settings",
             "/api/logs",
+            "/api/overview",
             "/api/webhooks",
             "/webhooks",
             "/gl/webhooks",

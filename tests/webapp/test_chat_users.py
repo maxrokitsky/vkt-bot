@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from vkt_bot.core.models import ChatMembership, LogEntry, RoleAssignment
+from vkt_bot.core.repositories.log_entry import LogEntryRepository
 from vkt_bot.core.repositories.user import ChatUserRepository
 
 from tests.conftest import auth_headers, table_count
@@ -119,7 +120,7 @@ class TestGetChatUser:
             )
         ).json()
 
-        assert body["chats"] == [{"id": "a@chat.agent", "type": "group"}]
+        assert body["chats"] == [{"id": "a@chat.agent", "type": "group", "title": None}]
 
     async def test_unknown_user(
         self, client: httpx.AsyncClient, user: ChatUser
@@ -290,6 +291,10 @@ class TestAssignRole:
             headers=auth_headers(superuser.id),
         )
         assert await table_count(session, LogEntry) == 1
+        entry = (await LogEntryRepository(session).list())[0]
+        # id назначения известен только после flush — иначе в журнале "None".
+        assert entry.entity_id != "None"
+        assert entry.details["role_name"] == "devs"
 
     async def test_duplicate_assignment_is_rejected(
         self,
@@ -431,3 +436,229 @@ class TestRemoveRole:
             headers=auth_headers(user.id),
         )
         assert response.status_code == 403
+
+
+class TestChatUserProfile:
+    """Имя и роли в ответах о участнике."""
+
+    async def test_list_includes_roles(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        role = await create_role(session, "devs")
+        await assign_role(session, user.id, role.id)
+
+        body = (
+            await client.get("/api/chat-users", headers=auth_headers(user.id))
+        ).json()
+
+        assert body["items"][0]["roles"] == [{"id": str(role.id), "name": "devs"}]
+
+    async def test_list_without_roles(
+        self, client: httpx.AsyncClient, user: ChatUser
+    ) -> None:
+        body = (
+            await client.get("/api/chat-users", headers=auth_headers(user.id))
+        ).json()
+        assert body["items"][0]["roles"] == []
+
+    async def test_display_name_from_first_and_last_name(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        await create_chat_user(
+            session, "ivan@example.com", first_name="Иван", last_name="Иванов"
+        )
+
+        body = (
+            await client.get(
+                "/api/chat-users",
+                params={"search": "ivan@example.com"},
+                headers=auth_headers(user.id),
+            )
+        ).json()
+
+        assert body["items"][0]["display_name"] == "Иван Иванов"
+
+    async def test_display_name_falls_back_to_nick(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        await create_chat_user(session, "nicky@example.com", nick="nicky")
+
+        body = (
+            await client.get(
+                "/api/chat-users",
+                params={"search": "nicky@example.com"},
+                headers=auth_headers(user.id),
+            )
+        ).json()
+
+        assert body["items"][0]["display_name"] == "nicky"
+
+    async def test_detail_keeps_profile(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        """Деталка раньше теряла имя и флаг бота — оставались только id и права."""
+        bot_user = await create_chat_user(
+            session, "helper@example.com", is_bot=True, first_name="Хелпер"
+        )
+
+        body = (
+            await client.get(
+                f"/api/chat-users/{bot_user.id}", headers=auth_headers(user.id)
+            )
+        ).json()
+
+        assert body["display_name"] == "Хелпер"
+        assert body["first_name"] == "Хелпер"
+        assert body["is_bot"] is True
+
+    async def test_detail_includes_chat_title(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        chat = await create_chat(session, "a@chat.agent", title="Релизы")
+        session.add(ChatMembership(chat_id=chat.id, user_id=user.id))
+        await session.commit()
+
+        body = (
+            await client.get(
+                f"/api/chat-users/{user.id}", headers=auth_headers(user.id)
+            )
+        ).json()
+
+        assert body["chats"] == [
+            {"id": "a@chat.agent", "type": "group", "title": "Релизы"}
+        ]
+
+    async def test_patch_returns_roles(
+        self,
+        client: httpx.AsyncClient,
+        session: AsyncSession,
+        owner: ChatUser,
+        user: ChatUser,
+    ) -> None:
+        """Ответ на PATCH тоже со ролями — панель обновляет строку по нему."""
+        role = await create_role(session, "devs")
+        await assign_role(session, user.id, role.id)
+
+        response = await client.patch(
+            f"/api/chat-users/{user.id}",
+            json={"is_superuser": True},
+            headers=auth_headers(owner.id),
+        )
+
+        assert response.status_code == 200
+        assert response.json()["roles"] == [{"id": str(role.id), "name": "devs"}]
+
+
+class TestSearchChatUsers:
+    """``GET /api/chat-users?search=``."""
+
+    async def test_by_first_name(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        await create_chat_user(session, "ivan@example.com", first_name="Ivan")
+        await create_chat_user(session, "petr@example.com", first_name="Petr")
+
+        body = (
+            await client.get(
+                "/api/chat-users",
+                params={"search": "iva"},
+                headers=auth_headers(user.id),
+            )
+        ).json()
+
+        assert [item["id"] for item in body["items"]] == ["ivan@example.com"]
+
+    async def test_by_last_name(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        await create_chat_user(session, "a@example.com", last_name="Sidorov")
+
+        body = (
+            await client.get(
+                "/api/chat-users",
+                params={"search": "sidor"},
+                headers=auth_headers(user.id),
+            )
+        ).json()
+
+        assert [item["id"] for item in body["items"]] == ["a@example.com"]
+
+    async def test_by_nick(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        await create_chat_user(session, "a@example.com", nick="sunshine")
+
+        body = (
+            await client.get(
+                "/api/chat-users",
+                params={"search": "shine"},
+                headers=auth_headers(user.id),
+            )
+        ).json()
+
+        assert [item["id"] for item in body["items"]] == ["a@example.com"]
+
+    async def test_by_id(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        await create_chat_user(session, "unique-one@corp.example")
+
+        body = (
+            await client.get(
+                "/api/chat-users",
+                params={"search": "unique-one"},
+                headers=auth_headers(user.id),
+            )
+        ).json()
+
+        assert [item["id"] for item in body["items"]] == ["unique-one@corp.example"]
+
+    async def test_total_counts_only_matches(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        for i in range(4):
+            await create_chat_user(session, f"dev-{i}@corp.example")
+
+        body = (
+            await client.get(
+                "/api/chat-users",
+                params={"search": "dev-"},
+                headers=auth_headers(user.id),
+            )
+        ).json()
+
+        assert body["total"] == 4
+
+    async def test_no_matches(self, client: httpx.AsyncClient, user: ChatUser) -> None:
+        body = (
+            await client.get(
+                "/api/chat-users",
+                params={"search": "zzz-nobody"},
+                headers=auth_headers(user.id),
+            )
+        ).json()
+
+        assert body["items"] == []
+        assert body["total"] == 0
+
+    async def test_cyrillic_is_case_insensitive(
+        self,
+        client: httpx.AsyncClient,
+        session: AsyncSession,
+        user: ChatUser,
+        is_postgres: bool,
+    ) -> None:
+        """``ilike`` приводит регистр кириллицы только в PostgreSQL."""
+        if not is_postgres:
+            pytest.skip("SQLite не приводит регистр кириллицы в LIKE")
+        await create_chat_user(session, "ivan@example.com", first_name="Иван")
+
+        body = (
+            await client.get(
+                "/api/chat-users",
+                params={"search": "ИВАН"},
+                headers=auth_headers(user.id),
+            )
+        ).json()
+
+        assert [item["id"] for item in body["items"]] == ["ivan@example.com"]

@@ -1,34 +1,13 @@
-from pydantic import BaseModel, ConfigDict, computed_field
+from uuid import UUID
 
-from vkt_bot.config import settings
+from pydantic import BaseModel, ConfigDict
 
-
-class ChatUserResponse(BaseModel):
-    id: str
-    is_superuser: bool
-    is_bot: bool = False
-    first_name: str | None = None
-    last_name: str | None = None
-    nick: str | None = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-    @computed_field
-    @property
-    def is_owner(self) -> bool:
-        """Check if this user is the owner."""
-        return settings.owner_id is not None and self.id == settings.owner_id
-
-    @computed_field
-    @property
-    def display_name(self) -> str:
-        """Имя для показа. Пока имя неизвестно — остаётся ``id``."""
-        full_name = " ".join(filter(None, (self.first_name, self.last_name)))
-        return full_name or self.nick or self.id
+from vkteams_client.enums import ChatType
+from vkt_bot.webapp.schemas.user import ChatUserFields
 
 
 class ChatUserRoleResponse(BaseModel):
-    id: str
+    id: UUID
     name: str
 
     model_config = ConfigDict(from_attributes=True)
@@ -36,13 +15,19 @@ class ChatUserRoleResponse(BaseModel):
 
 class ChatUserChatResponse(BaseModel):
     id: str
-    type: str
+    type: ChatType
+    title: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
-class ChatUserDetailResponse(ChatUserResponse):
+class ChatUserResponse(ChatUserFields):
+    """Участник в списке — со ролями, чтобы список отвечал на «у кого что»."""
+
     roles: list[ChatUserRoleResponse]
+
+
+class ChatUserDetailResponse(ChatUserResponse):
     chats: list[ChatUserChatResponse]
 
 
