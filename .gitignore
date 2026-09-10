@@ -12,3 +12,6 @@ static/
 coverage.xml
 htmlcov/
 .ruff_cache/
+
+# Корневой node_modules появляется от инструментов вроде prettier.
+node_modules/
