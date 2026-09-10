@@ -1,0 +1,18 @@
+{
+  "eventId": 2,
+  "type": "newMessage",
+  "payload": {
+    "chat": {
+      "chatId": "2601@chat.agent",
+      "type": "group"
+    },
+    "from": {
+      "firstName": "Иван",
+      "lastName": "Иванов",
+      "userId": "1234567890"
+    },
+    "msgId": "6752739791872002222",
+    "text": "Привет из обсуждения!",
+    "timestamp": 1546290000
+  }
+}

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 from vkteams_client.enums import ChatType
-from vkteams_client.types import ChatMember, GetMembersResponse
+from vkteams_client.types import ChatMember, GetMembersResponse, Response
 
 from vkt_bot.core.handlers.chats import (
     ChatInfoChangedHandler,
@@ -14,7 +14,9 @@ from vkt_bot.core.handlers.chats import (
     ChatMembersLeftHandler,
     CreateChatMiddleware,
 )
+from vkt_bot.core.constants import THREADS_AUTOSUBSCRIBE_SETTING
 from vkt_bot.core.models import Chat, ChatMembership, ChatUser
+from vkt_bot.core.repositories.bot_settings import BotSettingsRepository
 from vkt_bot.core.repositories.chat import ChatMembershipRepository, ChatRepository
 from vkt_bot.core.repositories.user import ChatUserRepository
 
@@ -518,3 +520,69 @@ class TestChatInfoChanged:
 
         chat = await ChatRepository(session).get(CHAT_ID)
         assert chat.title == "Новое название"
+
+
+class TestThreadAutosubscribeOnJoin:
+    """Бота добавили в чат — он подписывается на обсуждения."""
+
+    async def test_subscribes_when_bot_is_added(
+        self, dispatcher: Dispatcher, fake_bot: FakeBot, session: AsyncSession
+    ) -> None:
+        await ChatMembersJoinedHandler.handle(bot_added_event(), dispatcher)
+
+        (call,) = fake_bot.calls_of("threads_autosubscribe")
+        assert call.kwargs["chat_id"] == CHAT_ID
+        assert call.kwargs["enable"] is True
+
+    async def test_subscribes_to_existing_threads(
+        self, dispatcher: Dispatcher, fake_bot: FakeBot, session: AsyncSession
+    ) -> None:
+        """Бота добавили в живой чат — обсуждения там уже есть."""
+        await ChatMembersJoinedHandler.handle(bot_added_event(), dispatcher)
+
+        (call,) = fake_bot.calls_of("threads_autosubscribe")
+        assert call.kwargs["with_existing"] is True
+
+    async def test_no_subscribe_when_only_users_joined(
+        self, dispatcher: Dispatcher, fake_bot: FakeBot, session: AsyncSession
+    ) -> None:
+        await ChatMembersJoinedHandler.handle(
+            make_event("new_chat_members"), dispatcher
+        )
+
+        assert fake_bot.calls_of("threads_autosubscribe") == []
+
+    async def test_setting_can_disable_autosubscribe(
+        self, dispatcher: Dispatcher, fake_bot: FakeBot, session: AsyncSession
+    ) -> None:
+        await BotSettingsRepository(session).set_value(
+            THREADS_AUTOSUBSCRIBE_SETTING, "false"
+        )
+        await session.commit()
+
+        await ChatMembersJoinedHandler.handle(bot_added_event(), dispatcher)
+
+        assert fake_bot.calls_of("threads_autosubscribe") == []
+
+    async def test_api_error_does_not_break_registration(
+        self, dispatcher: Dispatcher, fake_bot: FakeBot, session: AsyncSession
+    ) -> None:
+        fake_bot.errors["threads_autosubscribe"] = RuntimeError("нет связи")
+
+        await ChatMembersJoinedHandler.handle(bot_added_event(), dispatcher)
+
+        assert await ChatRepository(session).get_or_none(CHAT_ID) is not None
+
+    async def test_refusal_is_logged(
+        self,
+        dispatcher: Dispatcher,
+        fake_bot: FakeBot,
+        session_factory: object,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        fake_bot.results["threads_autosubscribe"] = Response(ok=False)
+
+        with caplog.at_level("WARNING", logger="vkt_bot"):
+            await ChatMembersJoinedHandler.handle(bot_added_event(), dispatcher)
+
+        assert "refused thread autosubscribe" in caplog.text

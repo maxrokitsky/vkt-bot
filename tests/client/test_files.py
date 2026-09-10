@@ -115,14 +115,20 @@ class TestSendFileById:
         (request,) = requests_to(ok_get, SEND_FILE)
         assert request.kwargs["timeout"].total == 30
 
-    async def test_response_without_msg_id_raises(
+    async def test_failed_response_has_no_msg_id(
         self, vkteams: VKTeams, mock_api: aioresponses
     ) -> None:
-        from pydantic import ValidationError
+        """При ``ok: false`` идентификатора нет, но разбор не падает."""
+        mock_api.get(
+            url_for("/messages/sendFile"),
+            payload={"ok": False, "description": "File not found"},
+        )
 
-        mock_api.get(url_for("/messages/sendFile"), payload={"ok": False})
-        with pytest.raises(ValidationError):
-            await vkteams.send_file("chat", file_id="f")
+        result = await vkteams.send_file("chat", file_id="f")
+
+        assert result.ok is False
+        assert result.msgId is None
+        assert result.description == "File not found"
 
 
 class TestSendFileUpload:

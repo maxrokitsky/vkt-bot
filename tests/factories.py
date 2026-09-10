@@ -67,6 +67,7 @@ def events_response(*names: str) -> dict[str, Any]:
 ALL_EVENT_FIXTURES: tuple[str, ...] = (
     "new_message",
     "new_message_private",
+    "new_message_in_thread",
     "new_message_from_bot",
     "new_message_with_format",
     "new_message_with_parts",

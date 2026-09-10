@@ -5,8 +5,11 @@ from typing import ClassVar
 
 from pydantic import TypeAdapter
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from vkteams_client import VKTeams
 from vkteams_client.types import CallbackQueryEvent, NewMessageEvent
+from vkteams_client.types import Chat as ChatPayload
 from vkt_bot.db.session import async_session
 from vkt_dispatcher.filters import RegexpFilter
 from vkt_dispatcher.handlers import (
@@ -23,11 +26,12 @@ from vkt_bot.core.repositories.role import (
     RoleAssignmentRepository,
     RoleRepository,
 )
+from vkt_bot.core.repositories.chat import ChatRepository
 from vkt_bot.core.repositories.user import ChatUserRepository
 from vkt_bot.app import dispatcher
 from vkt_bot.core.handlers.callback import CallbackData, DeleteRoleCallbackData
 from vkt_bot.core.handlers.mixins import AdminRequiredMixin
-from vkt_bot.utils.message import mention
+from vkt_bot.utils.message import mention, sender_name
 
 logger = logging.getLogger("teams_bot.handlers.roles")
 
@@ -353,15 +357,64 @@ class NotifyRoleIsTaggedHandler(MessageHandler):
                     .query(ChatUserHasRoleQuery(roles=hashtags))
                     .list()
                 )
+                text = await self.notification_text(session, event.payload.chat)
                 for user in users:
-                    await bot.send_text(
-                        chat_id=user.id,
-                        text=f'Вас упомянули в группе "{event.payload.chat.title}"',
-                        forward_chat_id=event.payload.chat.chatId,
-                        forward_msg_id=event.payload.msgId,
-                    )
+                    await self.notify(bot, user.id, text, event)
             except Exception:
                 logger.exception("error")
+
+    async def notify(
+        self,
+        bot: VKTeams,
+        user_id: str,
+        text: str,
+        event: NewMessageEvent,
+    ) -> None:
+        """Уведомить пользователя об упоминании.
+
+        Обычно пересылаем исходное сообщение. Из обсуждения пересылка
+        может не пройти — сервер отвечает ``ok: false``, и уведомление
+        молча теряется. Поэтому на отказ шлём текст сообщения напрямую:
+        лучше без перехода к оригиналу, чем совсем ничего.
+        """
+        result = await bot.send_text(
+            chat_id=user_id,
+            text=text,
+            # У обсуждения свой chatId, пересылка из него —
+            # такая же, как из обычного чата.
+            forward_chat_id=event.payload.chat.chatId,
+            forward_msg_id=event.payload.msgId,
+        )
+        if result is None or result.ok:
+            return
+
+        logger.warning(
+            "Пересылка упоминания из чата %s не прошла (%s). Отправляю текстом.",
+            event.payload.chat.chatId,
+            result.description,
+        )
+        await bot.send_text(chat_id=user_id, text=self.quoted_text(text, event))
+
+    @staticmethod
+    def quoted_text(text: str, event: NewMessageEvent) -> str:
+        """Уведомление без пересылки: сам текст сообщения и его автор."""
+        body = (event.payload.text or "").strip()
+        if not body:
+            return text
+        return f"{text}\n\n{sender_name(event.payload.sender)}: {body}"
+
+    async def notification_text(self, session: AsyncSession, chat: ChatPayload) -> str:
+        """Текст уведомления об упоминании.
+
+        В событиях из обсуждений названия чата нет, а в базе оно может
+        оказаться от прошлых событий. Если названия нет вовсе — не выдумываем
+        его: контекст даёт пересланное сообщение.
+        """
+        title = chat.title
+        if not title:
+            stored = await ChatRepository(session).get_or_none(chat.chatId)
+            title = stored.title if stored else None
+        return f'Вас упомянули в группе "{title}"' if title else "Вас упомянули"
 
 
 @dispatcher.register_handler

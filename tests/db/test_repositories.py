@@ -158,6 +158,45 @@ class TestBotSettingsRepository:
         await session.commit()
         assert (await repo.get_by_key("k")).value == "v"
 
+    async def test_get_bool_missing_returns_default(
+        self, session: AsyncSession
+    ) -> None:
+        repo = BotSettingsRepository(session)
+        assert await repo.get_bool("nope", default=True) is True
+        assert await repo.get_bool("nope", default=False) is False
+
+    @pytest.mark.parametrize(
+        ("stored", "expected"),
+        [
+            ("true", True),
+            ("True", True),
+            ("1", True),
+            ("yes", True),
+            (" on ", True),
+            ("false", False),
+            ("0", False),
+            ("no", False),
+            ("off", False),
+        ],
+    )
+    async def test_get_bool_parses_values(
+        self, session: AsyncSession, stored: str, expected: bool
+    ) -> None:
+        repo = BotSettingsRepository(session)
+        await repo.set_value("flag", stored)
+        await session.commit()
+
+        assert await repo.get_bool("flag", default=not expected) is expected
+
+    async def test_get_bool_unknown_value_falls_back_to_default(
+        self, session: AsyncSession
+    ) -> None:
+        repo = BotSettingsRepository(session)
+        await repo.set_value("flag", "может быть")
+        await session.commit()
+
+        assert await repo.get_bool("flag", default=True) is True
+
 
 class TestLoginTokenRepository:
     """``LoginTokenRepository``."""
