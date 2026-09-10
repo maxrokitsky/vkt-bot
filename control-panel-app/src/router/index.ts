@@ -13,6 +13,7 @@ import { useAuthStore } from '@/stores/auth'
 import LoginView from '@/views/LoginView.vue'
 import DashboardView from '@/views/DashboardView.vue'
 import ChatsView from '@/views/ChatsView.vue'
+import ChatDetailView from '@/views/ChatDetailView.vue'
 import RolesView from '@/views/RolesView.vue'
 import RoleDetailView from '@/views/RoleDetailView.vue'
 import ChatUsersView from '@/views/ChatUsersView.vue'
@@ -61,6 +62,17 @@ const router = createRouter({
             width: 'wide',
             requiresAuth: true,
             nav: { group: 'people', order: 1, icon: MessagesSquare },
+          },
+        },
+        {
+          path: 'chats/:id',
+          name: 'chat-detail',
+          component: ChatDetailView,
+          meta: {
+            title: 'Чат',
+            width: 'wide',
+            requiresAuth: true,
+            parent: 'chats',
           },
         },
         {

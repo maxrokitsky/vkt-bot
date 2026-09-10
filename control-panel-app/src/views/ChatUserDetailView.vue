@@ -252,7 +252,12 @@ function confirmRemoveRole() {
             <div class="flex min-w-0 items-center gap-3">
               <MessagesSquare class="size-4 shrink-0 text-muted-foreground" />
               <div class="min-w-0">
-                <div class="truncate text-sm font-medium">{{ chat.title || chat.id }}</div>
+                <RouterLink
+                  :to="`/chats/${chat.id}`"
+                  class="block truncate text-sm font-medium hover:underline"
+                >
+                  {{ chat.title || chat.id }}
+                </RouterLink>
                 <CopyableId v-if="chat.title" :value="chat.id" />
               </div>
             </div>

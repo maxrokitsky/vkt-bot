@@ -20,6 +20,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useListQuery } from '@/composables/useListQuery'
+import { initials } from '@/lib/users'
 
 const router = useRouter()
 const { page, pageSize, searchInput, search } = useListQuery()
@@ -46,15 +47,6 @@ const rows = computed(() => {
 
 const filtered = computed(() => onlyAdmins.value || onlyBots.value)
 
-function initials(name: string) {
-  return name
-    .split(/[\s.@_-]+/)
-    .filter(Boolean)
-    .map((word) => word[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-}
 </script>
 
 <template>

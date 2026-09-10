@@ -1,21 +1,40 @@
 import math
+from typing import Any
 
 import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, status
 
 from vkt_bot.app import bot
-from vkt_bot.core.models.chat import Chat
+from vkt_bot.core.models import Chat, ChatMembership, ChatUser, Webhook
 from vkt_bot.core.queries.chat import ChatSearchQuery
 from vkt_bot.core.repositories.chat import ChatRepository
-from vkt_bot.webapp.dependencies import CurrentAdminUser, CurrentUser, SessionDep
+from vkt_bot.webapp.dependencies import (
+    CurrentAdminUser,
+    CurrentUser,
+    SessionDep,
+    is_admin,
+)
 from vkt_bot.webapp.schemas.chat import (
+    ChatDetailResponse,
     ChatResponse,
     PaginatedChatsResponse,
     SendMessageRequest,
     SendMessageResponse,
 )
+from vkt_bot.webapp.schemas.webhook import WebhookListResponse, WebhookResponse
 
 router = APIRouter(prefix="/api/chats", tags=["chats"])
+
+
+def visible_webhooks(chat_id: str, user: ChatUser) -> sa.Select[Any]:
+    """Вебхуки чата, доступные пользователю.
+
+    Обычный пользователь видит только свои — так же, как в ``/api/webhooks``.
+    """
+    stmt = sa.select(Webhook).where(Webhook.chat_id == chat_id)
+    if not is_admin(user):
+        stmt = stmt.where(Webhook.created_by == user.id)
+    return stmt
 
 
 @router.get("", response_model=PaginatedChatsResponse)
@@ -52,13 +71,13 @@ async def list_chats(
     )
 
 
-@router.get("/{chat_id}", response_model=ChatResponse)
+@router.get("/{chat_id}", response_model=ChatDetailResponse)
 async def get_chat(
     chat_id: str,
     session: SessionDep,
-    _: CurrentUser,
-) -> ChatResponse:
-    """Get chat by ID."""
+    current_user: CurrentUser,
+) -> ChatDetailResponse:
+    """Get chat by ID with member and webhook counts."""
     chat_repo = ChatRepository(session)
     chat = await chat_repo.get_or_none(chat_id)
 
@@ -68,7 +87,46 @@ async def get_chat(
             detail="Chat not found",
         )
 
-    return ChatResponse.model_validate(chat)
+    member_count = await session.scalar(
+        sa.select(sa.func.count())
+        .select_from(ChatMembership)
+        .where(ChatMembership.chat_id == chat_id)
+    )
+    # Счётчик считает то же, что покажет список: иначе «3» рядом с одной строкой.
+    webhook_count = await session.scalar(
+        visible_webhooks(chat_id, current_user).with_only_columns(sa.func.count())
+    )
+
+    return ChatDetailResponse(
+        id=chat.id,
+        type=chat.type,
+        title=chat.title,
+        member_count=member_count or 0,
+        webhook_count=webhook_count or 0,
+    )
+
+
+@router.get("/{chat_id}/webhooks", response_model=WebhookListResponse)
+async def list_chat_webhooks(
+    chat_id: str,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> WebhookListResponse:
+    """Вебхуки, отправляющие в этот чат."""
+    chat_repo = ChatRepository(session)
+    if not await chat_repo.get_or_none(chat_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chat not found",
+        )
+
+    stmt = visible_webhooks(chat_id, current_user).order_by(Webhook.created_at.desc())
+    webhooks = (await session.scalars(stmt)).all()
+
+    return WebhookListResponse(
+        webhooks=[WebhookResponse.model_validate(webhook) for webhook in webhooks],
+        total=len(webhooks),
+    )
 
 
 @router.post("/{chat_id}/send-message", response_model=SendMessageResponse)

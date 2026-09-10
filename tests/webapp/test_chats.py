@@ -6,8 +6,12 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from vkt_bot.core.models import ChatMembership
+from vkt_bot.core.repositories.webhook import WebhookRepository
+from vkt_bot.webapp.schemas.webhook import WebhookCreateSchema
+
 from tests.conftest import auth_headers
-from tests.factories import create_chat
+from tests.factories import create_chat, create_chat_user
 
 if TYPE_CHECKING:
     import httpx
@@ -92,6 +96,78 @@ class TestGetChat:
         assert response.status_code == 200
         assert response.json()["id"] == "a@chat.agent"
 
+    async def test_counts_members(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        chat = await create_chat(session, "a@chat.agent")
+        other = await create_chat_user(session, "second@example.com")
+        session.add_all(
+            [
+                ChatMembership(chat_id=chat.id, user_id=user.id),
+                ChatMembership(chat_id=chat.id, user_id=other.id),
+            ]
+        )
+        await session.commit()
+
+        body = (
+            await client.get("/api/chats/a@chat.agent", headers=auth_headers(user.id))
+        ).json()
+
+        assert body["member_count"] == 2
+
+    async def test_counts_are_zero_for_empty_chat(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        await create_chat(session, "a@chat.agent")
+
+        body = (
+            await client.get("/api/chats/a@chat.agent", headers=auth_headers(user.id))
+        ).json()
+
+        assert body["member_count"] == 0
+        assert body["webhook_count"] == 0
+
+    async def test_webhook_count_shows_only_own_to_plain_user(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        """Счётчик обещает ровно то, что покажет список вебхуков."""
+        chat = await create_chat(session, "a@chat.agent")
+        other = await create_chat_user(session, "second@example.com")
+        repo = WebhookRepository(session)
+        await repo.create_with_api_key(
+            WebhookCreateSchema(name="свой", chat_id=chat.id), user.id
+        )
+        await repo.create_with_api_key(
+            WebhookCreateSchema(name="чужой", chat_id=chat.id), other.id
+        )
+
+        body = (
+            await client.get("/api/chats/a@chat.agent", headers=auth_headers(user.id))
+        ).json()
+
+        assert body["webhook_count"] == 1
+
+    async def test_webhook_count_shows_all_to_admin(
+        self, client: httpx.AsyncClient, session: AsyncSession, superuser: ChatUser
+    ) -> None:
+        chat = await create_chat(session, "a@chat.agent")
+        other = await create_chat_user(session, "second@example.com")
+        repo = WebhookRepository(session)
+        await repo.create_with_api_key(
+            WebhookCreateSchema(name="свой", chat_id=chat.id), superuser.id
+        )
+        await repo.create_with_api_key(
+            WebhookCreateSchema(name="чужой", chat_id=chat.id), other.id
+        )
+
+        body = (
+            await client.get(
+                "/api/chats/a@chat.agent", headers=auth_headers(superuser.id)
+            )
+        ).json()
+
+        assert body["webhook_count"] == 2
+
     async def test_missing(self, client: httpx.AsyncClient, user: ChatUser) -> None:
         response = await client.get(
             "/api/chats/nope@chat.agent", headers=auth_headers(user.id)
@@ -101,6 +177,112 @@ class TestGetChat:
 
     async def test_requires_authentication(self, client: httpx.AsyncClient) -> None:
         assert (await client.get("/api/chats/x")).status_code == 403
+
+
+class TestListChatWebhooks:
+    """``GET /api/chats/{chat_id}/webhooks``."""
+
+    async def test_empty(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        await create_chat(session, "a@chat.agent")
+
+        response = await client.get(
+            "/api/chats/a@chat.agent/webhooks", headers=auth_headers(user.id)
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"webhooks": [], "total": 0}
+
+    async def test_only_webhooks_of_this_chat(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        chat = await create_chat(session, "a@chat.agent")
+        another = await create_chat(session, "b@chat.agent")
+        repo = WebhookRepository(session)
+        await repo.create_with_api_key(
+            WebhookCreateSchema(name="здесь", chat_id=chat.id), user.id
+        )
+        await repo.create_with_api_key(
+            WebhookCreateSchema(name="там", chat_id=another.id), user.id
+        )
+
+        body = (
+            await client.get(
+                "/api/chats/a@chat.agent/webhooks", headers=auth_headers(user.id)
+            )
+        ).json()
+
+        assert body["total"] == 1
+        assert body["webhooks"][0]["name"] == "здесь"
+
+    async def test_plain_user_sees_only_own(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        chat = await create_chat(session, "a@chat.agent")
+        other = await create_chat_user(session, "second@example.com")
+        repo = WebhookRepository(session)
+        await repo.create_with_api_key(
+            WebhookCreateSchema(name="свой", chat_id=chat.id), user.id
+        )
+        await repo.create_with_api_key(
+            WebhookCreateSchema(name="чужой", chat_id=chat.id), other.id
+        )
+
+        body = (
+            await client.get(
+                "/api/chats/a@chat.agent/webhooks", headers=auth_headers(user.id)
+            )
+        ).json()
+
+        assert [item["name"] for item in body["webhooks"]] == ["свой"]
+
+    async def test_admin_sees_all(
+        self, client: httpx.AsyncClient, session: AsyncSession, superuser: ChatUser
+    ) -> None:
+        chat = await create_chat(session, "a@chat.agent")
+        other = await create_chat_user(session, "second@example.com")
+        await WebhookRepository(session).create_with_api_key(
+            WebhookCreateSchema(name="чужой", chat_id=chat.id), other.id
+        )
+
+        body = (
+            await client.get(
+                "/api/chats/a@chat.agent/webhooks", headers=auth_headers(superuser.id)
+            )
+        ).json()
+
+        assert [item["name"] for item in body["webhooks"]] == ["чужой"]
+
+    async def test_api_key_is_not_returned(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        chat = await create_chat(session, "a@chat.agent")
+        await WebhookRepository(session).create_with_api_key(
+            WebhookCreateSchema(name="хук", chat_id=chat.id), user.id
+        )
+
+        body = (
+            await client.get(
+                "/api/chats/a@chat.agent/webhooks", headers=auth_headers(user.id)
+            )
+        ).json()
+
+        assert "api_key" not in body["webhooks"][0]
+        assert "api_key_hash" not in body["webhooks"][0]
+
+    async def test_unknown_chat(
+        self, client: httpx.AsyncClient, user: ChatUser
+    ) -> None:
+        response = await client.get(
+            "/api/chats/nope@chat.agent/webhooks", headers=auth_headers(user.id)
+        )
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Chat not found"
+
+    async def test_requires_authentication(self, client: httpx.AsyncClient) -> None:
+        assert (await client.get("/api/chats/x/webhooks")).status_code == 403
 
 
 class TestSendMessage:

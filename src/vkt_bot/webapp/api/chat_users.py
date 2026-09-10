@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 from vkt_bot.core.audit import AuditLogger
 from vkt_bot.core.models import ChatMembership, ChatUser, RoleAssignment
 from vkt_bot.core.models.log_entry import EntityType
-from vkt_bot.core.queries.user import ChatUserSearchQuery
+from vkt_bot.core.queries.user import ChatUserInChatQuery, ChatUserSearchQuery
 from vkt_bot.core.repositories.role import (
     CreateRoleAssignmentSchema,
     RoleAssignmentRepository,
@@ -42,18 +42,27 @@ async def list_chat_users(
     page: int = 1,
     size: int = 20,
     search: str | None = None,
+    chat_id: str | None = None,
 ) -> PaginatedChatUsersResponse:
-    """List all chat users with pagination. Optional search by name or id."""
-    search_query = ChatUserSearchQuery(search=search)
+    """List all chat users with pagination.
+
+    Optional search by name or id and filter by chat membership.
+    """
+    count_stmt = sa.select(sa.func.count()).select_from(ChatUser)
+    users_stmt = sa.select(ChatUser)
+    for query in (
+        ChatUserSearchQuery(search=search),
+        ChatUserInChatQuery(chat_id=chat_id),
+    ):
+        count_stmt = query.apply(count_stmt)
+        users_stmt = query.apply(users_stmt)
 
     # Get total count
-    count_stmt = search_query.apply(sa.select(sa.func.count()).select_from(ChatUser))
     total = await session.scalar(count_stmt) or 0
 
     # Get paginated users
     stmt = (
-        search_query.apply(sa.select(ChatUser))
-        .options(WITH_ROLES)
+        users_stmt.options(WITH_ROLES)
         .order_by(ChatUser.created_at.desc(), ChatUser.id)
         .offset((page - 1) * size)
         .limit(size)

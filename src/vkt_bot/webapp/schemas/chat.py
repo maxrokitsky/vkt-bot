@@ -13,6 +13,13 @@ class ChatResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ChatDetailResponse(ChatResponse):
+    """Чат на своей странице — со счётчиками для подписей разделов."""
+
+    member_count: int
+    webhook_count: int
+
+
 class PaginatedChatsResponse(BaseModel):
     items: list[ChatResponse]
     total: int

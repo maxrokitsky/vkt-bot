@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useQuery } from '@tanstack/vue-query'
 import { MessagesSquare, Send } from 'lucide-vue-next'
 import { listChatsApiChatsGetOptions } from '@/client/@tanstack/vue-query.gen'
@@ -18,6 +19,7 @@ import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/compon
 import { useListQuery } from '@/composables/useListQuery'
 import { chatTypeLabel } from '@/lib/chats'
 
+const router = useRouter()
 const authStore = useAuthStore()
 const isAdmin = computed(() => authStore.isAdmin)
 const { page, pageSize, searchInput, search } = useListQuery()
@@ -70,7 +72,12 @@ const { data, isPending, isError, refetch } = useQuery(
 
       <template #body>
         <TableBody>
-          <TableRow v-for="chat in data?.items ?? []" :key="chat.id">
+          <TableRow
+            v-for="chat in data?.items ?? []"
+            :key="chat.id"
+            class="cursor-pointer"
+            @click="router.push(`/chats/${chat.id}`)"
+          >
             <TableCell>
               <div class="font-medium">{{ chat.title || 'Без названия' }}</div>
               <CopyableId :value="chat.id" :max="40" />
@@ -78,7 +85,7 @@ const { data, isPending, isError, refetch } = useQuery(
             <TableCell>
               <Badge variant="outline">{{ chatTypeLabel(chat.type) }}</Badge>
             </TableCell>
-            <TableCell v-if="isAdmin" class="text-right">
+            <TableCell v-if="isAdmin" class="text-right" @click.stop>
               <RowActions>
                 <DropdownMenuItem @click="chatToMessage = chat">
                   <Send />

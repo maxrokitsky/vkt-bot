@@ -69,6 +69,89 @@ class TestListChatUsers:
         assert (await client.get("/api/chat-users")).status_code == 403
 
 
+class TestFilterChatUsersByChat:
+    """``GET /api/chat-users?chat_id=...``."""
+
+    async def test_only_members_of_the_chat(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        chat = await create_chat(session, "a@chat.agent")
+        member = await create_chat_user(session, "member@example.com")
+        await create_chat_user(session, "stranger@example.com")
+        session.add(ChatMembership(chat_id=chat.id, user_id=member.id))
+        await session.commit()
+
+        body = (
+            await client.get(
+                "/api/chat-users",
+                params={"chat_id": chat.id},
+                headers=auth_headers(user.id),
+            )
+        ).json()
+
+        assert body["total"] == 1
+        assert [item["id"] for item in body["items"]] == ["member@example.com"]
+
+    async def test_left_member_disappears(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        """Строка ``ChatUser`` после ухода остаётся, а членство — нет."""
+        chat = await create_chat(session, "a@chat.agent")
+        membership = ChatMembership(chat_id=chat.id, user_id=user.id)
+        session.add(membership)
+        await session.commit()
+        await session.delete(membership)
+        await session.commit()
+
+        body = (
+            await client.get(
+                "/api/chat-users",
+                params={"chat_id": chat.id},
+                headers=auth_headers(user.id),
+            )
+        ).json()
+
+        assert body["items"] == []
+
+    async def test_combines_with_search(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        chat = await create_chat(session, "a@chat.agent")
+        ivan = await create_chat_user(session, "ivan@example.com", first_name="Иван")
+        petr = await create_chat_user(session, "petr@example.com", first_name="Пётр")
+        session.add_all(
+            [
+                ChatMembership(chat_id=chat.id, user_id=ivan.id),
+                ChatMembership(chat_id=chat.id, user_id=petr.id),
+            ]
+        )
+        await session.commit()
+
+        body = (
+            await client.get(
+                "/api/chat-users",
+                params={"chat_id": chat.id, "search": "Иван"},
+                headers=auth_headers(user.id),
+            )
+        ).json()
+
+        assert body["total"] == 1
+        assert body["items"][0]["id"] == "ivan@example.com"
+
+    async def test_unknown_chat_is_empty(
+        self, client: httpx.AsyncClient, user: ChatUser
+    ) -> None:
+        body = (
+            await client.get(
+                "/api/chat-users",
+                params={"chat_id": "nope@chat.agent"},
+                headers=auth_headers(user.id),
+            )
+        ).json()
+
+        assert body == {"items": [], "total": 0, "page": 1, "size": 20, "pages": 0}
+
+
 class TestGetChatUser:
     """``GET /api/chat-users/{user_id}``."""
 

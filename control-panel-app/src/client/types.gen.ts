@@ -69,6 +69,31 @@ export type BotSettingsResponse = {
 };
 
 /**
+ * ChatDetailResponse
+ *
+ * Чат на своей странице — со счётчиками для подписей разделов.
+ */
+export type ChatDetailResponse = {
+    /**
+     * Id
+     */
+    id: string;
+    type: ChatType;
+    /**
+     * Title
+     */
+    title?: string | null;
+    /**
+     * Member Count
+     */
+    member_count: number;
+    /**
+     * Webhook Count
+     */
+    webhook_count: number;
+};
+
+/**
  * ChatResponse
  */
 export type ChatResponse = {
@@ -1248,10 +1273,40 @@ export type GetChatApiChatsChatIdGetResponses = {
     /**
      * Successful Response
      */
-    200: ChatResponse;
+    200: ChatDetailResponse;
 };
 
 export type GetChatApiChatsChatIdGetResponse = GetChatApiChatsChatIdGetResponses[keyof GetChatApiChatsChatIdGetResponses];
+
+export type ListChatWebhooksApiChatsChatIdWebhooksGetData = {
+    body?: never;
+    path: {
+        /**
+         * Chat Id
+         */
+        chat_id: string;
+    };
+    query?: never;
+    url: '/api/chats/{chat_id}/webhooks';
+};
+
+export type ListChatWebhooksApiChatsChatIdWebhooksGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListChatWebhooksApiChatsChatIdWebhooksGetError = ListChatWebhooksApiChatsChatIdWebhooksGetErrors[keyof ListChatWebhooksApiChatsChatIdWebhooksGetErrors];
+
+export type ListChatWebhooksApiChatsChatIdWebhooksGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: WebhookListResponse;
+};
+
+export type ListChatWebhooksApiChatsChatIdWebhooksGetResponse = ListChatWebhooksApiChatsChatIdWebhooksGetResponses[keyof ListChatWebhooksApiChatsChatIdWebhooksGetResponses];
 
 export type SendMessageApiChatsChatIdSendMessagePostData = {
     body: SendMessageRequest;
@@ -1512,6 +1567,10 @@ export type ListChatUsersApiChatUsersGetData = {
          * Search
          */
         search?: string | null;
+        /**
+         * Chat Id
+         */
+        chat_id?: string | null;
     };
     url: '/api/chat-users';
 };

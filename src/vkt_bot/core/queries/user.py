@@ -3,6 +3,7 @@ from typing import Any
 
 import sqlalchemy as sa
 
+from vkt_bot.core.models.chat import ChatMembership
 from vkt_bot.core.models.role import Role, RoleAssignment
 from vkt_bot.core.models.user import ChatUser
 from vkt_bot.db.query import Query
@@ -21,6 +22,23 @@ class ChatUserHasRoleQuery(ChatUserQuery):
             statement.join(ChatUser.role_assignments)
             .join(RoleAssignment.role)
             .where(sa.func.lower(Role.name).in_([role.lower() for role in self.roles]))
+        )
+
+
+class ChatUserInChatQuery(ChatUserQuery):
+    """Текущий состав чата.
+
+    Идёт через ``chat_memberships``: строка ``ChatUser`` после ухода остаётся,
+    а членство — нет, поэтому только оно и отвечает на «кто в чате сейчас».
+    """
+
+    chat_id: str | None = None
+
+    def apply(self, statement: Statement) -> Statement:
+        if not self.chat_id:
+            return statement
+        return statement.join(ChatUser.chat_memberships).where(
+            ChatMembership.chat_id == self.chat_id
         )
 
 

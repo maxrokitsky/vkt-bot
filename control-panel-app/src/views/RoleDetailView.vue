@@ -45,6 +45,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useConfirm } from '@/composables/useConfirm'
 import { useListQuery } from '@/composables/useListQuery'
 import { plural } from '@/lib/plural'
+import { initials } from '@/lib/users'
 
 const route = useRoute()
 const router = useRouter()
@@ -132,15 +133,6 @@ const deleteRole = useMutation({
   onError: () => toast.error('Не удалось удалить роль'),
 })
 
-function initials(name: string) {
-  return name
-    .split(/[\s.@_-]+/)
-    .filter(Boolean)
-    .map((word) => word[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-}
 </script>
 
 <template>
