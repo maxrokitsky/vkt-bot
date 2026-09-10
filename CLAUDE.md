@@ -2,381 +2,83 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+## О проекте
 
-VK Teams Bot providing tools for messenger convenience and integration with other systems. This is a monorepo containing the main bot application, framework packages, and plugins.
+Бот для VK Teams: инструменты для удобства мессенджера и интеграции с другими
+системами. Python 3.13+, пакетный менеджер — **uv**.
 
-**Language:** Python 3.13+
-**Package Manager:** uv
+Репозиторий — **uv workspace**:
 
-## Repository Structure
+- `src/vkt_bot/` — само приложение: обработчики событий, БД, веб-API;
+- `packages/vkt-dispatcher/` — фреймворк: жизненный цикл бота, хендлеры,
+  middleware, фильтры;
+- `packages/vkteams-client/` — асинхронный клиент VK Teams Bot API на aiohttp
+  с pydantic-моделями;
+- `plugins/vkt-gitlab/` — плагин GitLab (уведомления о пайплайнах);
+- `control-panel-app/` — панель управления на Vue 3, свой `package.json` и
+  свой [CLAUDE.md](control-panel-app/CLAUDE.md).
 
-This is a **uv workspace** with three main components:
+Спецификация API: <https://teams.vk.com/botapi/> (`api.yaml`, `schemas.json`,
+`params.json`, описания методов — в `lang_config_ru.json`). Это единственный
+источник правды по методам; сторонние обёртки не цитируем.
 
-### Main Application: `vkt-bot`
-- Location: `src/vkt_bot/`
-- The primary bot application integrating all components
+## Команды
 
-### Framework Packages: `packages/`
-- **vkt-dispatcher**: Framework managing bot lifecycle and event handlers
-  - Core dispatcher implementation with middleware support
-  - Handler base classes for different event types
-  - Filter system for event routing
-- **vkteams-client**: Async client for VK Teams Bot API
-  - Low-level API wrapper with aiohttp
-  - Pydantic models for API types
-
-### Plugins: `plugins/`
-- **vkt-gitlab**: GitLab integration plugin
-  - Pipeline notifications
-  - Uses entry points (`vkt_bot.plugins` group) for auto-discovery
-  - Install method called during bot startup
-
-### Frontend Application: `control-panel-app/`
-- Vue 3 + TypeScript SPA for bot management
-- Tech stack: Vue Router, Pinia, TanStack Query, Tailwind CSS v4, shadcn-vue
-- API client auto-generated from OpenAPI spec via Hey API
-- Located in separate directory with own package.json
-
-**Структура `src/`:**
-- `components/layout/` — хром панели: `AppSidebar`, `AppHeader`,
-  `AppBreadcrumbs`, `CommandPalette`, и каркас страницы: `PageContainer`,
-  `PageHeader`, `PageSection`, `FieldRow`, `StickySaveBar`.
-- `components/data/` — общие примитивы списков: `DataToolbar`,
-  `DataTableShell` (рамка, залипающая шапка и три состояния — загрузка,
-  ошибка, пусто), `TablePagination`, `EmptyState`, `CopyableId`,
-  `RowActions`, `StatTile`.
-- `components/ui/` — вендоренный shadcn-vue: ставится и обновляется через CLI,
-  руками не правится (для него в `eslint.config.ts` отдельный блок правил).
-- `composables/` — `useListQuery` (страница + поиск с задержкой),
-  `useCommandPalette`, `useTheme`.
-- `lib/` — `format` (даты), `plural` (склонения), `audit` и `chats` (подписи
-  перечислений API по-русски).
-- `views/` — страницы, по одной на маршрут.
-
-**Правила страниц:**
-- Заголовок на странице ровно один — `PageHeader`; в шапке приложения только
-  хлебные крошки. Название и описание берутся из `meta` маршрута.
-- Контент не на всю ширину: `PageContainer` центрирует колонку, ширину задаёт
-  `meta.width` маршрута — `wide` (84rem, таблицы), `medium` (64rem, карточки),
-  `narrow` (42rem, формы и настройки).
-- Меню сайдбара и палитра команд (`⌘K`) строятся из `router.getRoutes()` по
-  `meta.nav` (`router/nav.ts`) — второго списка пунктов не существует.
-- Реже используем `Card`: разделы группируются `PageSection` с
-  правилом-разделителем.
-- Действия строки — в меню `RowActions` (`⋯`), а не рядом кнопками.
-- Счётчик найденного живёт в `TablePagination`, в `DataToolbar` его нет.
-
-## Development Commands
-
-### Running the Bot
 ```bash
-uv run bot           # Start the bot polling for events
-make bot             # Alternative using Makefile
+uv run bot            # бот: опрос событий (make bot)
+uv run server         # FastAPI на 0.0.0.0:8765 (make server)
+uv run shell          # IPython с готовой сессией БД
+uv sync               # синхронизация зависимостей
+uv add <package>      # зависимость в основной проект (--dev — в dev-группу)
 ```
 
-### Running the Web Server (Backend API)
+Инструменты живут только в окружении проекта: `ruff`, `alembic` и `pytest`
+без `uv run` в PATH не найдутся.
+
 ```bash
-uv run server        # Start FastAPI web server on 0.0.0.0:8765
-make server          # Alternative using Makefile
+uv run ruff check .          # линт
+uv run ruff check --fix .    # автопочинка
+uv run ruff format .         # форматирование
+uv run ruff format --check . # проверка формата (так делает CI)
 ```
 
-### Running the Frontend Control Panel
+Миграции (Alembic, `src/vkt_bot/migrations/`, конфиг в `pyproject.toml`,
+post-write hook форматирует файл через ruff):
+
 ```bash
-cd control-panel-app
-pnpm install         # Install dependencies (first time)
-pnpm dev             # Start dev server (default: http://localhost:5173)
-pnpm build           # Build for production
-pnpm openapi-ts      # Regenerate API client from OpenAPI spec
+uv run alembic upgrade head                          # применить
+uv run alembic revision --autogenerate -m "message"  # сгенерировать
+make migrate                                         # то же, что upgrade head
 ```
 
-### Interactive Shell
+Схема API и клиент фронтенда:
+
 ```bash
-uv run shell         # IPython shell with database session loaded
+make export_schema    # openapi.json из приложения
+make generate_client  # export_schema + pnpm openapi-ts в control-panel-app
 ```
 
-### Database Migrations
-```bash
-alembic upgrade head           # Apply all pending migrations
-alembic revision --autogenerate -m "message"  # Generate migration
-make migrate                   # Apply migrations via Makefile
-```
+База для разработки: `docker-compose up postgres-db` (порт 16432→5432).
 
-### Code Quality
-```bash
-ruff check           # Lint code
-ruff check --fix     # Auto-fix linting issues
-ruff format          # Format code
-```
+## Тесты
 
-### Tests
-```bash
-uv run pytest        # Run the test suite with coverage
-```
-
-### Dependencies
-```bash
-uv sync              # Install/sync all dependencies
-uv add <package>     # Add dependency to main project
-uv add --dev <package>  # Add dev dependency
-```
-
-### Docker
-```bash
-docker-compose up postgres-db  # Start PostgreSQL database (port 16432:5432)
-```
-
-### Admin Access
-
-There is no login/password account model — the web panel authenticates through
-the bot. Send `/login` to the bot in VK Teams and it replies with a one-time
-token (valid 5 minutes) plus a link to `{PUBLIC_URL}/login?token=...`.
-
-Admin rights come from either:
-- `OWNER_ID` in `.env` matching the VK Teams user id (owner), or
-- the `is_superuser` flag on the user's `ChatUser` row.
-
-The `ChatUser` row is created automatically on the first `/login`, and the
-owner is persisted with `is_superuser = True` at that moment
-(`core/handlers/auth.py`), so admin rights survive a later change to
-`OWNER_ID`. The promotion is idempotent and written to the audit log.
-
-Note: the `createsuperuser` target in the Makefile refers to
-`vkt_bot.scripts.create_admin`, which no longer exists — it is a leftover from
-the removed password-based user model. Setting `OWNER_ID` and sending `/login`
-replaces it.
-
-## Architecture
-
-### Event-Driven Handler System
-
-The bot uses an event-driven architecture with the following flow:
-
-1. **Polling**: `Dispatcher.start_polling()` polls VK Teams API for events
-2. **Event Routing**: `Dispatcher.trigger(event)` applies middlewares and checks handlers
-3. **Handler Execution**: Matching handlers run concurrently via `asyncio.TaskGroup`
-
-**Handler Registration:**
-- Handlers are auto-registered by importing their modules
-- Core handlers in `src/vkt_bot/core/handlers/` (chats, roles, help)
-- Plugin handlers registered via plugin `install()` method
-
-**Handler Types:**
-- `MessageHandler`: New messages
-- `CommandHandler`: Commands (text starting with `/`)
-- `BotButtonCommandHandler`: Callback queries from inline buttons
-- `NewChatMembersHandler`, `LeftChatMembersHandler`: Chat member events
-- `ChangedChatInfoHandler`: Chat renames and other chat info changes
-- `EditedMessageHandler`, `DeletedMessageHandler`: Message modifications
-
-**Chat registration** (`core/handlers/chats.py`):
-- A chat is recorded as soon as the bot is added to it (`newChatMembers`), and
-  also on the first message in it (`CreateChatMiddleware`) for chats the bot
-  joined earlier.
-- When the bot itself is added, the existing roster is fetched via
-  `chats/getMembers` — members who joined before the bot produce no events.
-  Note `get_members` has no cursor support yet, so very large chats are
-  truncated by the API (ROADMAP 3.6).
-- `chat_memberships` follows `newChatMembers` / `leftChatMembers`; a `ChatUser`
-  row is kept after the user leaves (they may hold roles or be in other chats).
-- Names (`first_name`, `last_name`, `nick`) come from events only — `User` and
-  `Bot` objects carry them, `chats/getMembers` returns bare ids. Every message
-  refreshes its sender's name (`CreateChatMiddleware`, update-only: the message
-  flow never creates `ChatUser` rows). Until a roster member appears in some
-  event, `ChatUser.display_name` falls back to the id. An empty value never
-  overwrites a known one.
-- Bots are recorded as ordinary members with `ChatUser.is_bot = True`. The flag
-  can only be set from an event, where bots arrive as a distinct `Bot` type —
-  `chats/getMembers` returns bare ids. So a bot already in the chat before ours
-  joined is recorded as a regular user until it appears in some event. The flag
-  is never cleared once set.
-
-**Filters:**
-- Defined in `vkt_dispatcher.filters`
-- Composable with `&` (and), `|` (or), `~` (not) operators
-- Example: `Filter.command & Filter.private` for private commands only
-
-### Plugin System
-
-Plugins use Python entry points for auto-discovery:
-
-1. Define entry point in plugin's `pyproject.toml`:
-   ```toml
-   [project.entry-points.'vkt_bot.plugins']
-   plugin_name = "module_path"
-   ```
-
-2. Implement `install()` function in plugin module:
-   ```python
-   def install() -> None:
-       from . import models  # Register SQLAlchemy models
-       from . import handlers  # Register event handlers
-       from . import api  # Optional: add FastAPI routes
-   ```
-
-3. Plugin loads automatically on bot startup via `importlib.metadata.entry_points`
-
-### Database Layer
-
-**ORM:** SQLAlchemy 2.0 (async)
-
-**Pattern:** Repository pattern with three layers:
-- **Models**: SQLAlchemy ORM models (`src/vkt_bot/core/models/`)
-- **Repositories**: CRUD operations (`src/vkt_bot/core/repositories/`)
-  - Inherit from `AsyncRepository[Model, PK, CreateSchema, UpdateSchema]`
-  - Type-safe with generic types auto-inferred
-- **Queries**: Reusable query logic (`src/vkt_bot/core/queries/`)
-  - Implement `Query` protocol with `apply(stmt)` method
-  - Composable via `repository.query(Query1(), Query2())`
-
-**Session Management:**
-- Bot handlers: Use dependency injection or create sessions manually
-- Web API: Dependency injection via `get_session()` in `webapp/dependencies.py`
-
-**Migrations:**
-- Tool: Alembic
-- Location: `src/vkt_bot/migrations/`
-- Config: `pyproject.toml` under `[tool.alembic]`
-- Post-write hooks: Auto-format migrations with ruff
-
-### Web Application
-
-**Framework:** FastAPI
-**Location:** `src/vkt_bot/webapp/`
-
-**Structure:**
-- `app.py`: FastAPI app instance with all routers
-- `api/`: API route modules
-  - `auth.py`: one-time token login, JWT issuing, current user (`/api/auth/me`)
-  - `chats.py`: Chat viewing (admin only)
-  - `chat_users.py`: Chat user management (admin only)
-  - `roles.py`: Role management CRUD, role detail with members, and member
-    add/remove (admin only for writes)
-  - `bot_settings.py`: Bot settings (admin only)
-  - `logs.py`: Audit log viewing (admin only)
-  - `overview.py`: счётчики и активность по дням для главной страницы панели.
-    Активность собирается из `log_entries` группировкой по `date(timestamp)`
-    (работает и в SQLite, и в PostgreSQL — типы возврата разные, приводятся в
-    `as_date`) и отдаётся только админам: журнал остальным недоступен
-  - `webhooks.py`: Webhook CRUD plus a public router for incoming calls
-- `schemas/`: Pydantic schemas for request/response validation
-- `dependencies.py`: Dependency injection (session, auth, admin check)
-
-**Authentication:**
-- Login is a one-time token issued by the bot's `/login` command
-  (`core/handlers/auth.py`), exchanged for a JWT at `POST /api/auth/login`.
-  Tokens are single-use and expire after 5 minutes.
-- JWT-based with Bearer token; secret key required in `.env` (`SECRET_KEY`)
-- Three-tier access: authenticated user, admin, owner
-- Identity is the `ChatUser` model (VK Teams user id as PK) — there is no
-  separate `User` table
-- Admin check via `is_superuser` on `ChatUser` or a match against `OWNER_ID`
-
-**Key Dependencies:**
-- `CurrentUser`: Annotated dependency for authenticated user
-- `CurrentAdminUser`: Annotated dependency for admin user
-- `CurrentOwnerUser`: Annotated dependency for the owner
-- `SessionDep`: Annotated dependency for database session
-
-**API Documentation:** Available at `/docs` (Swagger) and `/redoc`
-
-### Configuration
-
-Configuration via Pydantic Settings loaded from `.env`:
-
-**Required:**
-- `BOT_TOKEN`: VK Teams bot token
-- `DB_URL`: PostgreSQL connection URL (DSN format)
-- `LOGGING`: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-
-**Optional:**
-- `OWNER_ID`: Bot owner user ID
-- `SECRET_KEY`: JWT secret for web API
-- `PUBLIC_URL`: Public URL for webhooks
-- `SENTRY_DSN`: Sentry error tracking
-- `ACCESS_TOKEN_EXPIRE_MINUTES`: JWT expiration (default: 8 days)
-- `LOG_FILE`: Path to log file
-
-### Logging
-
-Structured logging with multiple loggers:
-- `vkt_bot.main`: Main application logger
-- `vkt_dispatcher`: Dispatcher framework
-- `vkteams_client`: API client (events, send_message)
-- Configured in `src/vkt_bot/loggers.py` and `src/vkt_bot/utils/log.py`
-
-## Key Files
-
-- [main.py](src/vkt_bot/main.py) - Entry points (`start_bot`, `start_server`, `shell`)
-- [app.py](src/vkt_bot/app.py) - Global `bot` and `dispatcher` instances
-- [config.py](src/vkt_bot/config.py) - Settings schema and validation
-- [__init__.py](src/vkt_bot/__init__.py) - `setup()` function (logging, Sentry, plugin loading)
-- [dispatcher.py](packages/vkt-dispatcher/src/vkt_dispatcher/dispatcher.py) - Core dispatcher logic
-- [handlers.py](packages/vkt-dispatcher/src/vkt_dispatcher/handlers.py) - Handler base classes
-- [client.py](packages/vkteams-client/src/vkteams_client/client.py) - VK Teams API client
-
-## Development Workflow
-
-1. **Adding a new handler:**
-   - Create handler class inheriting from appropriate base (e.g., `CommandHandler`)
-   - Register with `dispatcher.register_handler(MyHandler())`
-   - Usually registered in `src/vkt_bot/core/handlers/` modules
-
-2. **Adding a new plugin:**
-   - Create plugin directory in `plugins/`
-   - Add `pyproject.toml` with entry point
-   - Implement `install()` function
-   - Plugin auto-loads on next bot start
-
-3. **Database changes:**
-   - Modify model in `src/vkt_bot/core/models/` or plugin models
-   - Generate migration: `alembic revision --autogenerate -m "description"`
-   - Review and edit generated migration
-   - Apply: `alembic upgrade head`
-
-4. **Web API endpoints:**
-   - Add route in `src/vkt_bot/webapp/api/`
-   - Create schemas in `src/vkt_bot/webapp/schemas/`
-   - Include router in `webapp/app.py`
-   - Use `CurrentAdminUser` dependency for admin-only endpoints
-   - OpenAPI docs available at `/docs` and `/redoc` when server is running
-
-5. **Frontend changes:**
-   - Frontend in `control-panel-app/` directory
-   - Regenerate API client after OpenAPI changes: `make generate_client`
-     (экспортирует `openapi.json` и перегенерирует клиент; тест
-     `tests/webapp/test_openapi.py` падает, если схема в репозитории устарела)
-   - Адрес бэкенда — `API_BASE_URL` в `src/hey-api.ts`: берётся из
-     `VITE_API_BASE_URL`, по умолчанию `http://localhost:8765`. Он же нужен для
-     публичных ссылок вебхуков — `window.location.origin` в dev врёт (фронт на
-     другом порту)
-   - Uses JWT token from localStorage for authentication
-   - Проверки: `pnpm type-check`, `pnpm lint`, `pnpm build` должны быть зелёными
-   - Новое поле в ответе API делайте обязательным (без значения по умолчанию),
-     иначе в TS оно станет опциональным и по всему фронту расползутся `?.`
-
-6. **Signing in to the panel:**
-   - Send `/login` to the bot, then open the link it replies with
-   - `OWNER_ID` in `.env` grants admin rights without any DB edit
-   - See "Admin Access" above
-
-## Testing
-
-**Framework:** pytest + pytest-asyncio (`asyncio_mode = "auto"`, тесты и фикстуры
-живут в одном event loop уровня сессии).
-
-### Запуск
+pytest + pytest-asyncio (`asyncio_mode = "auto"`, тесты и фикстуры живут в
+одном event loop уровня сессии).
 
 ```bash
 uv run pytest                       # весь набор + отчёт покрытия
 uv run pytest tests/client -q       # один раздел
 uv run pytest --no-cov              # без покрытия (быстрее)
+
+# один тест: путь::класс::метод — или отбор по имени через -k
+uv run pytest tests/handlers/test_roles.py::TestNotifyRoleIsTagged -q --no-cov
+uv run pytest -k "thread and forward" --no-cov
 ```
 
-### База данных
+### База данных в тестах
 
-По умолчанию тесты идут на файловом SQLite — `pytest` работает без внешних
-сервисов. `TEST_DB_URL` переключает их на настоящий PostgreSQL (так делает CI):
+По умолчанию — файловый SQLite, внешние сервисы не нужны. `TEST_DB_URL`
+переключает на настоящий PostgreSQL (так делает CI):
 
 ```bash
 docker compose up -d postgres-db
@@ -384,7 +86,7 @@ createdb -h localhost -p 16432 -U postgres vkt_bot_test
 TEST_DB_URL=postgresql+psycopg://postgres@localhost:16432/vkt_bot_test uv run pytest
 ```
 
-Только на PostgreSQL прогоняются: smoke-тест миграций (`tests/db/test_migrations.py`,
+Только на PostgreSQL идут: smoke-тест миграций (`tests/db/test_migrations.py`,
 маркер `postgres`), `ilike` по кириллице и приведение строк к `UUID`.
 
 Изоляция — через внешнюю транзакцию: `conftest.py` открывает соединение,
@@ -392,7 +94,7 @@ TEST_DB_URL=postgresql+psycopg://postgres@localhost:16432/vkt_bot_test uv run py
 и откатывает всё после теста. Поэтому `commit()` внутри тестируемого кода
 виден внутри теста и исчезает после него.
 
-### Структура `tests/`
+### Устройство `tests/`
 
 - `conftest.py` — окружение, БД, `FakeBot` (шпион вместо `VKTeams`),
   `app`/`client` для FastAPI, заголовки авторизации;
@@ -412,33 +114,204 @@ TEST_DB_URL=postgresql+psycopg://postgres@localhost:16432/vkt_bot_test uv run py
   `create_session_factory(url)` собирает движок и фабрику вручную.
 - Миграции принимают DSN из `ALEMBIC_DB_URL` (иначе берут `settings.db_url`).
 
-### Покрытие
+### Покрытие и известные дефекты
 
 Порог — 70% (`--cov-fail-under=70`), фактическое покрытие ~97%. Coverage
 настроен с `concurrency = ["thread", "greenlet"]`: без этого трассировка
 теряется внутри корутин, которые ходят в БД через greenlet SQLAlchemy.
 
-### Известные дефекты под `xfail`
+Строгие `xfail` фиксируют сломанное поведение и позеленеют после починки:
+11 фильтров в `vkt_dispatcher.filters` читают несуществующий `event.data`
+(ROADMAP 3.1).
 
-Тесты фиксируют текущее поведение, в том числе сломанное. Строгие `xfail`
-(станут зелёными после починки):
+## CI
 
-- 11 фильтров в `vkt_dispatcher.filters` читают несуществующий `event.data`
-  (ROADMAP 3.1).
-
-Тайпчекера в проекте нет: CI гоняет только `ruff check` и `ruff format`, а они
-сигнатуры вызовов не проверяют. Ошибки вида «неизвестный именованный аргумент»
+`.github/workflows/`: `lint.yml` (`ruff check .` и `ruff format --check .`),
+`test.yml` (`uv run pytest` с PostgreSQL в service-контейнере), `build.yml`.
+Тайпчекера нет — ошибки сигнатур вроде «неизвестный именованный аргумент»
 ловятся только тестами.
 
-## Deployment
+## Архитектура
 
-- **Docker:** `Dockerfile` and `docker-compose.yaml` provided
-- **Services:** PostgreSQL database on port 16432→5432 (RabbitMQ config commented out)
-- Build uses uv with `--all-packages` flag for monorepo support
-- Frontend builds to static files via `pnpm build` in control-panel-app/
+### События и хендлеры
 
-# Пожелания
+1. **Опрос**: `Dispatcher.start_polling()` тянет события из VK Teams. Сетевые
+   ошибки (`TimeoutError`, `OSError`, `aiohttp.ClientError`) гасятся повтором
+   с нарастающей паузой (`Dispatcher.RETRY_DELAYS`) — long-poll регулярно
+   отваливается по таймауту, и раньше это завершало процесс бота. Ошибки в
+   коде по-прежнему поднимаются наружу и роняют polling.
+2. **Маршрутизация**: `Dispatcher.trigger(event)` применяет middleware и
+   опрашивает хендлеры.
+3. **Выполнение**: подошедшие хендлеры работают параллельно в
+   `asyncio.TaskGroup`.
 
-## UI
+Регистрация: хендлеры подхватываются импортом своих модулей
+(`src/vkt_bot/core/handlers/`), у плагинов — из `install()`.
 
-- Используй компонент Card реже
+Базовые классы (`vkt_dispatcher.handlers`): `MessageHandler`,
+`CommandHandler`, `BotButtonCommandHandler`, `NewChatMembersHandler`,
+`LeftChatMembersHandler`, `ChangedChatInfoHandler`, `EditedMessageHandler`,
+`DeletedMessageHandler`, `PinnedMessageHandler`, `UnPinnedMessageHandler`.
+
+Фильтры из `vkt_dispatcher.filters` комбинируются операторами `&`, `|`, `~` —
+например `Filter.command & Filter.private`.
+
+### Учёт чатов (`core/handlers/chats.py`)
+
+- Чат записывается, как только бота в него добавили (`newChatMembers`), и
+  дополнительно на первом сообщении (`CreateChatMiddleware`) — для чатов, куда
+  бот попал раньше.
+- Когда добавляют самого бота, состав забирается через `chats/getMembers`:
+  по участникам, вступившим до нас, событий не будет. У `get_members` пока нет
+  курсора, поэтому очень большие чаты API обрезает (ROADMAP 3.6).
+- `chat_memberships` следует за `newChatMembers` / `leftChatMembers`, но строка
+  `ChatUser` после ухода остаётся: у человека могут быть роли и другие чаты.
+- Имена (`first_name`, `last_name`, `nick`) приходят только из событий —
+  их несут объекты `User` и `Bot`, а `chats/getMembers` отдаёт голые id.
+  Каждое сообщение обновляет имя отправителя (`CreateChatMiddleware`, только
+  update: поток сообщений строк `ChatUser` не создаёт). Пока участник из
+  ростера не появится в событии, `ChatUser.display_name` показывает id. Пустое
+  значение никогда не затирает известное.
+- Боты — обычные участники с `ChatUser.is_bot = True`. Флаг ставится только из
+  события, где боты приходят отдельным типом, поэтому бот, сидевший в чате до
+  нашего, числится обычным пользователем, пока где-нибудь не засветится.
+  Снятым флаг не бывает.
+
+### Обсуждения — threads (`core/threads.py`, `core/handlers/threads.py`)
+
+- У обсуждения собственный `chatId` (формат `2601@chat.agent`), отдельных
+  типов событий нет: сообщение из треда приходит обычным `newMessage` с
+  `chatId` треда. Отправка в тред — тот же `send_text` с `chat_id=thread_id`.
+- События из треда доходят только подписчикам. Поэтому при добавлении бота в
+  чат (`ChatMembersJoinedHandler`) вызывается `threads/autosubscribe` с
+  `withExisting=true` — подписка и на будущие, и на существующие обсуждения.
+- Автоподписку можно выключить глобально настройкой `threads_autosubscribe`
+  в `bot_settings` (`false`/`0`/`no`/`off`; по умолчанию включено), а для
+  отдельного чата — командой `/subscribethreads off` (админ). Обратно
+  включается `/subscribethreads` — она же нужна для чатов, где бот сидел ещё
+  до появления автоподписки.
+- Призыв по роли (`#роль`) работает в обсуждениях без отдельного кода:
+  обработчик ловит любой `newMessage`. У чата-треда в событии `title` пустой,
+  поэтому название берётся из события, затем из таблицы `chats`, а если его
+  нет нигде — пишем «Вас упомянули» без имени чата.
+- **Пересылка сообщений из треда API не поддерживается** — проверено на живом
+  стенде 2026-09-09: `forwardChatId` с id треда даёт `Bad request` при
+  пересылке в личку, в родительский чат и в сам тред, для сообщений и в чужом,
+  и в собственноручно созданном треде. `forwardChatId` родителя с `msgId` из
+  треда — `msgId not found`. Из обычного чата пересылка работает.
+  `replyMsgId` внутри треда — тоже `Bad request`. У треда работают только
+  `messages/sendText` (включая упоминания `@[user_id]`) и группа `threads/*`;
+  `chats/getInfo` и `chats/getMembers` недоступны.
+- Поэтому `NotifyRoleIsTaggedHandler` сначала пробует пересылку (в обычных
+  чатах она проходит), а на отказ отправляет второе сообщение — уведомление
+  плюс автор и текст исходного сообщения.
+- Клиент: `threads_add`, `threads_autosubscribe`, `threads_subscribers_get`
+  и `iter_thread_subscribers` (автопагинация по `cursor`).
+
+### Ответы API
+
+`send_text`, `edit_text` и `send_file` возвращают `MsgResponse`. При
+`ok: false` исключения нет — есть `description` с причиной и запись уровня
+ERROR в лог. Раньше `ok` не проверялся вовсе, и отказ выглядел в логах как
+успешная отправка: сообщение «отправлено», а до адресата не дошло. Причины
+отказов ищите в логгере `vkteams_client.send_message`.
+
+### Плагины
+
+Автообнаружение через entry points:
+
+1. В `pyproject.toml` плагина:
+   ```toml
+   [project.entry-points.'vkt_bot.plugins']
+   plugin_name = "module_path"
+   ```
+2. В модуле — функция `install()`, которая импортирует `models` (регистрация
+   ORM-моделей), `handlers` и, если нужно, `api` с роутерами FastAPI.
+3. Плагин подхватывается при старте бота через `importlib.metadata.entry_points`.
+
+### Работа с БД
+
+SQLAlchemy 2.0 (async), три слоя:
+
+- **модели** — `src/vkt_bot/core/models/`;
+- **репозитории** — `src/vkt_bot/core/repositories/`, наследуют
+  `AsyncRepository[Model, PK, CreateSchema, UpdateSchema]` (дженерики
+  выводятся автоматически);
+- **запросы** — `src/vkt_bot/core/queries/`, реализуют протокол `Query` с
+  методом `apply(stmt)` и комбинируются: `repository.query(Q1(), Q2())`.
+
+Сессии: в хендлерах бота — `async_session()` вручную, в веб-API — через
+зависимость `get_session()` из `webapp/dependencies.py`.
+
+### Веб-приложение (`src/vkt_bot/webapp/`)
+
+FastAPI. `app.py` собирает роутеры, `api/` — эндпоинты, `schemas/` — pydantic,
+`dependencies.py` — внедрение зависимостей. Документация на `/docs` и `/redoc`.
+
+Из неочевидного:
+
+- `api/overview.py` — счётчики и активность по дням для главной страницы.
+  Активность собирается из `log_entries` группировкой по `date(timestamp)`
+  (работает и в SQLite, и в PostgreSQL — типы возврата разные, приводятся в
+  `as_date`) и отдаётся только админам: журнал остальным недоступен.
+- `api/webhooks.py` — CRUD плюс отдельный публичный роутер для входящих
+  вызовов.
+- Зависимости доступа: `CurrentUser`, `CurrentAdminUser`, `CurrentOwnerUser`,
+  `SessionDep`.
+
+### Вход в панель и права
+
+Логина с паролем нет — панель авторизует бот. Команда `/login` в VK Teams
+возвращает одноразовый токен (5 минут) и ссылку на
+`{PUBLIC_URL}/login?token=...`; токен одноразовый и меняется на JWT в
+`POST /api/auth/login`.
+
+Права администратора дают либо `OWNER_ID` в `.env`, совпадающий с id
+пользователя VK Teams, либо флаг `is_superuser` в строке `ChatUser`. Строка
+создаётся при первом `/login`, и владелец там же получает `is_superuser = True`
+(`core/handlers/auth.py`) — права переживут смену `OWNER_ID`. Операция
+идемпотентна и попадает в журнал аудита. Отдельной таблицы пользователей нет:
+идентичность — это `ChatUser` с id VK Teams в качестве первичного ключа.
+
+### Конфигурация (`.env`, pydantic-settings)
+
+Обязательно: `BOT_TOKEN`, `DB_URL` (DSN PostgreSQL), `LOGGING` (уровень).
+
+Необязательно: `OWNER_ID`, `SECRET_KEY` (нужен для JWT веб-API),
+`PUBLIC_URL`, `SENTRY_DSN`, `ACCESS_TOKEN_EXPIRE_MINUTES` (по умолчанию
+8 дней), `LOG_FILE`, `RABBITMQ_LOGGING`, `MAX_FILE_SIZE` и
+`ALLOWED_FILE_TYPES` (50 МБ и белый список MIME по умолчанию).
+
+### Логи
+
+Логгеры: `vkt_bot.main` (приложение), `vkt_dispatcher` (фреймворк),
+`vkteams_client` с ветками `.events` и `.send_message` (клиент API).
+Настройка — `src/vkt_bot/loggers.py` и `src/vkt_bot/utils/log.py`; при
+заданном `LOG_FILE` добавляется файловый обработчик, который пишет тела
+ответов API в JSON.
+
+## Точки входа
+
+`src/vkt_bot/main.py` (`start_bot`, `start_server`, `shell`, `check_settings`),
+`src/vkt_bot/app.py` (глобальные `bot` и `dispatcher`),
+`src/vkt_bot/__init__.py` (`setup()`: логи, Sentry, загрузка плагинов).
+
+## Типовые задачи
+
+1. **Новый хендлер** — класс от подходящего базового, регистрация через
+   `@dispatcher.register_handler`, модуль в `src/vkt_bot/core/handlers/`
+   (не забыть импорт в `handlers/__init__.py`).
+2. **Новый плагин** — каталог в `plugins/`, `pyproject.toml` с entry point,
+   функция `install()`; подхватится на следующем старте.
+3. **Изменение схемы БД** — правка модели, `uv run alembic revision
+   --autogenerate -m "..."`, вычитка миграции, `uv run alembic upgrade head`.
+4. **Новый эндпоинт** — роут в `webapp/api/`, схемы в `webapp/schemas/`,
+   роутер в `webapp/app.py`, `CurrentAdminUser` для админских ручек; после
+   правки схем — `make generate_client`, иначе упадёт
+   `tests/webapp/test_openapi.py`.
+
+## Развёртывание
+
+`Dockerfile` и `docker-compose.yaml`; сборка через uv с `--all-packages`
+(монорепозиторий). PostgreSQL на 16432→5432, конфиг RabbitMQ закомментирован.
+Фронтенд собирается в статику через `pnpm build`.
