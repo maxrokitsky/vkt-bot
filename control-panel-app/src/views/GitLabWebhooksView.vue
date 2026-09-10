@@ -51,6 +51,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { useConfirm } from '@/composables/useConfirm'
 import { useListQuery } from '@/composables/useListQuery'
 import { formatRelative } from '@/lib/format'
 
@@ -60,7 +61,7 @@ const { page, pageSize, searchInput, search } = useListQuery()
 
 const creating = ref(false)
 const renaming = ref<GlWebhookRead | null>(null)
-const toDelete = ref<GlWebhookRead | null>(null)
+const { target: toDelete, open: deleteOpen, ask: askDelete } = useConfirm<GlWebhookRead>()
 
 const form = ref({ name: '', secret: '', chatId: '' })
 const newName = ref('')
@@ -215,7 +216,7 @@ function openRename(webhook: GlWebhookRead) {
                     Переименовать
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem variant="destructive" @click="toDelete = webhook">
+                  <DropdownMenuItem variant="destructive" @click="askDelete(webhook)">
                     <Trash2 />
                     Удалить
                   </DropdownMenuItem>
@@ -353,7 +354,7 @@ function openRename(webhook: GlWebhookRead) {
       </DialogContent>
     </Dialog>
 
-    <AlertDialog :open="toDelete !== null" @update:open="toDelete = null">
+    <AlertDialog v-model:open="deleteOpen">
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>

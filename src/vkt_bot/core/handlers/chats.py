@@ -18,6 +18,7 @@ from vkt_dispatcher.handlers import (
 from vkt_dispatcher.middleware import Middleware
 from vkt_bot.core.repositories.chat import ChatMembershipRepository, ChatRepository
 from vkt_bot.core.repositories.user import ChatUserRepository
+from vkt_bot.core.threads import autosubscribe_enabled, set_thread_autosubscribe
 from vkt_bot.app import dispatcher
 
 logger = logging.getLogger("vkt_bot")
@@ -87,6 +88,10 @@ class ChatMembersJoinedHandler(NewChatMembersHandler):
                 chat_id,
                 len(members),
             )
+            # Подписываемся на обсуждения чата, иначе события из тредов
+            # до бота не дойдут: у треда собственный chatId.
+            if await autosubscribe_enabled():
+                await set_thread_autosubscribe(bot, chat_id)
 
     async def fetch_roster(self, bot: VKTeams, chat_id: str) -> list[str]:
         """Состав чата по данным API. Ошибка не должна ронять обработчик."""

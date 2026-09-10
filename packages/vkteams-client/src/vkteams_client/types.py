@@ -113,7 +113,12 @@ class NewMessageEvent(BaseEvent[NewMessagePayload]):
     type: Literal[EventType.NEW_MESSAGE]
 
     def __str__(self) -> str:
-        return f"{self.eventId} (type: {self.type}, chatId: {self.payload.chat.chatId})"
+        # msgId нужен, чтобы по логу можно было разобрать проблему с
+        # конкретным сообщением: пересылку, правку, удаление.
+        return (
+            f"{self.eventId} (type: {self.type}, "
+            f"chatId: {self.payload.chat.chatId}, msgId: {self.payload.msgId})"
+        )
 
 
 class EditedMessageEvent(BaseEvent[EditedMessagePayload]):
@@ -191,6 +196,8 @@ class Response(BaseModel):
     """Ответ."""
 
     ok: bool
+    #: Причина отказа: приходит вместе с ``ok: false``.
+    description: str | None = None
 
 
 class EventsResponse(Response):
@@ -222,9 +229,12 @@ class GetMembersResponse(Response):
 
 
 class MsgResponse(Response):
-    """Ответ метода с msgId."""
+    """Ответ метода с msgId.
 
-    msgId: str
+    При ``ok: false`` идентификатора в ответе нет.
+    """
+
+    msgId: str | None = None
 
 
 class MsgLoadFileResponse(Response):
@@ -232,3 +242,32 @@ class MsgLoadFileResponse(Response):
 
     fileId: str
     msgId: str
+
+
+class ThreadAddResponse(Response):
+    """Ответ метода /threads/add.
+
+    При ``ok: false`` идентификатора в ответе нет.
+    """
+
+    threadId: str | None = None
+
+
+class UserState(BaseModel):
+    """Активность подписчика обсуждения."""
+
+    lastseen: int | None = None
+
+
+class Subscriber(BaseModel):
+    """Подписчик обсуждения."""
+
+    sn: str
+    userState: UserState | None = None
+
+
+class ThreadSubscribersResponse(Response):
+    """Ответ метода /threads/subscribers/get."""
+
+    subscribers: list[Subscriber] = Field(default_factory=list)
+    cursor: str | None = None

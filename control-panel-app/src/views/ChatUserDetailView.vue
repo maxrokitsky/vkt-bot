@@ -14,6 +14,7 @@ import {
   updateChatUserApiChatUsersUserIdPatchMutation,
 } from '@/client/@tanstack/vue-query.gen'
 import { useAuthStore } from '@/stores/auth'
+import { useConfirm } from '@/composables/useConfirm'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import PageSection from '@/components/layout/PageSection.vue'
 import CopyableId from '@/components/data/CopyableId.vue'
@@ -55,7 +56,11 @@ const isOwner = computed(() => authStore.isOwner)
 const isAdmin = computed(() => authStore.isAdmin)
 
 const addRoleOpen = ref(false)
-const roleToRemove = ref<{ id: string; name: string } | null>(null)
+const {
+  target: roleToRemove,
+  open: removeRoleOpen,
+  ask: askRemoveRole,
+} = useConfirm<{ id: string; name: string }>()
 
 const { data: user, isPending } = useQuery(
   computed(() =>
@@ -114,7 +119,6 @@ const removeRole = useMutation({
   onSuccess: () => {
     invalidateUser()
     toast.success(`Роль «${roleToRemove.value?.name}» снята`)
-    roleToRemove.value = null
   },
   onError: () => toast.error('Не удалось снять роль'),
 })
@@ -226,7 +230,7 @@ function confirmRemoveRole() {
               type="button"
               class="rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
               :aria-label="`Снять роль ${role.name}`"
-              @click="roleToRemove = { id: role.id, name: role.name }"
+              @click="askRemoveRole({ id: role.id, name: role.name })"
             >
               <X class="size-3" />
             </button>
@@ -287,7 +291,7 @@ function confirmRemoveRole() {
       </PageSection>
     </template>
 
-    <AlertDialog :open="roleToRemove !== null" @update:open="roleToRemove = null">
+    <AlertDialog v-model:open="removeRoleOpen">
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Снять роль «{{ roleToRemove?.name }}»?</AlertDialogTitle>

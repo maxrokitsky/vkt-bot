@@ -31,6 +31,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { useConfirm } from '@/composables/useConfirm'
 import { useListQuery } from '@/composables/useListQuery'
 import { plural } from '@/lib/plural'
 
@@ -42,7 +43,11 @@ const { page, pageSize } = useListQuery()
 
 /** `null` — диалог закрыт, объект без id — создание, с id — переименование. */
 const editing = ref<{ id?: string; name: string } | null>(null)
-const roleToDelete = ref<RoleResponse | null>(null)
+const {
+  target: roleToDelete,
+  open: deleteRoleOpen,
+  ask: askDeleteRole,
+} = useConfirm<RoleResponse>()
 
 const { data, isPending, isError, refetch } = useQuery(
   computed(() => listRolesApiRolesGetOptions({ query: { page: page.value, size: pageSize.value } })),
@@ -77,7 +82,6 @@ const deleteRole = useMutation({
   onSuccess: () => {
     invalidate()
     toast.success(`Роль «${roleToDelete.value?.name}» удалена`)
-    roleToDelete.value = null
   },
   onError: () => toast.error('Не удалось удалить роль'),
 })
@@ -155,7 +159,7 @@ function submit(name: string) {
                   Переименовать
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" @click="roleToDelete = role">
+                <DropdownMenuItem variant="destructive" @click="askDeleteRole(role)">
                   <Trash2 />
                   Удалить
                 </DropdownMenuItem>
@@ -183,7 +187,7 @@ function submit(name: string) {
       @close="editing = null"
     />
 
-    <AlertDialog :open="roleToDelete !== null" @update:open="roleToDelete = null">
+    <AlertDialog v-model:open="deleteRoleOpen">
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Удалить роль «{{ roleToDelete?.name }}»?</AlertDialogTitle>

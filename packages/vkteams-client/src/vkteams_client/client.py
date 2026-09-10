@@ -1,5 +1,6 @@
 import json
 import logging
+from collections.abc import AsyncIterator
 from typing import Any, Literal
 
 import aiohttp
@@ -11,10 +12,17 @@ from .types import (
     MsgLoadFileResponse,
     MsgResponse,
     Response,
+    Subscriber,
+    ThreadAddResponse,
+    ThreadSubscribersResponse,
 )
 from .loggers import events_logger, send_message_logger
 
 logger = logging.getLogger("teams_bot.client")
+
+
+class ThreadSubscribersError(RuntimeError):
+    """Сервер отказал в выдаче подписчиков обсуждения."""
 
 
 async def log_response(response: aiohttp.ClientResponse) -> dict[str, Any]:
@@ -25,6 +33,11 @@ async def log_response(response: aiohttp.ClientResponse) -> dict[str, Any]:
         "body": await response.json(),
         "method": response.method,
     }
+
+
+def _query_bool(value: bool) -> str:  # noqa: FBT001
+    """Булев query-параметр: aiohttp сам `bool` в строку не превращает."""
+    return "true" if value else "false"
 
 
 class VKTeams:
@@ -74,8 +87,16 @@ class VKTeams:
         forward_chat_id: str | None = None,
         parse_mode: Literal["MarkdownV2", "HTML"] | None = None,
         inline_keyboard_markup: Any = None,
-    ) -> None:
-        """Отправить текстовое сообщение."""
+    ) -> MsgResponse:
+        """Отправить текстовое сообщение.
+
+        Отдельного метода для обсуждений нет: у треда свой ``chatId``
+        (``threads_add`` отдаёт его в ``threadId``), поэтому сообщение в
+        тред — обычный ``sendText`` с ``chat_id=thread_id``.
+
+        Отказ сервера (``ok: false``) исключением не является: он
+        возвращается вызывающему и пишется в лог как ошибка.
+        """
         path = "/messages/sendText"
 
         params: dict[str, str] = {
@@ -98,12 +119,25 @@ class VKTeams:
             params=params,
             timeout=aiohttp.ClientTimeout(30),
         ) as response:
-            send_message_logger.info(
-                "Сообщение отправлено (chatId: %s, text: %r)",
-                chat_id,
-                text[:50],
-                extra=await log_response(response),
-            )
+            response_body = await response.text()
+            result = MsgResponse.model_validate_json(response_body)
+            extra = await log_response(response)
+            if result.ok:
+                send_message_logger.info(
+                    "Сообщение отправлено (chatId: %s, text: %r)",
+                    chat_id,
+                    text[:50],
+                    extra=extra,
+                )
+            else:
+                send_message_logger.error(
+                    "Сообщение НЕ отправлено (chatId: %s, text: %r, причина: %s)",
+                    chat_id,
+                    text[:50],
+                    result.description,
+                    extra=extra,
+                )
+            return result
 
     async def edit_text(
         self,
@@ -112,8 +146,8 @@ class VKTeams:
         text: str,
         parse_mode: Literal["MarkdownV2", "HTML"] | None = None,
         inline_keyboard_markup: Any = None,
-    ) -> None:
-        """Отправить текстовое сообщение."""
+    ) -> MsgResponse:
+        """Отредактировать сообщение."""
         path = "/messages/editText"
 
         params: dict[str, str] = {
@@ -132,10 +166,19 @@ class VKTeams:
             params=params,
             timeout=aiohttp.ClientTimeout(30),
         ) as response:
-            logger.debug(
-                "Сообщение отредактировано",
-                extra=await log_response(response),
-            )
+            response_body = await response.text()
+            result = MsgResponse.model_validate_json(response_body)
+            extra = await log_response(response)
+            if result.ok:
+                logger.debug("Сообщение отредактировано", extra=extra)
+            else:
+                logger.error(
+                    "Сообщение НЕ отредактировано (chatId: %s, причина: %s)",
+                    chat_id,
+                    result.description,
+                    extra=extra,
+                )
+            return result
 
     async def answer_callback_query(
         self,
@@ -205,6 +248,126 @@ class VKTeams:
                 extra=await log_response(response),
             )
             return result
+
+    async def threads_add(self, chat_id: str, msg_id: str) -> ThreadAddResponse:
+        """Создать обсуждение (тред) к сообщению чата.
+
+        Бот должен быть участником чата. Возвращённый ``threadId`` — это
+        полноценный ``chatId``: в тред пишут обычным ``send_text``.
+        """
+        path = "/threads/add"
+
+        params = {"token": self.token, "chatId": chat_id, "msgId": msg_id}
+        async with self.session.get(
+            url=self.base_url + path,
+            params=params,
+            timeout=aiohttp.ClientTimeout(30),
+        ) as response:
+            response_body = await response.text()
+            result = ThreadAddResponse.model_validate_json(response_body)
+            logger.debug(
+                "Обсуждение создано",
+                extra=await log_response(response),
+            )
+            return result
+
+    async def threads_autosubscribe(
+        self,
+        chat_id: str,
+        enable: bool,
+        with_existing: bool | None = None,
+    ) -> Response:
+        """Управлять автоподпиской бота на обсуждения чата.
+
+        При включённой автоподписке бот сам подписывается на новые треды и
+        получает из них события. ``with_existing=True`` добавляет к ним уже
+        существующие треды чата. Бот должен быть участником чата.
+        """
+        path = "/threads/autosubscribe"
+
+        params = {
+            "token": self.token,
+            "chatId": chat_id,
+            "enable": _query_bool(enable),
+        }
+        if with_existing is not None:
+            params["withExisting"] = _query_bool(with_existing)
+
+        async with self.session.get(
+            url=self.base_url + path,
+            params=params,
+            timeout=aiohttp.ClientTimeout(30),
+        ) as response:
+            response_body = await response.text()
+            result = Response.model_validate_json(response_body)
+            logger.debug(
+                "Автоподписка на обсуждения",
+                extra=await log_response(response),
+            )
+            return result
+
+    async def threads_subscribers_get(
+        self,
+        thread_id: str,
+        page_size: int | None = None,
+        cursor: str | None = None,
+    ) -> ThreadSubscribersResponse:
+        """Получить страницу подписчиков обсуждения.
+
+        Хотя бы один из ``page_size`` и ``cursor`` обязателен: без них
+        сервер отвечает ``Bad request``.
+
+        Постраничный обход удобнее делать через ``iter_thread_subscribers``.
+        """
+        if page_size is None and cursor is None:
+            msg = "Нужен page_size или cursor"
+            raise ValueError(msg)
+
+        path = "/threads/subscribers/get"
+
+        params: dict[str, str | int] = {"token": self.token, "threadId": thread_id}
+        if page_size is not None:
+            params["pageSize"] = page_size
+        if cursor is not None:
+            params["cursor"] = cursor
+
+        async with self.session.get(
+            url=self.base_url + path,
+            params=params,
+            timeout=aiohttp.ClientTimeout(30),
+        ) as response:
+            response_body = await response.text()
+            result = ThreadSubscribersResponse.model_validate_json(response_body)
+            logger.debug(
+                "Подписчики обсуждения",
+                extra=await log_response(response),
+            )
+            return result
+
+    async def iter_thread_subscribers(
+        self,
+        thread_id: str,
+        page_size: int = 100,
+    ) -> AsyncIterator[Subscriber]:
+        """Все подписчики обсуждения с автопагинацией по ``cursor``."""
+        cursor: str | None = None
+        while True:
+            page = await self.threads_subscribers_get(
+                thread_id=thread_id,
+                page_size=page_size,
+                cursor=cursor,
+            )
+            if not page.ok:
+                # Иначе отказ неотличим от обсуждения без подписчиков.
+                msg = page.description or "Не удалось получить подписчиков"
+                raise ThreadSubscribersError(msg)
+
+            for subscriber in page.subscribers:
+                yield subscriber
+            # Страница без курсора или без подписчиков — конец списка.
+            if not page.cursor or not page.subscribers:
+                return
+            cursor = page.cursor
 
     async def delete_messages(self, chat_id: str, msg_id: str) -> Response:
         """Получить информацию о боте."""

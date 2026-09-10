@@ -1693,11 +1693,15 @@ name = "vkt-dispatcher"
 version = "0.1.0"
 source = { editable = "packages/vkt-dispatcher" }
 dependencies = [
+    { name = "aiohttp" },
     { name = "vkteams-client" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "vkteams-client", editable = "packages/vkteams-client" }]
+requires-dist = [
+    { name = "aiohttp" },
+    { name = "vkteams-client", editable = "packages/vkteams-client" },
+]
 
 [[package]]
 name = "vkt-gitlab"

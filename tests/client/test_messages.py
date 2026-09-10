@@ -120,21 +120,47 @@ class TestSendText:
             "text",
         }
 
-    async def test_returns_none(
+    async def test_returns_msg_id(
         self, vkteams: VKTeams, ok_send_text: aioresponses
     ) -> None:
-        """``msgId`` из ответа теряется — см. ROADMAP 3.3."""
-        assert await vkteams.send_text("chat", "text") is None
+        result = await vkteams.send_text("chat", "text")
+
+        assert result.ok is True
+        assert result.msgId == "1"
 
     async def test_error_response_does_not_raise(
         self, vkteams: VKTeams, mock_api: aioresponses
     ) -> None:
-        """Клиент не проверяет ``ok`` — ошибка отправки проходит незамеченной."""
+        """Отказ сервера возвращается вызывающему, а не бросается."""
         mock_api.get(
             url_for("/messages/sendText"),
             payload={"ok": False, "description": "Chat not found"},
         )
-        assert await vkteams.send_text("chat", "text") is None
+
+        result = await vkteams.send_text("chat", "text")
+
+        assert result.ok is False
+        assert result.description == "Chat not found"
+        assert result.msgId is None
+
+    async def test_error_response_is_logged(
+        self,
+        vkteams: VKTeams,
+        mock_api: aioresponses,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Отказ не должен выглядеть в логах как успешная отправка."""
+        mock_api.get(
+            url_for("/messages/sendText"),
+            payload={"ok": False, "description": "Chat not found"},
+        )
+
+        with caplog.at_level("INFO", logger="vkteams_client.send_message"):
+            await vkteams.send_text("chat", "text")
+
+        (record,) = caplog.records
+        assert record.levelname == "ERROR"
+        assert "Chat not found" in record.getMessage()
 
     async def test_logs_truncated_text(
         self,
@@ -191,9 +217,28 @@ class TestEditText:
         (request,) = requests_to(ok_edit, EDIT_TEXT)
         assert request.kwargs["timeout"].total == 30
 
-    async def test_returns_none(self, vkteams: VKTeams, ok_edit: aioresponses) -> None:
-        """``msgId`` не возвращается — см. ROADMAP 3.3."""
-        assert await vkteams.edit_text("chat", "msg-1", "текст") is None
+    async def test_returns_response(
+        self, vkteams: VKTeams, ok_edit: aioresponses
+    ) -> None:
+        result = await vkteams.edit_text("chat", "msg-1", "текст")
+        assert result.ok is True
+
+    async def test_error_response_is_logged(
+        self,
+        vkteams: VKTeams,
+        mock_api: aioresponses,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        mock_api.get(
+            url_for("/messages/editText"),
+            payload={"ok": False, "description": "Message not found"},
+        )
+
+        with caplog.at_level("DEBUG", logger="teams_bot.client"):
+            result = await vkteams.edit_text("chat", "msg-1", "текст")
+
+        assert result.ok is False
+        assert "Message not found" in caplog.text
 
 
 class TestAnswerCallbackQuery:

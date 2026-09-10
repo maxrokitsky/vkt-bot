@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any
 
+import aiohttp
 import pytest
 from vkt_dispatcher import Dispatcher
 from vkt_dispatcher.filters import Filter
@@ -402,6 +403,70 @@ class TestPolling:
             await dispatcher.start_polling()
 
         assert dispatcher.last_event_id == 100
+
+    async def test_network_error_does_not_stop_polling(
+        self, dispatcher: Dispatcher, log: list[str]
+    ) -> None:
+        """Таймаут long-poll раньше завершал процесс бота."""
+        from vkteams_client.types import EventsResponse
+
+        dispatcher.RETRY_DELAYS = (0,)
+        outcomes: list[Any] = [
+            TimeoutError(),
+            aiohttp.ClientConnectionError("оборвалось"),
+            EventsResponse.model_validate(events_response("new_message")),
+            RuntimeError("хватит"),
+        ]
+
+        async def get_events(**_: Any) -> EventsResponse:
+            outcome = outcomes.pop(0)
+            if isinstance(outcome, BaseException):
+                raise outcome
+            return outcome
+
+        dispatcher.bot.get_events = get_events  # type: ignore[attr-defined]
+        dispatcher.register_handler(Recorder(log, "handler", filters=Filter.message))
+
+        with pytest.raises(RuntimeError, match="хватит"):
+            await dispatcher.start_polling()
+
+        assert log == ["handler"]
+        assert dispatcher.last_event_id == 1
+
+    async def test_retry_delay_grows(
+        self, dispatcher: Dispatcher, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        delays: list[float] = []
+
+        async def fake_sleep(delay: float) -> None:
+            delays.append(delay)
+
+        monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+
+        async def get_events(**_: Any) -> Any:  # noqa: ANN401
+            if len(delays) < 3:
+                raise TimeoutError
+            msg = "хватит"
+            raise RuntimeError(msg)
+
+        dispatcher.bot.get_events = get_events  # type: ignore[attr-defined]
+
+        with pytest.raises(RuntimeError, match="хватит"):
+            await dispatcher.start_polling()
+
+        assert delays == list(dispatcher.RETRY_DELAYS[:3])
+
+    async def test_code_errors_still_propagate(self, dispatcher: Dispatcher) -> None:
+        """Ошибка не сетевая — поднимаем, а не крутим бесконечный повтор."""
+
+        async def get_events(**_: Any) -> Any:  # noqa: ANN401
+            msg = "сломалось"
+            raise ValueError(msg)
+
+        dispatcher.bot.get_events = get_events  # type: ignore[attr-defined]
+
+        with pytest.raises(ValueError, match="сломалось"):
+            await dispatcher.start_polling()
 
     async def test_poll_time_is_20_seconds(self, dispatcher: Dispatcher) -> None:
         calls: list[dict[str, Any]] = []

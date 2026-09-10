@@ -204,7 +204,10 @@ class TestEventStr:
 
     def test_new_message_str_includes_chat(self) -> None:
         event = make_event("new_message")
-        assert str(event) == "1 (type: newMessage, chatId: 681869378@chat.agent)"
+        assert str(event) == (
+            "1 (type: newMessage, chatId: 681869378@chat.agent, "
+            "msgId: 6752739791872001111)"
+        )
 
     def test_base_event_str(self) -> None:
         event = make_event("deleted_message")

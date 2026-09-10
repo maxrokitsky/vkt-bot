@@ -2,7 +2,9 @@ import asyncio
 import contextlib
 import inspect
 from collections.abc import AsyncGenerator, Callable, Coroutine, Generator
-from typing import Any
+from typing import Any, ClassVar
+
+import aiohttp
 
 from .handlers import HandlerBase
 from .middleware import Middleware
@@ -26,6 +28,8 @@ class Dispatcher:
 
     bot: VKTeams
     last_event_id: int = 0
+    #: Паузы между повторами опроса событий после сетевой ошибки, секунды.
+    RETRY_DELAYS: ClassVar[tuple[int, ...]] = (1, 2, 5, 10, 30)
     lyfecycle_hooks: list[AsyncGenerator[None]]
     tasks: list[asyncio.Task[Any]]
 
@@ -48,11 +52,32 @@ class Dispatcher:
             await self.bot.close()
 
     async def start_polling(self) -> None:
-        """Start polling."""
+        """Опрашивать события, переживая обрывы сети.
+
+        Long-poll регулярно заканчивается таймаутом или разрывом соединения.
+        Раньше любая такая ошибка завершала процесс бота, поэтому сетевые
+        сбои гасятся здесь с нарастающей паузой. Ошибки в самом коде
+        (не сетевые) по-прежнему поднимаются наружу.
+        """
+        failures = 0
         while True:
-            response = await self.bot.get_events(
-                last_event_id=self.last_event_id, poll_time=20
-            )
+            try:
+                response = await self.bot.get_events(
+                    last_event_id=self.last_event_id, poll_time=20
+                )
+            except (TimeoutError, OSError, aiohttp.ClientError):
+                delay = self.RETRY_DELAYS[min(failures, len(self.RETRY_DELAYS) - 1)]
+                failures += 1
+                main_logger.warning(
+                    "Опрос событий не удался (попытка %s). Повтор через %s с.",
+                    failures,
+                    delay,
+                    exc_info=True,
+                )
+                await asyncio.sleep(delay)
+                continue
+
+            failures = 0
             for event in response.events:
                 await self.trigger(event)
                 self.last_event_id = max(self.last_event_id, event.eventId)
