@@ -7,7 +7,7 @@ from pydantic import TypeAdapter
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from vkteams_client import ThreadSubscribersError, VKTeams
+from vkteams_client import VKTeams
 from vkteams_client.types import CallbackQueryEvent, NewMessageEvent
 from vkteams_client.types import Chat as ChatPayload
 from vkt_bot.db.session import async_session
@@ -373,50 +373,66 @@ class NotifyRoleIsTaggedHandler(MessageHandler):
                         user.id,
                         text,
                         event,
-                        may_see_content=user.id in audience,
+                        may_see_content=audience is None or user.id in audience,
                     )
             except Exception:
                 logger.exception("error")
 
     async def audience(
         self, bot: VKTeams, session: AsyncSession, chat_id: str
-    ) -> set[str]:
-        """Кому исходное сообщение и так доступно.
+    ) -> set[str] | None:
+        """Кому исходное сообщение и так доступно; ``None`` — проверить нечем.
 
         Роль глобальна, а чат — нет: носитель роли может не состоять в
-        источнике. Для обсуждения список даёт ``threads/subscribers/get``,
-        для обычного чата — таблица членства. Если подписчиков узнать не
-        удалось, остаётся членство: для треда строк там нет, то есть
-        доступ никому не подтвердится и тело сообщения не уйдёт. Так и
-        нужно — при неизвестном составе лучше промолчать.
+        источнике, поэтому в обычном чате тело сообщения уходит только
+        участникам — их даёт таблица членства.
+
+        С обсуждением так не выходит. Читать тред может любой участник
+        родительского чата, а ``threads/subscribers/get`` отдаёт лишь
+        подписчиков: бота и тех, кто в обсуждение уже влез. Проверка по
+        этому списку отказывала почти всем, а пересылка из треда не
+        проходит вовсе — носитель роли получал голое «Вас упомянули».
+        Родительский чат по треду не узнать: ссылки на него нет ни в
+        событии, ни в API. Поэтому в обсуждении проверять нечем — текст
+        уходит всем носителям роли.
         """
-        subscribers = await self.thread_subscribers(bot, chat_id)
-        if subscribers is not None:
-            return subscribers
+        if await self.is_thread(bot, chat_id):
+            return None
         return await ChatMembershipRepository(session).user_ids(chat_id)
 
-    async def thread_subscribers(self, bot: VKTeams, chat_id: str) -> set[str] | None:
-        """Подписчики обсуждения или ``None``, если состав неизвестен.
+    async def is_thread(self, bot: VKTeams, chat_id: str) -> bool:
+        """Обсуждение ли этот чат.
 
-        Отказ ``Incorrect threadId`` — это ответ «перед нами не
-        обсуждение, а обычный чат», и он ожидаем: каждое сообщение
-        проходит здесь. Всё остальное — сбой: сеть, права или ошибка в
-        нашем коде. Различать их важно, иначе поломка выглядит как
-        обычный чат и молча уходит в debug.
+        По виду ``chatId`` тред от группы не отличить; единственная
+        проверка — ответ API: для обычного чата ``threads/subscribers/get``
+        отказывает с ``Incorrect threadId``. Сам список подписчиков не
+        нужен, поэтому просим одну страницу, а не обходим все.
+
+        Этот отказ ожидаем — через проверку идёт каждое сообщение обычного
+        чата. Всё остальное — сбой: сеть, права или ошибка в нашем коде.
+        Различать их важно, иначе поломка выглядит как обычный чат и молча
+        уходит в debug. При сбое отвечаем «обычный чат»: проверка по
+        членству строже, и ошибаться лучше в эту сторону.
         """
         try:
-            return {s.sn async for s in bot.iter_thread_subscribers(chat_id)}
-        except ThreadSubscribersError as err:
-            if NOT_A_THREAD in str(err).lower():
-                logger.debug("Чат %s не обсуждение", chat_id)
-            else:
-                logger.warning("Подписчики обсуждения %s недоступны: %s", chat_id, err)
-            return None
+            page = await bot.threads_subscribers_get(chat_id, page_size=1)
         except Exception:
             logger.warning(
-                "Не удалось получить подписчиков чата %s", chat_id, exc_info=True
+                "Не удалось проверить, обсуждение ли чат %s", chat_id, exc_info=True
             )
-            return None
+            return False
+
+        if page.ok:
+            return True
+
+        description = page.description or ""
+        if NOT_A_THREAD in description.lower():
+            logger.debug("Чат %s не обсуждение", chat_id)
+        else:
+            logger.warning(
+                "Проверка обсуждения %s не удалась: %s", chat_id, description
+            )
+        return False
 
     async def notify(
         self,

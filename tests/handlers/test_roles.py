@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -19,7 +19,11 @@ from vkt_bot.core.handlers.roles import (
     NotifyRoleIsTaggedHandler,
     RevokeRoleHandler,
 )
-from vkteams_client.types import MsgResponse, Subscriber
+from vkteams_client.types import (
+    MsgResponse,
+    Subscriber,
+    ThreadSubscribersResponse,
+)
 
 from vkt_bot.core.models import Role, RoleAssignment
 from vkt_bot.core.repositories.chat import ChatMembershipRepository
@@ -665,6 +669,7 @@ class TestNotifyRoleIsTagged:
         fake_bot.results["send_text"] = MsgResponse(
             ok=False, description="Forward is not allowed"
         )
+        fake_bot.results["threads_subscribers_get"] = ThreadSubscribersResponse(ok=True)
 
         await NotifyRoleIsTaggedHandler.handle(
             make_event("new_message_in_thread", text="тест #devs"), dispatcher
@@ -710,49 +715,71 @@ class TestNotifyRoleIsTagged:
     async def test_body_is_hidden_from_outsiders(
         self, dispatcher: Dispatcher, fake_bot: FakeBot, session: AsyncSession
     ) -> None:
-        """Роль глобальна: носитель может не состоять в чате-источнике."""
+        """Роль глобальна: носитель может не состоять в чате-источнике.
+
+        Проверка работает там, где состав известен, — в обычном чате.
+        """
         role = await create_role(session, "devs")
         user = await create_chat_user(session, "outsider@example.com")
         await assign_role(session, user.id, role.id)
         fake_bot.results["send_text"] = MsgResponse(ok=False, description="Bad request")
 
         await NotifyRoleIsTaggedHandler.handle(
-            make_event("new_message_in_thread", text="секрет #devs"), dispatcher
+            make_event("new_message", text="секрет #devs"), dispatcher
         )
 
         _, plain = fake_bot.sent
-        assert plain.kwargs["text"] == "Вас упомянули"
         assert "секрет" not in plain.kwargs["text"]
 
-    async def test_subscribers_failure_is_not_a_regular_chat(
+    async def test_thread_check_failure_is_visible_in_logs(
         self,
         dispatcher: Dispatcher,
         fake_bot: FakeBot,
         session: AsyncSession,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        """Сбой запроса подписчиков — не «перед нами обычный чат».
+        """Сбой проверки — не «перед нами обычный чат».
 
         Раньше любая ошибка уходила в ``debug`` и была неотличима от
-        ответа «это не тред»: состав обсуждения молча подменялся пустым
-        членством, и носители роли получали уведомление без текста.
-        Теперь такой сбой виден в логах.
+        ответа «это не тред». Отвечаем мы всё равно «обычный чат» —
+        проверка по членству строже, — но в логах это видно.
         """
         role = await create_role(session, "devs")
-        user = await create_chat_user(session, "u@example.com")
+        user = await create_chat_user(session, "outsider@example.com")
         await assign_role(session, user.id, role.id)
-        fake_bot.errors["iter_thread_subscribers"] = TimeoutError("нет связи")
+        fake_bot.errors["threads_subscribers_get"] = TimeoutError("нет связи")
         fake_bot.results["send_text"] = MsgResponse(ok=False, description="Bad request")
 
         with caplog.at_level(logging.WARNING, logger="teams_bot.handlers.roles"):
             await NotifyRoleIsTaggedHandler.handle(
-                make_event("new_message_in_thread", text="секрет #devs"), dispatcher
+                make_event("new_message", text="секрет #devs"), dispatcher
             )
 
-        assert "Не удалось получить подписчиков" in caplog.text
-        # Состав неизвестен — тело сообщения не уходит.
+        assert "Не удалось проверить, обсуждение ли чат" in caplog.text
         _, plain = fake_bot.sent
         assert "секрет" not in plain.kwargs["text"]
+
+    async def test_refusal_other_than_not_a_thread_is_logged(
+        self,
+        dispatcher: Dispatcher,
+        fake_bot: FakeBot,
+        session: AsyncSession,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Отказ не про ``Incorrect threadId`` — повод для warning."""
+        role = await create_role(session, "devs")
+        user = await create_chat_user(session, "u@example.com")
+        await assign_role(session, user.id, role.id)
+        fake_bot.results["threads_subscribers_get"] = ThreadSubscribersResponse(
+            ok=False, description="Forbidden"
+        )
+
+        with caplog.at_level(logging.WARNING, logger="teams_bot.handlers.roles"):
+            await NotifyRoleIsTaggedHandler.handle(
+                make_event("new_message", text="#devs"), dispatcher
+            )
+
+        assert "Проверка обсуждения" in caplog.text
 
     async def test_regular_chat_does_not_look_like_a_failure(
         self,
@@ -776,21 +803,25 @@ class TestNotifyRoleIsTagged:
 
         assert [r for r in caplog.records if r.name == "teams_bot.handlers.roles"] == []
 
-    async def test_thread_subscriber_sees_the_body(
+    async def test_thread_body_goes_to_every_role_holder(
         self, dispatcher: Dispatcher, fake_bot: FakeBot, session: AsyncSession
     ) -> None:
-        """Членства у обсуждения нет — доступ подтверждают его подписчики."""
+        """В обсуждении доступ проверить нечем — текст уходит всем.
+
+        Подписчики треда — не его читатели: подписка опт-ин, а читать
+        обсуждение может любой участник родительского чата. Пока доступ
+        сверялся с этим списком, носитель роли получал в обсуждении голое
+        «Вас упомянули»: членства у ``chatId`` треда нет, а пересылка из
+        треда не проходит.
+        """
         role = await create_role(session, "devs")
         user = await create_chat_user(session, "u@example.com")
         await assign_role(session, user.id, role.id)
         fake_bot.results["send_text"] = MsgResponse(ok=False, description="Bad request")
-
-        async def subscribers(chat_id: str) -> Any:
-            assert chat_id == "2601@chat.agent"
-            for sn in (user.id, "someone@example.com"):
-                yield Subscriber(sn=sn)
-
-        fake_bot.iter_thread_subscribers = subscribers  # type: ignore[attr-defined]
+        # Носителя роли среди подписчиков нет, и в ``chat_memberships`` тоже.
+        fake_bot.results["threads_subscribers_get"] = ThreadSubscribersResponse(
+            ok=True, subscribers=[Subscriber(sn="someone@example.com")]
+        )
 
         await NotifyRoleIsTaggedHandler.handle(
             make_event("new_message_in_thread", text="тест #devs"), dispatcher
@@ -798,3 +829,20 @@ class TestNotifyRoleIsTagged:
 
         _, plain = fake_bot.sent
         assert "тест #devs" in plain.kwargs["text"]
+        assert "Иван Иванов" in plain.kwargs["text"]
+
+    async def test_thread_check_asks_for_a_single_page(
+        self, dispatcher: Dispatcher, fake_bot: FakeBot, session: AsyncSession
+    ) -> None:
+        """Нужен только факт «это тред», а не список подписчиков."""
+        role = await create_role(session, "devs")
+        user = await create_chat_user(session, "u@example.com")
+        await assign_role(session, user.id, role.id)
+
+        await NotifyRoleIsTaggedHandler.handle(
+            make_event("new_message_in_thread", text="#devs"), dispatcher
+        )
+
+        (check,) = fake_bot.calls_of("threads_subscribers_get")
+        assert check.arg(0, "thread_id") == "2601@chat.agent"
+        assert check.kwargs["page_size"] == 1

@@ -34,6 +34,8 @@ from sqlalchemy.ext.asyncio import (  # noqa: E402
     create_async_engine,
 )
 
+from vkteams_client.types import ThreadSubscribersResponse  # noqa: E402
+
 from vkt_bot.db.base import Model  # noqa: E402
 from vkt_bot.db.session import async_session  # noqa: E402
 
@@ -210,8 +212,16 @@ class FakeBot:
 
     def __init__(self) -> None:
         self.calls: list[BotCall] = []
-        self.results: dict[str, Any] = {}
         self.errors: dict[str, BaseException] = {}
+        self.results: dict[str, Any] = {
+            # Так API отвечает на ``threads/subscribers/get`` для обычного
+            # чата. Через эту проверку проходит каждое сообщение: по виду
+            # ``chatId`` тред от группы не отличить. Обсуждение задаётся
+            # ответом ``ok=True``.
+            "threads_subscribers_get": ThreadSubscribersResponse(
+                ok=False, description="Incorrect threadId"
+            ),
+        }
 
     def _record(
         self, method: str, args: tuple[Any, ...], kwargs: dict[str, Any]
@@ -235,26 +245,6 @@ class FakeBot:
     def texts(self) -> list[str]:
         """Тексты отправленных сообщений."""
         return [call.text for call in self.sent]
-
-    def iter_thread_subscribers(self, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
-        """Подписчики обсуждения — асинхронный итератор, а не корутина.
-
-        По умолчанию отвечает как API для обычного чата: отказом
-        ``Incorrect threadId``. Подписчиков задаёт
-        ``results["iter_thread_subscribers"]``, сбой —
-        ``errors["iter_thread_subscribers"]``.
-        """
-        from vkteams_client import ThreadSubscribersError
-
-        subscribers = self._record("iter_thread_subscribers", args, kwargs)
-
-        async def generator() -> Any:  # noqa: ANN401
-            if subscribers is None:
-                raise ThreadSubscribersError("Incorrect threadId")
-            for subscriber in subscribers:
-                yield subscriber
-
-        return generator()
 
     def __getattr__(self, method: str) -> Any:  # noqa: ANN401
         if method.startswith("_"):
