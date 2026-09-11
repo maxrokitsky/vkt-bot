@@ -197,7 +197,15 @@ async def _session_row(db: AsyncSession, request: SessionRequest) -> AgentSessio
 
     # Внешний ключ на ``chat_users``: поток сообщений строк там не
     # создаёт, поэтому участника заводим сами.
-    await ChatUserRepository(db).get_or_create(request.user_id)
+    user = await ChatUserRepository(db).get_or_create(request.user_id)
+    # Своим flush, до вставки сессии. Порядок вставок SQLAlchemy выводит из
+    # связей между моделями, а связи здесь нет — только колонка с внешним
+    # ключом, — и обе строки уходили одним flush в произвольном порядке.
+    # На SQLite это проходило (внешние ключи там по умолчанию не
+    # проверяются), а PostgreSQL отвечал ForeignKeyViolation: первый же
+    # вопрос от незнакомого участника срывался.
+    await db.flush()
+
     row = await sessions.create(
         {
             "chat_id": request.chat_id,
@@ -209,7 +217,7 @@ async def _session_row(db: AsyncSession, request: SessionRequest) -> AgentSessio
     await emit(
         db,
         ai_events.SESSION_STARTED,
-        actor=Actor.from_user(await ChatUserRepository(db).get(request.user_id)),
+        actor=Actor.from_user(user),
         chat_id=request.chat_id,
         entity=(ai_events.ENTITY_AGENT_SESSION, str(row.id)),
         payload={"question": request.question[:200]},

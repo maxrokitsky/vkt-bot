@@ -128,16 +128,26 @@ def is_postgres(db_url: str) -> bool:
 
 
 def _fix_sqlite_transactions(engine: AsyncEngine) -> None:
-    """Заставить pysqlite вести транзакции честно.
+    """Заставить pysqlite вести транзакции честно и проверять внешние ключи.
 
     Драйвер по умолчанию сам решает, когда открывать транзакцию, из-за чего
     ``RELEASE SAVEPOINT`` коммитит внешнюю транзакцию и откат после теста
     перестаёт работать. Рецепт из документации SQLAlchemy.
+
+    ``PRAGMA foreign_keys`` в SQLite по умолчанию **выключена**, и без неё
+    локальный прогон мягче боевого PostgreSQL: нарушение внешнего ключа
+    проходит молча и всплывает только в CI. Один такой баг так и нашёлся —
+    сессия агента вставлялась раньше участника, на которого ссылается.
+    Пусть тесты будут строгими там же, где строгая база.
     """
 
     @sa.event.listens_for(engine.sync_engine, "connect")
     def _disable_implicit_begin(dbapi_connection: Any, record: Any) -> None:  # noqa: ANN401, ARG001
         dbapi_connection.isolation_level = None
+        cursor = dbapi_connection.cursor()
+        # Только вне транзакции: внутри неё PRAGMA молча ничего не делает.
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
     @sa.event.listens_for(engine.sync_engine, "begin")
     def _explicit_begin(conn: Any) -> None:  # noqa: ANN401
