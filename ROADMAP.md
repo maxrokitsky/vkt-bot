@@ -380,7 +380,9 @@ SQLite (по умолчанию, без внешних сервисов), и н�
 - `UnpinnedMessagePayload` — `chat`, `msgId`, `timestamp`.
 
 Плюс: `chat` в `CallbackQueryEventPayload` (в спеке есть, у нас нет),
-`about` и `photo` в `GetSelfResponse`.
+`about` и `photo` в `GetSelfResponse` — последнее бессмысленно: `self/get`
+их не возвращает, проверено на живом стенде. Своё описание и аватар бот
+узнаёт через `chats/getInfo` по собственному `userId`.
 
 Сделано: `LeftChatMembersPayload` и `ChangedChatInfoPayload` — потребовались
 для учёта состава чатов. `changedChatInfo` в документации отсутствует,
@@ -398,9 +400,12 @@ SQLite (по умолчанию, без внешних сервисов), и н�
 
 1. `files/getInfo` → `{type, size, filename, url}` — без него нельзя скачать
    вложение по `fileId`. Нужен для любой работы с файлами от пользователей.
-2. `chats/getInfo` — `oneOf` private / group / channel. У private есть `nick`,
-   `about`, `isBot`, `language`; у group и channel — `title`, `about`, `rules`,
-   `inviteLink`, `public`, `joinModeration`.
+2. ~~`chats/getInfo`~~ — ✅ сделано. Разбор — объединение по `type` с
+   фолбэком на отказ и незнакомый вид чата; поверх него —
+   `core/chatinfo.py`: профили участников из ростера, описания чатов,
+   аватары в панели и инструменты агента `chat_info` / `user_info`.
+   Недокументированное поле `photo` и границы применимости описаны в
+   CLAUDE.md («Профили и аватары»).
 3. `chats/getAdmins`.
 4. `chats/sendActions` (`typing` / `looking`) — заметно улучшает UX долгих
    операций. Звать каждые 10 секунд, пока действие активно.
