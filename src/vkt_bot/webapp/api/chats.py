@@ -103,6 +103,11 @@ async def get_chat(
         id=chat.id,
         type=chat.type,
         title=chat.title,
+        about=chat.about,
+        rules=chat.rules,
+        invite_link=chat.invite_link,
+        public=chat.public,
+        join_moderation=chat.join_moderation,
         member_count=member_count or 0,
         webhook_count=webhook_count or 0,
     )

@@ -26,6 +26,7 @@ class RoleMemberResponse(BaseModel):
     user_id: str
     display_name: str
     is_bot: bool
+    photo_url: str | None
 
     model_config = ConfigDict(from_attributes=True)
 

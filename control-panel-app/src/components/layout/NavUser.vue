@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ChevronsUpDown, Crown, LogOut, Moon, Shield, Sun } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import UserAvatar from '@/components/data/UserAvatar.vue'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,7 +12,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@/components/ui/sidebar'
+import {
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
+} from '@/components/ui/sidebar'
 import { useTheme } from '@/composables/useTheme'
 
 const { isMobile } = useSidebar()
@@ -30,15 +35,7 @@ const role = computed(() => {
   return null
 })
 
-const initials = computed(() =>
-  name.value
-    .split(/[\s.@_-]+/)
-    .filter(Boolean)
-    .map((word) => word[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2),
-)
+const photoUrl = computed(() => authStore.user?.photo_url ?? null)
 
 function logout() {
   authStore.logout()
@@ -55,9 +52,7 @@ function logout() {
             size="lg"
             class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
           >
-            <Avatar class="size-8 rounded-md">
-              <AvatarFallback class="rounded-md text-xs">{{ initials }}</AvatarFallback>
-            </Avatar>
+            <UserAvatar :name="name" :src="photoUrl" />
             <div class="grid flex-1 text-left leading-tight">
               <span class="truncate text-sm font-medium">{{ name }}</span>
               <span class="truncate text-xs text-muted-foreground">

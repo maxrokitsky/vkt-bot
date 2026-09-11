@@ -9,6 +9,14 @@ class ChatResponse(BaseModel):
     id: str
     type: ChatType
     title: str | None = None
+    about: str | None
+    rules: str | None
+    #: Ссылка-приглашение: по ней в публичный чат заходят без спроса.
+    invite_link: str | None
+    #: ``None`` — про чат ещё не спрашивали ``chats/getInfo``; «закрытый»
+    #: и «неизвестно» на экране выглядят по-разному.
+    public: bool | None
+    join_moderation: bool | None
 
     model_config = ConfigDict(from_attributes=True)
 

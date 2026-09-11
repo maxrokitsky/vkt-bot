@@ -96,6 +96,30 @@ class TestGetChat:
         assert response.status_code == 200
         assert response.json()["id"] == "a@chat.agent"
 
+    async def test_returns_info_from_get_info(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        """Описание, правила, ссылка и флаги — всё из ``chats/getInfo``."""
+        await create_chat(
+            session,
+            "a@chat.agent",
+            about="Описание",
+            rules="Правила",
+            invite_link="https://icq.com/chat/AoLLi9QjQqY9G2FMXzA",
+            public=False,
+            join_moderation=True,
+        )
+
+        body = (
+            await client.get("/api/chats/a@chat.agent", headers=auth_headers(user.id))
+        ).json()
+
+        assert body["about"] == "Описание"
+        assert body["rules"] == "Правила"
+        assert body["invite_link"] == "https://icq.com/chat/AoLLi9QjQqY9G2FMXzA"
+        assert body["public"] is False
+        assert body["join_moderation"] is True
+
     async def test_counts_members(
         self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
     ) -> None:

@@ -9,18 +9,11 @@ import DataToolbar from '@/components/data/DataToolbar.vue'
 import DataTableShell from '@/components/data/DataTableShell.vue'
 import TablePagination from '@/components/data/TablePagination.vue'
 import CopyableId from '@/components/data/CopyableId.vue'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import UserAvatar from '@/components/data/UserAvatar.vue'
 import { Badge } from '@/components/ui/badge'
 import { Toggle } from '@/components/ui/toggle'
-import {
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useListQuery } from '@/composables/useListQuery'
-import { initials } from '@/lib/users'
 
 const router = useRouter()
 const { page, pageSize, searchInput, search } = useListQuery()
@@ -46,17 +39,13 @@ const rows = computed(() => {
 })
 
 const filtered = computed(() => onlyAdmins.value || onlyBots.value)
-
 </script>
 
 <template>
   <div>
     <PageHeader />
 
-    <DataToolbar
-      v-model:search="searchInput"
-      placeholder="Имя, ник или id"
-    >
+    <DataToolbar v-model:search="searchInput" placeholder="Имя, ник или id">
       <template #filters>
         <Toggle v-model:pressed="onlyAdmins" variant="outline" size="sm" class="gap-1.5">
           <Shield class="size-3.5" />
@@ -103,11 +92,7 @@ const filtered = computed(() => onlyAdmins.value || onlyBots.value)
           >
             <TableCell>
               <div class="flex items-center gap-3">
-                <Avatar class="size-8 rounded-md">
-                  <AvatarFallback class="rounded-md text-xs">
-                    {{ initials(user.display_name) }}
-                  </AvatarFallback>
-                </Avatar>
+                <UserAvatar :name="user.display_name" :src="user.photo_url" />
                 <div class="min-w-0">
                   <div class="truncate font-medium">{{ user.display_name }}</div>
                   <CopyableId v-if="user.display_name !== user.id" :value="user.id" />
@@ -136,7 +121,10 @@ const filtered = computed(() => onlyAdmins.value || onlyBots.value)
                   <Bot />
                   Бот
                 </Badge>
-                <span v-if="!user.is_owner && !user.is_superuser && !user.is_bot" class="text-muted-foreground">
+                <span
+                  v-if="!user.is_owner && !user.is_superuser && !user.is_bot"
+                  class="text-muted-foreground"
+                >
                   —
                 </span>
               </div>

@@ -318,6 +318,26 @@ export type ChatDetailResponse = {
    */
   title?: string | null
   /**
+   * About
+   */
+  about: string | null
+  /**
+   * Rules
+   */
+  rules: string | null
+  /**
+   * Invite Link
+   */
+  invite_link: string | null
+  /**
+   * Public
+   */
+  public: boolean | null
+  /**
+   * Join Moderation
+   */
+  join_moderation: boolean | null
+  /**
    * Member Count
    */
   member_count: number
@@ -340,6 +360,26 @@ export type ChatResponse = {
    * Title
    */
   title?: string | null
+  /**
+   * About
+   */
+  about: string | null
+  /**
+   * Rules
+   */
+  rules: string | null
+  /**
+   * Invite Link
+   */
+  invite_link: string | null
+  /**
+   * Public
+   */
+  public: boolean | null
+  /**
+   * Join Moderation
+   */
+  join_moderation: boolean | null
 }
 
 /**
@@ -393,6 +433,14 @@ export type ChatUserDetailResponse = {
    */
   nick?: string | null
   /**
+   * About
+   */
+  about: string | null
+  /**
+   * Photo Url
+   */
+  photo_url: string | null
+  /**
    * Roles
    */
   roles: Array<ChatUserRoleResponse>
@@ -444,6 +492,14 @@ export type ChatUserResponse = {
    * Nick
    */
   nick?: string | null
+  /**
+   * About
+   */
+  about: string | null
+  /**
+   * Photo Url
+   */
+  photo_url: string | null
   /**
    * Roles
    */
@@ -889,6 +945,10 @@ export type RoleMemberResponse = {
    * Is Bot
    */
   is_bot: boolean
+  /**
+   * Photo Url
+   */
+  photo_url: string | null
 }
 
 /**
@@ -1060,6 +1120,14 @@ export type UserResponse = {
    * Nick
    */
   nick?: string | null
+  /**
+   * About
+   */
+  about: string | null
+  /**
+   * Photo Url
+   */
+  photo_url: string | null
   /**
    * Is Owner
    *
@@ -1379,6 +1447,14 @@ export type ChatUserDetailResponseWritable = {
    */
   nick?: string | null
   /**
+   * About
+   */
+  about: string | null
+  /**
+   * Photo Url
+   */
+  photo_url: string | null
+  /**
    * Roles
    */
   roles: Array<ChatUserRoleResponse>
@@ -1418,6 +1494,14 @@ export type ChatUserResponseWritable = {
    * Nick
    */
   nick?: string | null
+  /**
+   * About
+   */
+  about: string | null
+  /**
+   * Photo Url
+   */
+  photo_url: string | null
   /**
    * Roles
    */
@@ -1480,6 +1564,14 @@ export type UserResponseWritable = {
    * Nick
    */
   nick?: string | null
+  /**
+   * About
+   */
+  about: string | null
+  /**
+   * Photo Url
+   */
+  photo_url: string | null
 }
 
 export type LoginApiAuthLoginPostData = {

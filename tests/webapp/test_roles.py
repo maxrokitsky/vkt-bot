@@ -364,6 +364,7 @@ class TestGetRole:
                     "user_id": "ivan@example.com",
                     "display_name": "Иван Иванов",
                     "is_bot": False,
+                    "photo_url": None,
                 }
             ],
         }
@@ -435,6 +436,7 @@ class TestAddRoleMember:
             "user_id": member.id,
             "display_name": "Иван",
             "is_bot": False,
+            "photo_url": None,
         }
         assert await table_count(session, RoleAssignment) == 1
 
