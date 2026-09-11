@@ -1,4 +1,4 @@
-from enum import Enum, StrEnum, unique
+from enum import StrEnum, unique
 
 
 @unique
@@ -95,8 +95,13 @@ class PayLoadFileType(StrEnum):
     AUDIO = "audio"
 
 
+# ``StrEnum``, а не ``Enum``: по этому полю разбирается ответ
+# ``chats/getInfo`` — дискриминированное объединение, а в нём тег ищется
+# строго, и строка ``"private"`` к не-строковому ``Enum`` не приводится.
+# С обычным ``Enum`` разбор молча уходил в фолбэк-модель для всех
+# ответов подряд. Докстринг класса не трогаем: он уезжает в openapi.json.
 @unique
-class ChatType(Enum):
+class ChatType(StrEnum):
     """ChatType."""
 
     PRIVATE = "private"
