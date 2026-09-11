@@ -6,10 +6,19 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 from vkteams_client.enums import ChatType
-from vkteams_client.types import ChatMember, GetMembersResponse, Response
+from vkteams_client.types import (
+    ChatMember,
+    ChatPhoto,
+    GetMembersResponse,
+    GroupChatInfo,
+    PrivateChatInfo,
+    Response,
+    UnknownChatInfo,
+)
 
 from vkt_bot.core.handlers.chats import (
     ChatInfoChangedHandler,
+    ChatInfoRefreshHandler,
     ChatMembersJoinedHandler,
     ChatMembersLeftHandler,
     CreateChatMiddleware,
@@ -19,6 +28,7 @@ from vkt_bot.core.models import Chat, ChatMembership, ChatUser
 from vkt_bot.core.repositories.bot_settings import BotSettingsRepository
 from vkt_bot.core.repositories.chat import ChatMembershipRepository, ChatRepository
 from vkt_bot.core.repositories.user import ChatUserRepository
+from vkt_bot.utils.datetime import utcnow
 
 from tests.conftest import table_count
 from tests.factories import create_chat, create_chat_user, make_event
@@ -31,6 +41,8 @@ if TYPE_CHECKING:
 
 CHAT_ID = "681869378@chat.agent"
 BOT_MEMBER = {"firstName": "Тестовый", "userId": "test_bot@bot", "nick": "test_bot"}
+AVATAR = "https://rapi.icq.net/avatar/get?targetSn=111&size=1024"
+INVITE_LINK = "https://icq.com/chat/AoLLi9QjQqY9G2FMXzA"
 
 
 @pytest.fixture
@@ -49,6 +61,29 @@ def members_response(*user_ids: str) -> GetMembersResponse:
     """Ответ ``/chats/getMembers``."""
     return GetMembersResponse(
         ok=True, members=[ChatMember(userId=uid) for uid in user_ids]
+    )
+
+
+def private_info() -> PrivateChatInfo:
+    """Ответ ``/chats/getInfo`` про человека."""
+    return PrivateChatInfo(
+        ok=True,
+        type=ChatType.PRIVATE,
+        firstName="Иван",
+        lastName="Иванов",
+        photo=[ChatPhoto(url=AVATAR)],
+    )
+
+
+def group_info() -> GroupChatInfo:
+    """Ответ ``/chats/getInfo`` про группу."""
+    return GroupChatInfo(
+        ok=True,
+        type=ChatType.GROUP,
+        title="Тест группа для бота",
+        about="Описание",
+        inviteLink=INVITE_LINK,
+        public=False,
     )
 
 
@@ -357,17 +392,44 @@ class TestChatMembersJoined:
         assert user.nick == "test_bot"
         assert user.display_name == "Тестовый"
 
-    async def test_roster_member_has_no_name_yet(
+    async def test_roster_member_gets_name_from_get_info(
         self, dispatcher: Dispatcher, fake_bot: FakeBot, session: AsyncSession
     ) -> None:
-        """``getMembers`` имён не отдаёт — до первого события остаётся id."""
+        """``getMembers`` отдаёт голые id — имя добираем ``getInfo``."""
         fake_bot.results["get_members"] = members_response("111")
+        fake_bot.results["get_chat_info"] = private_info()
+
+        await ChatMembersJoinedHandler.handle(bot_added_event(), dispatcher)
+
+        user = await ChatUserRepository(session).get("111")
+        assert user.display_name == "Иван Иванов"
+        assert user.photo_url == AVATAR
+
+    async def test_roster_member_keeps_id_without_info(
+        self, dispatcher: Dispatcher, fake_bot: FakeBot, session: AsyncSession
+    ) -> None:
+        """API не ответил — участник остаётся под id, как и раньше."""
+        fake_bot.results["get_members"] = members_response("111")
+        fake_bot.errors["get_chat_info"] = RuntimeError("API упал")
 
         await ChatMembersJoinedHandler.handle(bot_added_event(), dispatcher)
 
         user = await ChatUserRepository(session).get("111")
         assert user.first_name is None
         assert user.display_name == "111"
+
+    async def test_chat_is_enriched_when_bot_is_added(
+        self, dispatcher: Dispatcher, fake_bot: FakeBot, session: AsyncSession
+    ) -> None:
+        """Описание и ссылка-приглашение приходят только из ``getInfo``."""
+        fake_bot.results["get_members"] = members_response()
+        fake_bot.results["get_chat_info"] = group_info()
+
+        await ChatMembersJoinedHandler.handle(bot_added_event(), dispatcher)
+
+        chat = await ChatRepository(session).get(CHAT_ID)
+        assert chat.about == "Описание"
+        assert chat.invite_link == INVITE_LINK
 
     async def test_roster_is_not_fetched_for_a_plain_user(
         self, dispatcher: Dispatcher, fake_bot: FakeBot, session: AsyncSession
@@ -376,7 +438,12 @@ class TestChatMembersJoined:
             make_event("new_chat_members"), dispatcher
         )
 
+        # Состав целиком нужен только когда добавили самого бота.
         assert fake_bot.calls_of("get_members") == []
+        # А вступившего обогащаем — это один запрос.
+        assert [
+            call.kwargs["chat_id"] for call in fake_bot.calls_of("get_chat_info")
+        ] == ["9876543210"]
 
     async def test_roster_failure_does_not_break_registration(
         self, dispatcher: Dispatcher, fake_bot: FakeBot, session: AsyncSession
@@ -521,6 +588,24 @@ class TestChatInfoChanged:
         chat = await ChatRepository(session).get(CHAT_ID)
         assert chat.title == "Новое название"
 
+    async def test_rereads_description_and_rules(
+        self, dispatcher: Dispatcher, fake_bot: FakeBot, session: AsyncSession
+    ) -> None:
+        """Событие несёт только название — остальное спрашиваем у API."""
+        await create_chat(session, CHAT_ID, info_updated_at=utcnow())
+        fake_bot.results["get_chat_info"] = group_info()
+
+        await ChatInfoChangedHandler.handle(make_event("changed_chat_info"), dispatcher)
+
+        # Свежая метка обогащению не помеха: событие редкое, TTL обходим.
+        assert len(fake_bot.calls_of("get_chat_info")) == 1
+        chat = await ChatRepository(session).get(CHAT_ID)
+        assert chat.about == "Описание"
+        # Название берём из ответа API: он получен уже после события,
+        # значит свежее. В жизни они совпадают — расходятся только здесь,
+        # где ответ задан руками.
+        assert chat.title == "Тест группа для бота"
+
 
 class TestThreadAutosubscribeOnJoin:
     """Бота добавили в чат — он подписывается на обсуждения."""
@@ -586,3 +671,65 @@ class TestThreadAutosubscribeOnJoin:
             await ChatMembersJoinedHandler.handle(bot_added_event(), dispatcher)
 
         assert "thread.autosubscribe_refused" in caplog.text
+
+
+class TestChatInfoRefreshHandler:
+    """``ChatInfoRefreshHandler``: обогащение по потоку сообщений."""
+
+    async def test_first_message_asks_api(
+        self, dispatcher: Dispatcher, fake_bot: FakeBot, session: AsyncSession
+    ) -> None:
+        """У новой строки метки нет — спрашиваем и чат, и отправителя."""
+        event = make_event("new_message")
+        chat_id = event.payload.chat.chatId
+        sender_id = event.payload.sender.userId
+        await create_chat(session, chat_id)
+        await create_chat_user(session, sender_id)
+        fake_bot.results["get_chat_info"] = group_info()
+
+        await ChatInfoRefreshHandler.handle(event, dispatcher)
+
+        asked = {call.kwargs["chat_id"] for call in fake_bot.calls_of("get_chat_info")}
+        assert asked == {chat_id, sender_id}
+        assert (await ChatRepository(session).get(chat_id)).about == "Описание"
+
+    async def test_second_message_costs_nothing(
+        self, dispatcher: Dispatcher, fake_bot: FakeBot, session: AsyncSession
+    ) -> None:
+        """Свежие данные заново не спрашиваем."""
+        event = make_event("new_message")
+        await create_chat(session, event.payload.chat.chatId)
+        await create_chat_user(session, event.payload.sender.userId)
+        fake_bot.results["get_chat_info"] = group_info()
+
+        await ChatInfoRefreshHandler.handle(event, dispatcher)
+        before = len(fake_bot.calls_of("get_chat_info"))
+        await ChatInfoRefreshHandler.handle(event, dispatcher)
+
+        assert len(fake_bot.calls_of("get_chat_info")) == before
+
+    async def test_thread_is_asked_once(
+        self, dispatcher: Dispatcher, fake_bot: FakeBot, session: AsyncSession
+    ) -> None:
+        """В обсуждении метод отказывает — отказ тоже запоминается."""
+        event = make_event("new_message")
+        chat_id = event.payload.chat.chatId
+        await create_chat(session, chat_id)
+        fake_bot.results["get_chat_info"] = UnknownChatInfo(
+            ok=False, description="Bad request"
+        )
+
+        await ChatInfoRefreshHandler.handle(event, dispatcher)
+        await ChatInfoRefreshHandler.handle(event, dispatcher)
+
+        asked = [call.kwargs["chat_id"] for call in fake_bot.calls_of("get_chat_info")]
+        assert asked == [chat_id]
+        assert (await ChatRepository(session).get(chat_id)).info_updated_at
+
+    async def test_unknown_chat_is_not_created(
+        self, dispatcher: Dispatcher, fake_bot: FakeBot, session: AsyncSession
+    ) -> None:
+        """Строки заводят другие хендлеры — этот только дополняет."""
+        await ChatInfoRefreshHandler.handle(make_event("new_message"), dispatcher)
+
+        assert fake_bot.calls_of("get_chat_info") == []

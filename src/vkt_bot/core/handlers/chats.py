@@ -13,9 +13,11 @@ from vkt_bot.db.session import async_session
 from vkt_dispatcher.handlers import (
     ChangedChatInfoHandler,
     LeftChatMembersHandler,
+    MessageHandler,
     NewChatMembersHandler,
 )
 from vkt_dispatcher.middleware import Middleware
+from vkt_bot.core.chatinfo import enrich_chat, enrich_members, refresh_from_message
 from vkt_bot.core.messages import record_incoming
 from vkt_bot.core.repositories.chat import ChatMembershipRepository, ChatRepository
 from vkt_bot.core.repositories.user import ChatUserRepository
@@ -119,9 +121,19 @@ class ChatMembersJoinedHandler(NewChatMembersHandler):
 
         if bots:
             # Подписываемся на обсуждения чата, иначе события из тредов
-            # до бота не дойдут: у треда собственный chatId.
+            # до бота не дойдут: у треда собственный chatId. Подписка
+            # идёт до обогащения: она важнее, а обогащение ростера —
+            # это десятки запросов и заметное время.
             if await autosubscribe_enabled():
                 await set_thread_autosubscribe(bot, chat_id)
+            # Бота добавили в живой чат: у участников, пришедших из
+            # ростера, есть только id — имена и аватары добираем здесь.
+            await enrich_chat(bot, chat_id)
+            await enrich_members(bot, members)
+        else:
+            # Вступил обычный участник: ростер не трогаем, но его самого
+            # обогащаем — это один запрос, а профиль появляется сразу.
+            await enrich_members(bot, joined)
 
     async def fetch_roster(self, bot: VKTeams, chat_id: str) -> list[str]:
         """Состав чата по данным API. Ошибка не должна ронять обработчик."""
@@ -162,6 +174,28 @@ class ChatMembersLeftHandler(LeftChatMembersHandler):
 
 
 @dispatcher.register_handler
+class ChatInfoRefreshHandler(MessageHandler):
+    """Держит чат и отправителя обогащёнными.
+
+    Хендлер, а не middleware: ``Middleware.on_event`` получает только
+    событие, без ``bot``, и звать API оттуда пришлось бы через
+    глобальный ``vkt_bot.app.bot`` — то есть в тестах ходить в сеть.
+    Хендлеру клиент передаёт диспетчер, и в тестах это ``FakeBot``.
+
+    Поток сообщений — единственный регулярный повод: события о смене
+    профиля API не присылает. К API при этом ходим не на каждое
+    сообщение, а только когда метка ``info_updated_at`` старше
+    ``INFO_TTL``; сама проверка — это ``select``, который в этом чате и
+    так делается.
+    """
+
+    async def callback(self, bot: VKTeams, event: NewMessageEvent) -> None:
+        await refresh_from_message(
+            bot, event.payload.chat.chatId, event.payload.sender.userId
+        )
+
+
+@dispatcher.register_handler
 class ChatInfoChangedHandler(ChangedChatInfoHandler):
     """Обновляет название чата."""
 
@@ -179,3 +213,7 @@ class ChatInfoChangedHandler(ChangedChatInfoHandler):
                 payload={"title": event.payload.title},
             )
             await session.commit()
+
+        # Событие несёт только название, а поменяться могли описание и
+        # правила. Событие редкое — TTL обходим осознанно.
+        await enrich_chat(bot, event.payload.chat.chatId, force=True)
