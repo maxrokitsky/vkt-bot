@@ -25,6 +25,7 @@ TEST_ENV = {
     "AI_ENABLED": "false",
     "AI_API_KEY": "",
     "AI_MODEL": "test/model",
+    "AI_REPLY_ON_REPLY": "true",
 }
 for _key, _value in TEST_ENV.items():
     os.environ[_key] = _value

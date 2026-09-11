@@ -500,3 +500,212 @@ class TestConversation:
 
         assert "лимит" in fake_bot.texts[0]
         assert asked == []
+
+
+def reply_part(
+    *,
+    user_id: str = BOT_ID,
+    first_name: str = "Бот",
+    msg_id: str = "6752739791872001115",
+    text: str = "Дежурный — Иван.",
+) -> dict[str, Any]:
+    """Часть ``reply``: кому отвечают и что процитировали."""
+    sender: dict[str, Any] = {"firstName": first_name, "userId": user_id}
+    if user_id == BOT_ID:
+        sender["nick"] = "max_test_bot"
+    else:
+        sender["lastName"] = "Петров"
+    return {
+        "type": "reply",
+        "payload": {
+            "message": {"from": sender, "msgId": msg_id, "text": text},
+        },
+    }
+
+
+@pytest.mark.usefixtures("enabled", "runner", "session_factory")
+class TestReply:
+    """Обращение ответом на сообщение.
+
+    В живом чате `@` нужен, чтобы позвать издалека; на сказанное только
+    что отвечают, а не окликают.
+    """
+
+    async def test_reply_to_the_bot_starts_a_session(
+        self, bot_dispatcher: Any, fake_bot: FakeBot, asked: list[SessionRequest]
+    ) -> None:
+        await AgentConversationHandler.handle(
+            make_event("new_message_reply"), bot_dispatcher
+        )
+
+        assert fake_bot.texts == []
+        assert len(asked) == 1
+        assert asked[0].question == "а откуда это?"
+
+    async def test_quote_reaches_the_prompt(
+        self, bot_dispatcher: Any, asked: list[SessionRequest]
+    ) -> None:
+        """Без цитаты «а откуда это?» для модели вопрос без предмета."""
+        await AgentConversationHandler.handle(
+            make_event("new_message_reply"), bot_dispatcher
+        )
+
+        assert asked[0].quoted == "Бот: Дежурный — Иван."
+
+    async def test_reply_to_someone_else_is_ignored(
+        self, bot_dispatcher: Any, asked: list[SessionRequest]
+    ) -> None:
+        """Люди отвечают друг другу; вмешиваться в это не наше дело."""
+        await AgentConversationHandler.handle(
+            make_event(
+                "new_message_reply",
+                parts=[reply_part(user_id="9876543210", first_name="Пётр")],
+            ),
+            bot_dispatcher,
+        )
+
+        assert asked == []
+
+    async def test_reply_to_another_bot_is_not_ours(
+        self, bot_dispatcher: Any, asked: list[SessionRequest]
+    ) -> None:
+        """Сверка по идентификатору, а не по типу отправителя."""
+        await AgentConversationHandler.handle(
+            make_event(
+                "new_message_reply",
+                parts=[reply_part(user_id="1099999999", first_name="Сосед")],
+            ),
+            bot_dispatcher,
+        )
+
+        assert asked == []
+
+    async def test_mention_with_a_quote_carries_it(
+        self, bot_dispatcher: Any, asked: list[SessionRequest]
+    ) -> None:
+        """«@бот, о чём это?» ответом на чужую реплику."""
+        await AgentConversationHandler.handle(
+            make_event(
+                "new_message_reply",
+                text=f"@[{BOT_ID}] о чём это?",
+                parts=[
+                    reply_part(
+                        user_id="9876543210",
+                        first_name="Пётр",
+                        text="катим в пятницу",
+                    )
+                ],
+            ),
+            bot_dispatcher,
+        )
+
+        assert len(asked) == 1
+        assert asked[0].question == "о чём это?"
+        assert asked[0].quoted == "Пётр Петров: катим в пятницу"
+
+    async def test_reply_to_the_anchor_continues_the_session(
+        self,
+        session: AsyncSession,
+        bot_dispatcher: Any,
+        asked: list[SessionRequest],
+    ) -> None:
+        """Ответ на ответ агента — продолжение, а не второй диалог.
+
+        В личке обсуждений нет, и другого пути к начатому разговору не
+        ведёт.
+        """
+        await create_chat_user(session, USER)
+        row = await AgentSessionRepository(session).create(
+            {
+                "chat_id": CHAT,
+                "user_id": USER,
+                "anchor_msg_id": "6752739791872001115",
+            }
+        )
+        await session.commit()
+
+        await AgentConversationHandler.handle(
+            make_event("new_message_reply"), bot_dispatcher
+        )
+
+        assert len(asked) == 1
+        assert asked[0].session_id == row.id
+        # Обсуждения нет — отвечаем туда же, где спросили.
+        assert asked[0].chat_is_thread is False
+        # Процитированное уже лежит в истории диалога.
+        assert asked[0].quoted is None
+
+    async def test_anchor_of_another_chat_is_not_ours(
+        self,
+        session: AsyncSession,
+        bot_dispatcher: Any,
+        asked: list[SessionRequest],
+    ) -> None:
+        """Идентификаторы сообщений сквозные, но разговор — чата."""
+        await create_chat_user(session, USER)
+        await AgentSessionRepository(session).create(
+            {
+                "chat_id": "999@chat.agent",
+                "user_id": USER,
+                "anchor_msg_id": "6752739791872001115",
+            }
+        )
+        await session.commit()
+
+        await AgentConversationHandler.handle(
+            make_event("new_message_reply"), bot_dispatcher
+        )
+
+        assert len(asked) == 1
+        assert asked[0].session_id is None
+
+    async def test_can_be_switched_off(
+        self,
+        bot_dispatcher: Any,
+        asked: list[SessionRequest],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """В чате с потоком уведомлений на них отвечают друг другу."""
+        from vkt_ai import config
+
+        settings = config.get_ai_settings().model_copy(update={"reply_on_reply": False})
+        monkeypatch.setattr(handlers_module, "get_ai_settings", lambda: settings)
+
+        await AgentConversationHandler.handle(
+            make_event("new_message_reply"), bot_dispatcher
+        )
+
+        assert asked == []
+
+    async def test_bots_answering_the_bot_are_ignored(
+        self, bot_dispatcher: Any, asked: list[SessionRequest]
+    ) -> None:
+        """Иначе два бота отвечали бы друг другу до конца бюджета."""
+        await AgentConversationHandler.handle(
+            make_event("new_message_from_bot", text="и правда?", parts=[reply_part()]),
+            bot_dispatcher,
+        )
+
+        assert asked == []
+
+    async def test_command_picks_up_the_quote(
+        self, fake_bot: FakeBot, asked: list[SessionRequest]
+    ) -> None:
+        """`/ai о чём это?` ответом на сообщение."""
+        await AskAgentHandler.callback(
+            fake_bot,
+            make_event(
+                "new_message_reply",
+                text="/ai о чём это?",
+                parts=[
+                    reply_part(
+                        user_id="9876543210",
+                        first_name="Пётр",
+                        text="катим в пятницу",
+                    )
+                ],
+            ),
+        )
+
+        assert len(asked) == 1
+        assert asked[0].quoted == "Пётр Петров: катим в пятницу"

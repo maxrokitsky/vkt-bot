@@ -72,6 +72,7 @@ ALL_EVENT_FIXTURES: tuple[str, ...] = (
     "new_message_from_bot",
     "new_message_with_format",
     "new_message_with_parts",
+    "new_message_reply",
     "edited_message",
     "deleted_message",
     "pinned_message",

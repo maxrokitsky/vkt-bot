@@ -1,0 +1,36 @@
+{
+  "eventId": 12,
+  "type": "newMessage",
+  "payload": {
+    "chat": {
+      "chatId": "681869378@chat.agent",
+      "type": "group",
+      "title": "Тестовая группа"
+    },
+    "from": {
+      "firstName": "Иван",
+      "lastName": "Иванов",
+      "userId": "1234567890"
+    },
+    "msgId": "6752739791872009999",
+    "text": "а откуда это?",
+    "parts": [
+      {
+        "type": "reply",
+        "payload": {
+          "message": {
+            "from": {
+              "firstName": "Бот",
+              "nick": "max_test_bot",
+              "userId": "1011835311"
+            },
+            "msgId": "6752739791872001115",
+            "text": "Дежурный — Иван.",
+            "timestamp": 1546290004
+          }
+        }
+      }
+    ],
+    "timestamp": 1546290010
+  }
+}

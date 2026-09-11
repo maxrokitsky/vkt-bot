@@ -63,6 +63,35 @@ class AgentSessionRepository(
         )
         return await self.session.scalar(stmt)
 
+    async def active_by_anchor(self, chat_id: str, msg_id: str) -> AgentSession | None:
+        """Живая сессия, чей ответ процитировали.
+
+        Второй путь к тому же разговору: в обсуждении его находит
+        ``active_by_thread``, а в личке обсуждений нет — там ответ на
+        сообщение единственный способ продолжить начатое.
+
+        Запрос идёт только для сообщений с ответом нашему боту, поэтому
+        своего индекса не заслуживает: отбор по ``chat_id`` индекс уже
+        имеет, а сессий на чат считанные единицы.
+        """
+        stmt = (
+            sa.select(AgentSession)
+            .where(
+                AgentSession.chat_id == chat_id,
+                AgentSession.anchor_msg_id == msg_id,
+                AgentSession.status.in_(
+                    (
+                        SessionStatus.ACTIVE,
+                        SessionStatus.WAITING_APPROVAL,
+                        SessionStatus.DONE,
+                    )
+                ),
+            )
+            .order_by(AgentSession.created_at.desc())
+            .limit(1)
+        )
+        return await self.session.scalar(stmt)
+
     async def finish(
         self,
         session_id: uuid.UUID,
