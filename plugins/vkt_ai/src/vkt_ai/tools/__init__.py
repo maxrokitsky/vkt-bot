@@ -13,6 +13,12 @@ from vkt_agent import ToolRegistry
 
 registry = ToolRegistry()
 
-from . import chats, events, messages, roles  # noqa: E402, F401  (регистрация)
+from . import (  # noqa: E402, F401  (регистрация)
+    chats,
+    events,
+    messages,
+    profiles,
+    roles,
+)
 
 __all__ = ("registry",)

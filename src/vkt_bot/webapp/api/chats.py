@@ -99,10 +99,21 @@ async def get_chat(
         visible_webhooks(chat_id, current_user).with_only_columns(sa.func.count())
     )
 
+    # Ссылка-приглашение — это вход в чат, а список чатов в панели видят
+    # все: показываем её только тем, кто в чате уже состоит.
+    visible_link = is_admin(current_user) or await is_member(
+        session, chat_id, current_user.id
+    )
+
     return ChatDetailResponse(
         id=chat.id,
         type=chat.type,
         title=chat.title,
+        about=chat.about,
+        rules=chat.rules,
+        invite_link=chat.invite_link if visible_link else None,
+        public=chat.public,
+        join_moderation=chat.join_moderation,
         member_count=member_count or 0,
         webhook_count=webhook_count or 0,
     )

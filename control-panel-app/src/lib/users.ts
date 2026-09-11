@@ -1,7 +1,8 @@
 /**
- * Инициалы для аватара-заглушки: «Иван Петров» → «ИП», а для id вида
- * `ivan.petrov@example.com` — «IP». Аватарок у VK Teams API нет, показывать
- * нечего, кроме букв.
+ * Инициалы для аватара: «Иван Петров» → «ИП», а для id вида
+ * `ivan.petrov@example.com` — «IP». Нужны, когда картинки нет: аватар
+ * приносит `chats/getInfo`, но он есть не у всех, да и ссылка на него
+ * может отдавать «Avatar not found».
  */
 export function initials(name: string): string {
   return name

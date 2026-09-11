@@ -195,6 +195,8 @@ class TestCurrentUser:
             "first_name": None,
             "last_name": None,
             "nick": None,
+            "about": None,
+            "photo_url": None,
             "is_owner": False,
             "display_name": user.id,
         }

@@ -17,10 +17,11 @@ import { useAuthStore } from '@/stores/auth'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import PageSection from '@/components/layout/PageSection.vue'
 import CopyableId from '@/components/data/CopyableId.vue'
+import UserAvatar from '@/components/data/UserAvatar.vue'
+import FieldRow from '@/components/layout/FieldRow.vue'
 import EmptyState from '@/components/data/EmptyState.vue'
 import TablePagination from '@/components/data/TablePagination.vue'
 import SendMessageDialog from '@/components/SendMessageDialog.vue'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,7 +31,6 @@ import { chatTypeLabel } from '@/lib/chats'
 import { SEVERITY_VARIANTS, SOURCE_LABELS } from '@/lib/events'
 import { formatDateTime, formatRelative } from '@/lib/format'
 import { plural } from '@/lib/plural'
-import { initials } from '@/lib/users'
 
 const route = useRoute()
 const router = useRouter()
@@ -95,9 +95,11 @@ function webhookUrl(id: string) {
 
 <template>
   <div class="space-y-8">
-    <PageHeader :title="chat?.title || chatId" :description="null">
+    <PageHeader :title="chat?.title || chatId" :description="chat?.about ?? null">
       <template #badges>
         <Badge v-if="chat" variant="outline">{{ chatTypeLabel(chat.type) }}</Badge>
+        <Badge v-if="chat?.public" variant="secondary">Публичный</Badge>
+        <Badge v-if="chat?.join_moderation" variant="secondary"> Вступление с одобрения </Badge>
       </template>
       <template #actions>
         <Button v-if="isAdmin && chat" variant="outline" size="sm" @click="chatToMessage = chat">
@@ -116,6 +118,32 @@ function webhookUrl(id: string) {
     </div>
 
     <template v-else-if="chat">
+      <PageSection
+        v-if="chat.rules || chat.invite_link"
+        title="О чате"
+        description="Данные из VK Teams — бот перечитывает их не чаще раза в неделю"
+      >
+        <div class="divide-y rounded-lg border px-4">
+          <FieldRow v-if="chat.rules" label="Правила" stacked>
+            <p class="text-sm whitespace-pre-line">{{ chat.rules }}</p>
+          </FieldRow>
+          <FieldRow
+            v-if="chat.invite_link"
+            label="Ссылка-приглашение"
+            description="По ней в чат заходят без спроса"
+          >
+            <a
+              :href="chat.invite_link"
+              target="_blank"
+              rel="noreferrer"
+              class="text-sm break-all hover:underline"
+            >
+              {{ chat.invite_link }}
+            </a>
+          </FieldRow>
+        </div>
+      </PageSection>
+
       <PageSection title="Участники" :description="membersDescription">
         <template #actions>
           <Input
@@ -139,11 +167,7 @@ function webhookUrl(id: string) {
               @click="router.push(`/chat-users/${member.id}`)"
             >
               <div class="flex min-w-0 items-center gap-3">
-                <Avatar class="size-8 rounded-md">
-                  <AvatarFallback class="rounded-md text-xs">
-                    {{ initials(member.display_name) }}
-                  </AvatarFallback>
-                </Avatar>
+                <UserAvatar :name="member.display_name" :src="member.photo_url" />
                 <div class="min-w-0">
                   <div class="truncate text-sm font-medium">{{ member.display_name }}</div>
                   <CopyableId

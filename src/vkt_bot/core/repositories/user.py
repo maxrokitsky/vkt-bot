@@ -1,12 +1,14 @@
+from collections.abc import Iterable
 from typing import Any
 
 import sqlalchemy as sa
 from pydantic import BaseModel
 
-from vkteams_client.types import Bot, User
+from vkteams_client.types import Bot, PrivateChatInfo, User
 from vkt_bot.core.models import ChatUser
 from vkt_bot.core.models.role import Role, RoleAssignment
 from vkt_bot.db.repository import AsyncRepository
+from vkt_bot.utils.datetime import utcnow
 
 
 class CreateChatUserSchema(BaseModel):
@@ -73,6 +75,53 @@ class ChatUserRepository(AsyncRepository[ChatUser, str, CreateChatUserSchema, An
             changed = True
         if changed:
             self.session.add(user)
+
+    def apply_chat_info(self, user: ChatUser, info: PrivateChatInfo) -> None:
+        """Перенести ответ ``chats/getInfo`` в профиль участника.
+
+        Правило то же, что у ``apply_profile``: пустое не затирает
+        известное. У аватара это единственно возможное поведение —
+        ``photo`` приходит всегда, но картинки за ссылкой может и не
+        быть, и «аватар сняли» от «аватара не было» мы не отличаем.
+        Поэтому ссылку только ставим, но никогда не убираем.
+
+        ``isBot`` у человека не приходит вовсе, поэтому флаг тоже только
+        ставится. Зато бот, сидевший в чате до нашего, перестаёт
+        числиться человеком, не дожидаясь, пока где-нибудь засветится.
+        """
+        fields = {
+            "first_name": info.firstName,
+            "last_name": info.lastName,
+            "nick": info.nick,
+            "about": info.about,
+            "photo_url": info.photo_url,
+        }
+        for field, value in fields.items():
+            if value and getattr(user, field) != value:
+                setattr(user, field, value)
+        if info.isBot and not user.is_bot:
+            user.is_bot = True
+        self.touch_info(user)
+
+    def touch_info(self, user: ChatUser) -> None:
+        """Отметить попытку обогащения, ничего больше не меняя.
+
+        Нужно для отказов: без метки их повторяли бы без конца.
+        """
+        user.info_updated_at = utcnow()
+        self.session.add(user)
+
+    async def list_by_ids(self, user_ids: Iterable[str]) -> list[ChatUser]:
+        """Участники по идентификаторам — одним запросом.
+
+        Обогащение ростера идёт пачкой, и запрос на каждого из пятидесяти
+        участников здесь ни к чему.
+        """
+        ids = list(user_ids)
+        if not ids:
+            return []
+        stmt = sa.select(ChatUser).where(ChatUser.id.in_(ids))
+        return list((await self.session.scalars(stmt)).all())
 
     async def grant_superuser(self, user: ChatUser) -> None:
         """Выдать пользователю права суперпользователя."""

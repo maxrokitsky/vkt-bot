@@ -4,8 +4,10 @@ import sqlalchemy as sa
 from pydantic import BaseModel
 
 from vkteams_client.enums import ChatType
+from vkteams_client.types import ChannelChatInfo, GroupChatInfo
 from vkteams_client.types import Chat as ChatPayload
 from vkt_bot.db.repository import AsyncRepository
+from vkt_bot.utils.datetime import utcnow
 from vkt_bot.core.models import Chat, ChatMembership
 
 
@@ -43,6 +45,38 @@ class ChatRepository(AsyncRepository[Chat, str, CreateChatSchema, Any]):
             chat.title = new_title
             self.session.add(chat)
         return chat
+
+    def apply_info(self, chat: Chat, info: GroupChatInfo | ChannelChatInfo) -> None:
+        """Перенести ответ ``chats/getInfo`` в чат.
+
+        Текстовые поля — по общему правилу «пустое не затирает
+        известное», а вот флаги ведут себя иначе: для них пустое — это
+        ``None``, а не ``False``. Иначе закрытый чат не затёр бы
+        ``public = True``, и панель бы врала.
+        """
+        fields = {
+            "title": info.title,
+            "about": info.about,
+            "rules": info.rules,
+            "invite_link": info.inviteLink,
+        }
+        for field, value in fields.items():
+            if value and getattr(chat, field) != value:
+                setattr(chat, field, value)
+        flags = {"public": info.public, "join_moderation": info.joinModeration}
+        for field, flag in flags.items():
+            if flag is not None and getattr(chat, field) != flag:
+                setattr(chat, field, flag)
+        self.touch_info(chat)
+
+    def touch_info(self, chat: Chat) -> None:
+        """Отметить попытку обогащения, ничего больше не меняя.
+
+        Метка ставится и на отказ: обсуждение от группы по ``chatId`` не
+        отличить, а спрашивать про него API на каждом сообщении незачем.
+        """
+        chat.info_updated_at = utcnow()
+        self.session.add(chat)
 
 
 class ChatMembershipRepository(

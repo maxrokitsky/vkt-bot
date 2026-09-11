@@ -111,6 +111,7 @@ async def get_role(
             user_id=assignment.user.id,
             display_name=assignment.user.display_name,
             is_bot=assignment.user.is_bot,
+            photo_url=assignment.user.photo_url,
         )
         for assignment in role.assignments
     ]
@@ -308,6 +309,7 @@ async def add_role_member(
         user_id=user.id,
         display_name=user.display_name,
         is_bot=user.is_bot,
+        photo_url=user.photo_url,
     )
 
 

@@ -40,6 +40,22 @@ class TestListChatUsers:
             "second@example.com",
         }
 
+    async def test_includes_photo_url(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        """Ссылка на аватар уходит в панель как есть: авторизации не нужно."""
+        avatar = "https://rapi.icq.net/avatar/get?targetSn=ivan&size=1024"
+        await create_chat_user(session, "ivan@example.com", photo_url=avatar)
+
+        body = (
+            await client.get(
+                "/api/chat-users?search=ivan@example.com",
+                headers=auth_headers(user.id),
+            )
+        ).json()
+
+        assert body["items"][0]["photo_url"] == avatar
+
     async def test_includes_is_owner(
         self, client: httpx.AsyncClient, owner: ChatUser
     ) -> None:
@@ -171,6 +187,8 @@ class TestGetChatUser:
             "first_name": None,
             "last_name": None,
             "nick": None,
+            "about": None,
+            "photo_url": None,
             "display_name": user.id,
             "roles": [],
             "chats": [],

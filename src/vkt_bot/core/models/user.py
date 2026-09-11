@@ -24,6 +24,15 @@ class ChatUser(Model):
     first_name: orm.Mapped[str | None] = orm.mapped_column(default=None)
     last_name: orm.Mapped[str | None] = orm.mapped_column(default=None)
     nick: orm.Mapped[str | None] = orm.mapped_column(default=None)
+    about: orm.Mapped[str | None] = orm.mapped_column(sa.Text, default=None)
+    #: Ссылка на аватар из ``chats/getInfo``. Открывается без
+    #: авторизации, поэтому годится прямо в ``<img src>``; но картинки
+    #: за ней может и не быть — проверить, не скачав, нельзя.
+    photo_url: orm.Mapped[str | None] = orm.mapped_column(default=None)
+    #: Когда последний раз спрашивали ``chats/getInfo``.
+    info_updated_at: orm.Mapped[datetime.datetime | None] = orm.mapped_column(
+        default=None
+    )
     created_at: orm.Mapped[datetime.datetime] = orm.mapped_column(
         server_default=sa.func.now()
     )

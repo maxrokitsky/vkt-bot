@@ -25,7 +25,11 @@ const description = computed(() =>
 <template>
   <header :class="tight ? 'mb-4' : 'mb-6'">
     <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-      <div class="min-w-0 space-y-1">
+      <!-- Слот для картинки слева от названия: аватар участника. -->
+      <div v-if="slots.media" class="shrink-0">
+        <slot name="media" />
+      </div>
+      <div class="min-w-0 flex-1 space-y-1">
         <div class="flex min-w-0 items-center gap-2">
           <h1 class="truncate text-2xl font-semibold tracking-tight">{{ title }}</h1>
           <slot name="badges" />

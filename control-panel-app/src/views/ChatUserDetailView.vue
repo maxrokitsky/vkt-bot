@@ -19,6 +19,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import PageSection from '@/components/layout/PageSection.vue'
 import CopyableId from '@/components/data/CopyableId.vue'
+import UserAvatar from '@/components/data/UserAvatar.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -150,7 +151,10 @@ function confirmRemoveRole() {
 
 <template>
   <div class="space-y-8">
-    <PageHeader :title="user?.display_name ?? userId" :description="null">
+    <PageHeader :title="user?.display_name ?? userId" :description="user?.about ?? null">
+      <template v-if="user" #media>
+        <UserAvatar :name="user.display_name" :src="user.photo_url" class="size-12 rounded-lg" />
+      </template>
       <template #badges>
         <Badge v-if="status" :variant="status.variant">
           <component :is="status.icon" />

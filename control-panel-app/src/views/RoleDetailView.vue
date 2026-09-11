@@ -17,9 +17,9 @@ import { useAuthStore } from '@/stores/auth'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import PageSection from '@/components/layout/PageSection.vue'
 import CopyableId from '@/components/data/CopyableId.vue'
+import UserAvatar from '@/components/data/UserAvatar.vue'
 import EmptyState from '@/components/data/EmptyState.vue'
 import RoleFormDialog from '@/components/RoleFormDialog.vue'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -45,7 +45,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useConfirm } from '@/composables/useConfirm'
 import { useListQuery } from '@/composables/useListQuery'
 import { plural } from '@/lib/plural'
-import { initials } from '@/lib/users'
 
 const route = useRoute()
 const router = useRouter()
@@ -132,7 +131,6 @@ const deleteRole = useMutation({
   },
   onError: () => toast.error('Не удалось удалить роль'),
 })
-
 </script>
 
 <template>
@@ -146,11 +144,7 @@ const deleteRole = useMutation({
       "
     >
       <template v-if="isAdmin && role" #actions>
-        <Button
-          variant="outline"
-          size="sm"
-          @click="renaming = { id: role.id, name: role.name }"
-        >
+        <Button variant="outline" size="sm" @click="renaming = { id: role.id, name: role.name }">
           <Pencil class="size-4" />
           Переименовать
         </Button>
@@ -221,17 +215,10 @@ const deleteRole = useMutation({
             :to="`/chat-users/${member.user_id}`"
             class="flex min-w-0 items-center gap-3 hover:underline"
           >
-            <Avatar class="size-8 rounded-md">
-              <AvatarFallback class="rounded-md text-xs">
-                {{ initials(member.display_name) }}
-              </AvatarFallback>
-            </Avatar>
+            <UserAvatar :name="member.display_name" :src="member.photo_url" />
             <div class="min-w-0">
               <div class="truncate text-sm font-medium">{{ member.display_name }}</div>
-              <CopyableId
-                v-if="member.display_name !== member.user_id"
-                :value="member.user_id"
-              />
+              <CopyableId v-if="member.display_name !== member.user_id" :value="member.user_id" />
             </div>
           </RouterLink>
           <div class="flex shrink-0 items-center gap-2">
@@ -269,7 +256,9 @@ const deleteRole = useMutation({
     <RoleFormDialog
       :role="renaming"
       :pending="renameRole.isPending.value"
-      @submit="(name) => renaming && renameRole.mutate({ path: { role_id: renaming.id }, body: { name } })"
+      @submit="
+        (name) => renaming && renameRole.mutate({ path: { role_id: renaming.id }, body: { name } })
+      "
       @close="renaming = null"
     />
 
@@ -278,8 +267,8 @@ const deleteRole = useMutation({
         <AlertDialogHeader>
           <AlertDialogTitle>Удалить роль «{{ role?.name }}»?</AlertDialogTitle>
           <AlertDialogDescription>
-            Роль исчезнет у всех участников, и призыв #{{ role?.name }} перестанет
-            работать. Отменить нельзя.
+            Роль исчезнет у всех участников, и призыв #{{ role?.name }} перестанет работать.
+            Отменить нельзя.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -294,9 +283,7 @@ const deleteRole = useMutation({
     <AlertDialog v-model:open="removeMemberOpen">
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>
-            Убрать {{ memberToRemove?.display_name }} из роли?
-          </AlertDialogTitle>
+          <AlertDialogTitle> Убрать {{ memberToRemove?.display_name }} из роли? </AlertDialogTitle>
           <AlertDialogDescription>
             Участник перестанет получать призывы по этой роли.
           </AlertDialogDescription>
@@ -306,9 +293,9 @@ const deleteRole = useMutation({
           <AlertDialogAction
             @click="
               memberToRemove &&
-                removeMember.mutate({
-                  path: { role_id: roleId, user_id: memberToRemove.user_id },
-                })
+              removeMember.mutate({
+                path: { role_id: roleId, user_id: memberToRemove.user_id },
+              })
             "
           >
             Убрать

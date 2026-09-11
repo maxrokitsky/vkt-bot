@@ -16,6 +16,11 @@ class ChatUserFields(BaseModel):
     first_name: str | None = None
     last_name: str | None = None
     nick: str | None = None
+    about: str | None
+    #: Ссылка на аватар из ``chats/getInfo``: открывается без
+    #: авторизации, поэтому отдаём её как есть. Картинки за ссылкой
+    #: может и не быть — фронт обязан иметь фолбэк на инициалы.
+    photo_url: str | None
 
     model_config = ConfigDict(from_attributes=True)
 

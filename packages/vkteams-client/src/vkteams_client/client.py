@@ -6,7 +6,9 @@ import aiohttp
 
 from .enums import ChatAction
 from .types import (
+    GET_CHAT_INFO,
     EventsResponse,
+    GetChatInfoResponse,
     GetMembersResponse,
     GetSelfResponse,
     MsgLoadFileResponse,
@@ -326,6 +328,59 @@ class VKTeams:
             response_body = await response.text()
             result = GetMembersResponse.model_validate_json(response_body)
             logger.debug("api.members_fetched", **await log_response(response))
+            return result
+
+    async def get_chat_info(self, chat_id: str) -> GetChatInfoResponse:
+        """Информация о чате: личном, групповом или канале.
+
+        Ответ плоский и без ``chatId``: поля чата лежат рядом с ``ok``.
+        Поэтому разбор идёт в объединение по ``type`` —
+        ``PrivateChatInfo``, ``GroupChatInfo``, ``ChannelChatInfo``, — а
+        всё, что не опознано, попадает в ``UnknownChatInfo``.
+
+        Проверено на живом стенде 2026-09-11:
+
+        - по ``userId`` любого участника группы приходит ``private`` с
+          именем, фамилией, ником, ``about``, ``language`` и ``photo``,
+          даже если бот с человеком в личке не переписывался. У бота в
+          том же ответе стоит ``isBot: true``, у человека поля нет;
+        - у группы приходят ``title``, ``about``, ``rules``,
+          ``inviteLink``, ``public`` и ``joinModeration``; ``photo`` у
+          группы без аватара не пришло вовсе, а аватар чата по ссылке
+          из ``photo`` бот-токеном всё равно не открыть;
+        - в обсуждении метод отвечает ``Bad request``, на неизвестный
+          или пустой ``chatId`` — ``Invalid chatId``.
+
+        Поля ``photo`` в спеке нет: оно объявлено только у схемы ``bot``,
+        и то ``self/get`` его не возвращает.
+
+        Отказ исключением не считается: ``ok: false`` возвращается
+        вызывающему и здесь даже не логируется ошибкой. Единственный
+        частый отказ ожидаем — обсуждение, а тред от группы по ``chatId``
+        не отличить, поэтому разбирать причину должен тот, кто знает
+        контекст: ``vkt_bot.core.chatinfo``.
+        """
+        path = "/chats/getInfo"
+
+        params = {"token": self.token, "chatId": chat_id}
+        async with self.session.get(
+            url=self.base_url + path,
+            params=params,
+            timeout=aiohttp.ClientTimeout(30),
+        ) as response:
+            response_body = await response.text()
+            result = GET_CHAT_INFO.validate_json(response_body)
+            # Тело не логируем, в отличие от остальных методов: здесь это
+            # профиль человека (имя, «о себе», аватар) и ссылка-приглашение
+            # в чат. Маскирование их не спрячет — в именах полей нет
+            # маркеров секрета, по которым работает ``mask_secrets``.
+            logger.debug(
+                "api.chat_info_fetched",
+                ok=result.ok,
+                path=response.url.path,
+                status=response.status,
+                method=response.method,
+            )
             return result
 
     async def threads_add(self, chat_id: str, msg_id: str) -> ThreadAddResponse:
