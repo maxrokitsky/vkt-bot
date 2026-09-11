@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.13"
 dependencies = [
     "vkt-agent",
+    "taskiq>=0.12.6",
 ]
 
 [tool.uv.sources]

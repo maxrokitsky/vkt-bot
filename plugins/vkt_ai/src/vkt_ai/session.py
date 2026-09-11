@@ -14,7 +14,7 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import sqlalchemy as sa
 import structlog
@@ -43,6 +43,8 @@ from .repositories import (
 from .tasks import concurrency_limiter
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from pydantic_ai.messages import ModelMessage
     from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -71,6 +73,31 @@ class SessionRequest:
     #: Продолжение уже начатого диалога.
     session_id: uuid.UUID | None = None
     trace_id: str | None = None
+
+    def as_payload(self) -> dict[str, Any]:
+        """Запрос как JSON-совместимый словарь: он поедет через Redis.
+
+        ``uuid`` приводится к строке руками: taskiq гонит аргумент через
+        ``json.dumps``, а тот на ``UUID`` падает — причём падает уже
+        внутри ``kiq()``, то есть в хендлере.
+        """
+        data = dataclasses.asdict(self)
+        data["session_id"] = str(self.session_id) if self.session_id else None
+        return data
+
+    @classmethod
+    def from_payload(cls, data: Mapping[str, Any]) -> SessionRequest:
+        """Собрать запрос обратно.
+
+        Неизвестные ключи отбрасываются намеренно: во время выкладки в
+        очереди лежат сообщения, собранные предыдущей версией, и
+        появившееся поле не должно ронять воркер.
+        """
+        known = {field.name for field in dataclasses.fields(cls)}
+        kwargs = {key: value for key, value in data.items() if key in known}
+        if kwargs.get("session_id"):
+            kwargs["session_id"] = uuid.UUID(str(kwargs["session_id"]))
+        return cls(**kwargs)
 
 
 async def run_session(bot: VKTeams, request: SessionRequest) -> None:

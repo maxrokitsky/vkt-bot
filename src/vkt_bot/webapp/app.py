@@ -52,6 +52,9 @@ def create_app(*args, **kwargs) -> FastAPI:  # noqa: ARG001
     async def health():
         return {"status": "ok"}
 
+    # Брокер здесь не поднимается: все ручки только читают. Появится
+    # ручка, ставящая задачу, — понадобится ``lifespan=`` с
+    # ``worker.broker_client()``.
     setup(app)
 
     Path(STATIC_DIR).mkdir(parents=True, exist_ok=True)

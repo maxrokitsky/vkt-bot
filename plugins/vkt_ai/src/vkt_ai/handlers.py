@@ -28,11 +28,11 @@ from vkt_dispatcher.handlers import CommandHandler, MessageHandler
 from . import events as ai_events
 from .agent import agent_enabled, configured
 from .config import AiSettings, get_ai_settings
+from .jobs import enqueue_session
 from .mentions import mentions_bot, spans_of, strip_mention
 from .quotes import quote_line, quoted, replies_to
 from .repositories import AgentSessionRepository
-from .session import SessionRequest, day_start, run_session
-from .tasks import spawn
+from .session import SessionRequest, day_start
 
 logger = structlog.get_logger("vkt_ai.handlers")
 
@@ -120,19 +120,17 @@ class AskAgentHandler(CommandHandler):
         # Ничего не отвечаем: пока агент думает, в чате висит
         # «печатает…». Сообщение-заглушка выглядело бы как ответ,
         # которым не является.
-        spawn(
-            run_session(
-                bot,
-                SessionRequest(
-                    chat_id=chat_id,
-                    user_id=payload.sender.userId,
-                    question=question,
-                    question_msg_id=payload.msgId,
-                    chat_is_thread=chat_is_thread,
-                    quoted=quote_line(reply) if reply else None,
-                    trace_id=structlog.contextvars.get_contextvars().get("trace_id"),
-                ),
-            )
+        await enqueue_session(
+            bot,
+            SessionRequest(
+                chat_id=chat_id,
+                user_id=payload.sender.userId,
+                question=question,
+                question_msg_id=payload.msgId,
+                chat_is_thread=chat_is_thread,
+                quoted=quote_line(reply) if reply else None,
+                trace_id=structlog.contextvars.get_contextvars().get("trace_id"),
+            ),
         )
 
 
@@ -222,25 +220,23 @@ class AgentConversationHandler(MessageHandler):
             await bot.send_text(payload.chat.chatId, HELP, parse_mode="MarkdownV2")
             return
 
-        spawn(
-            run_session(
-                bot,
-                SessionRequest(
-                    chat_id=payload.chat.chatId,
-                    user_id=payload.sender.userId,
-                    question=question,
-                    question_msg_id=payload.msgId,
-                    # Цитата нужна только новому разговору: в продолжении
-                    # процитированное уже лежит в истории диалога.
-                    quoted=quote_line(reply) if reply and session_id is None else None,
-                    # Продолжение идёт в треде — кроме случая, когда его
-                    # не завели: на ответ вне обсуждения отвечаем туда же,
-                    # где спросили.
-                    chat_is_thread=in_thread,
-                    session_id=session_id,
-                    trace_id=structlog.contextvars.get_contextvars().get("trace_id"),
-                ),
-            )
+        await enqueue_session(
+            bot,
+            SessionRequest(
+                chat_id=payload.chat.chatId,
+                user_id=payload.sender.userId,
+                question=question,
+                question_msg_id=payload.msgId,
+                # Цитата нужна только новому разговору: в продолжении
+                # процитированное уже лежит в истории диалога.
+                quoted=quote_line(reply) if reply and session_id is None else None,
+                # Продолжение идёт в треде — кроме случая, когда его
+                # не завели: на ответ вне обсуждения отвечаем туда же,
+                # где спросили.
+                chat_is_thread=in_thread,
+                session_id=session_id,
+                trace_id=structlog.contextvars.get_contextvars().get("trace_id"),
+            ),
         )
 
     def identity(

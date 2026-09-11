@@ -54,39 +54,48 @@ async def purge_old_events(session: AsyncSession, days: int) -> int:
     return result.rowcount or 0
 
 
-async def run_retention_loop(interval: int = INTERVAL_SECONDS) -> None:
-    """Чистить журнал раз в сутки, пока задачу не отменят.
+async def purge_once() -> None:
+    """Один проход уборки: журнал событий и история сообщений.
 
-    Сбой чистки не должен ронять бота: следующая попытка будет завтра.
+    Сбой одной таблицы не отменяет уборку другой и не роняет того, кто
+    позвал: следующая попытка будет завтра, и ждать её обеим незачем.
     """
     from vkt_bot.config import get_settings
     from vkt_bot.core.messages import purge_history
 
     settings = get_settings()
     days = settings.events_retention_days
+    try:
+        async with async_session() as session:
+            removed = await purge_old_events(session, days)
+        if removed:
+            logger.info("events.purged", removed=removed, older_than_days=days)
+    except Exception:
+        logger.exception("events.purge_failed")
+    try:
+        async with async_session() as session:
+            removed = await purge_history(
+                session,
+                days=settings.messages_retention_days,
+                max_per_chat=settings.messages_max_per_chat,
+            )
+        if removed:
+            logger.info(
+                "messages.purged",
+                removed=removed,
+                older_than_days=settings.messages_retention_days,
+            )
+    except Exception:
+        logger.exception("messages.purge_failed")
+
+
+async def run_retention_loop(interval: int = INTERVAL_SECONDS) -> None:
+    """Чистить журнал раз в сутки, пока задачу не отменят.
+
+    Режим без Redis: с брокером то же самое делает ``taskiq scheduler``.
+    """
     while True:
-        try:
-            async with async_session() as session:
-                removed = await purge_old_events(session, days)
-            if removed:
-                logger.info("events.purged", removed=removed, older_than_days=days)
-        except Exception:
-            logger.exception("events.purge_failed")
-        try:
-            async with async_session() as session:
-                removed = await purge_history(
-                    session,
-                    days=settings.messages_retention_days,
-                    max_per_chat=settings.messages_max_per_chat,
-                )
-            if removed:
-                logger.info(
-                    "messages.purged",
-                    removed=removed,
-                    older_than_days=settings.messages_retention_days,
-                )
-        except Exception:
-            logger.exception("messages.purge_failed")
+        await purge_once()
         await asyncio.sleep(interval)
 
 

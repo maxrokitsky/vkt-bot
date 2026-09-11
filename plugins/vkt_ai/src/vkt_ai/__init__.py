@@ -41,10 +41,17 @@ async def _retention_loop(interval: int = RETENTION_INTERVAL) -> None:
 async def lifespan() -> AsyncIterator[None]:
     """Фоновая работа агента на время жизни бота.
 
-    Задачи сессий снимаются здесь же: висящий вызов модели не должен
-    удерживать процесс при остановке.
+    Обе половины нужны только там, где нет Redis. С ним диалоги чистит
+    ``taskiq scheduler``, а сессии крутятся в воркере — снимать при
+    остановке бота нечего.
     """
+    from vkt_bot.worker import distributed
+
     from .tasks import cancel_all
+
+    if distributed():
+        yield
+        return
 
     task = asyncio.create_task(_retention_loop())
     try:
@@ -53,19 +60,31 @@ async def lifespan() -> AsyncIterator[None]:
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await task
+        # Сессии здесь же, в процессе бота: висящий вызов модели не
+        # должен удерживать процесс при остановке.
         await cancel_all()
 
 
-def install(webapp: FastAPI) -> None:
-    """Подключить плагин."""
+def install() -> None:
+    """Подключить плагин. Зовут все процессы: бот, веб, воркер.
+
+    ``jobs`` импортируется ради побочного эффекта: задачи объявляются
+    декоратором ``@broker.task``, и без импорта воркер о них не узнает.
+    """
     from vkt_bot.core.lifespans import register
 
-    from . import api, handlers, models  # noqa: F401
+    from . import handlers, jobs, models  # noqa: F401
     from .agent import configured
     from .events import install_events
 
     install_events()
     register(lifespan)
-    webapp.include_router(api.router)
 
     logger.info("plugin.installed", plugin="ai", configured=configured())
+
+
+def install_api(webapp: FastAPI) -> None:
+    """Отдать свои роутеры. Зовёт только веб-процесс."""
+    from . import api
+
+    webapp.include_router(api.router)

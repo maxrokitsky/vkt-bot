@@ -143,16 +143,15 @@ class TestShell:
 
         assert "session" in captured["user_ns"]
 
-    def test_does_not_call_setup_twice(self) -> None:
-        """``setup`` зовётся один раз — внутри ``create_app``.
+    def test_builds_the_app_without_the_web(self) -> None:
+        """IPython поднимает ``bootstrap``, а не ``create_app``.
 
-        Отдельный вызов повторно прогонял бы ``init_logging``,
-        ``setup_sentry`` и ``install()`` каждого плагина.
+        Логи, модели и плагины в оболочке нужны, FastAPI — нет.
         """
         names = main_module.shell.__code__.co_names
 
-        assert "create_app" in names
-        assert "setup" not in names
+        assert "bootstrap" in names
+        assert "create_app" not in names
 
 
 class TestCheckSettings:
