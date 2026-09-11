@@ -4,7 +4,7 @@ from enum import StrEnum
 from typing import Annotated, Any, Literal, Union
 from typing_extensions import TypeIs
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, TypeAdapter
 
 from .enums import ChatType, EventType, Parts, PayLoadFileType
 
@@ -381,6 +381,114 @@ class GetMembersResponse(Response):
     """Ответ метода /chats/members."""
 
     members: list[ChatMember]
+
+
+class ChatPhoto(BaseModel):
+    """Аватар из ответа ``chats/getInfo``.
+
+    Поля нет в ``schemas.json``: у ``chatPrivate``, ``chatGroup`` и
+    ``chatChannel`` ``photo`` не описано, оно объявлено только у схемы
+    ``bot`` — а ``self/get`` его всё равно не отдаёт. Проверено на живом
+    стенде 2026-09-11: приходит массив из одного элемента.
+    """
+
+    url: str
+
+
+class ChatInfoFields(Response):
+    """Общее у всех ответов ``chats/getInfo``.
+
+    Ответ плоский: поля чата лежат рядом с ``ok``, своего конверта у них
+    нет — как нет и ``chatId``. Кого спрашивали, помнит только
+    вызывающий.
+    """
+
+    about: str | None = None
+    #: Ссылка вида ``avatar/get?targetSn=<sn>&size=1024``. У пользователя
+    #: открывается без авторизации и годится прямо в ``<img src>``, а вот
+    #: аватар чата по такой же ссылке отдаётся только с пользовательской
+    #: авторизацией — бот-токен не подходит (проверено 2026-09-11).
+    photo: list[ChatPhoto] = Field(default_factory=list)
+
+    @property
+    def photo_url(self) -> str | None:
+        """Ссылка на аватар.
+
+        ``photo`` приходит всегда, картинка — нет: у пользователя без
+        аватара ссылка отвечает ``Avatar not found``. Проверить, не
+        скачивая, нельзя.
+        """
+        return self.photo[0].url if self.photo else None
+
+
+class PrivateChatInfo(ChatInfoFields):
+    """Личный чат: человек или бот.
+
+    Метод работает по ``userId`` любого участника группы, даже если бот
+    с ним в личке не переписывался (проверено 2026-09-11). Это и есть
+    единственный способ узнать имя участника, попавшего в базу из
+    ``chats/getMembers``: там приходят голые идентификаторы.
+    """
+
+    type: Literal[ChatType.PRIVATE]
+    firstName: str | None = None
+    lastName: str | None = None
+    nick: str | None = None
+    language: str | None = None
+    #: У человека поля нет вовсе, поэтому ``None``, а не ``False``:
+    #: «не бот» и «не знаем» различать обязательно, иначе обогащение
+    #: снимало бы уже выставленный флаг.
+    isBot: bool | None = None
+
+
+class GroupChatInfo(ChatInfoFields):
+    """Группа."""
+
+    type: Literal[ChatType.GROUP]
+    title: str | None = None
+    rules: str | None = None
+    inviteLink: str | None = None
+    #: В спеке ``public`` обязателен, но при отказе полей нет ни одного,
+    #: поэтому здесь он опционален, как и всё остальное.
+    public: bool | None = None
+    joinModeration: bool | None = None
+
+
+class ChannelChatInfo(ChatInfoFields):
+    """Канал. Набор полей тот же, что у группы."""
+
+    type: Literal[ChatType.CHANNEL]
+    title: str | None = None
+    rules: str | None = None
+    inviteLink: str | None = None
+    public: bool | None = None
+    joinModeration: bool | None = None
+
+
+class UnknownChatInfo(ChatInfoFields):
+    """Всё остальное: отказ API или незнакомый вид чата.
+
+    Нужна по двум причинам. Первая — при ``ok: false`` полей чата нет ни
+    одного, включая обязательный по спеке ``type``: в обсуждении метод
+    отвечает ``Bad request``, на неизвестный или пустой ``chatId`` —
+    ``Invalid chatId``. Вторая — новый вид чата не должен ронять разбор,
+    как и у ``UnknownPart``.
+    """
+
+    type: str | None = None
+
+
+#: Известные виды чатов: разбор идёт сразу в нужную модель по ``type``.
+type KnownChatInfo = Annotated[
+    Union[PrivateChatInfo, GroupChatInfo, ChannelChatInfo],  # noqa: UP007
+    Field(discriminator="type"),
+]
+
+type GetChatInfoResponse = KnownChatInfo | UnknownChatInfo
+
+#: Разбор объединения: у псевдонима типа нет ``model_validate_json``, а
+#: собирать ``TypeAdapter`` на каждый вызов — лишняя работа.
+GET_CHAT_INFO: TypeAdapter[GetChatInfoResponse] = TypeAdapter(GetChatInfoResponse)
 
 
 class MsgResponse(Response):
