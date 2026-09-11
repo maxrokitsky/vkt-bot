@@ -326,10 +326,6 @@ export type ChatDetailResponse = {
    */
   rules: string | null
   /**
-   * Invite Link
-   */
-  invite_link: string | null
-  /**
    * Public
    */
   public: boolean | null
@@ -345,6 +341,10 @@ export type ChatDetailResponse = {
    * Webhook Count
    */
   webhook_count: number
+  /**
+   * Invite Link
+   */
+  invite_link: string | null
 }
 
 /**
@@ -368,10 +368,6 @@ export type ChatResponse = {
    * Rules
    */
   rules: string | null
-  /**
-   * Invite Link
-   */
-  invite_link: string | null
   /**
    * Public
    */

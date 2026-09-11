@@ -116,9 +116,53 @@ class TestGetChat:
 
         assert body["about"] == "Описание"
         assert body["rules"] == "Правила"
-        assert body["invite_link"] == "https://icq.com/chat/AoLLi9QjQqY9G2FMXzA"
         assert body["public"] is False
         assert body["join_moderation"] is True
+
+    async def test_invite_link_only_for_members(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        """Ссылка — это вход в чат, а список чатов в панели видят все."""
+        link = "https://icq.com/chat/AoLLi9QjQqY9G2FMXzA"
+        chat = await create_chat(session, "a@chat.agent", invite_link=link)
+
+        outsider = (
+            await client.get("/api/chats/a@chat.agent", headers=auth_headers(user.id))
+        ).json()
+        assert outsider["invite_link"] is None
+
+        session.add(ChatMembership(chat_id=chat.id, user_id=user.id))
+        await session.commit()
+
+        member = (
+            await client.get("/api/chats/a@chat.agent", headers=auth_headers(user.id))
+        ).json()
+        assert member["invite_link"] == link
+
+    async def test_admin_sees_invite_link(
+        self, client: httpx.AsyncClient, session: AsyncSession, owner: ChatUser
+    ) -> None:
+        """Администратору чат виден целиком и без членства."""
+        link = "https://icq.com/chat/AoLLi9QjQqY9G2FMXzA"
+        await create_chat(session, "a@chat.agent", invite_link=link)
+
+        body = (
+            await client.get("/api/chats/a@chat.agent", headers=auth_headers(owner.id))
+        ).json()
+
+        assert body["invite_link"] == link
+
+    async def test_list_has_no_invite_links(
+        self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser
+    ) -> None:
+        """В списке ссылок нет вовсе — он отдаёт все чаты бота подряд."""
+        await create_chat(
+            session, "a@chat.agent", invite_link="https://icq.com/chat/AoLL"
+        )
+
+        body = (await client.get("/api/chats", headers=auth_headers(user.id))).json()
+
+        assert "invite_link" not in body["items"][0]
 
     async def test_counts_members(
         self, client: httpx.AsyncClient, session: AsyncSession, user: ChatUser

@@ -11,8 +11,6 @@ class ChatResponse(BaseModel):
     title: str | None = None
     about: str | None
     rules: str | None
-    #: Ссылка-приглашение: по ней в публичный чат заходят без спроса.
-    invite_link: str | None
     #: ``None`` — про чат ещё не спрашивали ``chats/getInfo``; «закрытый»
     #: и «неизвестно» на экране выглядят по-разному.
     public: bool | None
@@ -26,6 +24,11 @@ class ChatDetailResponse(ChatResponse):
 
     member_count: int
     webhook_count: int
+    #: Ссылка-приглашение: по ней заходят в чат без спроса, поэтому её
+    #: видят только те, кто в чате уже состоит, и администраторы. В
+    #: списке чатов её нет вовсе: он отдаёт все чаты бота подряд,
+    #: включая те, где спрашивающего нет.
+    invite_link: str | None
 
 
 class PaginatedChatsResponse(BaseModel):

@@ -370,7 +370,17 @@ class VKTeams:
         ) as response:
             response_body = await response.text()
             result = GET_CHAT_INFO.validate_json(response_body)
-            logger.debug("api.chat_info_fetched", **await log_response(response))
+            # Тело не логируем, в отличие от остальных методов: здесь это
+            # профиль человека (имя, «о себе», аватар) и ссылка-приглашение
+            # в чат. Маскирование их не спрячет — в именах полей нет
+            # маркеров секрета, по которым работает ``mask_secrets``.
+            logger.debug(
+                "api.chat_info_fetched",
+                ok=result.ok,
+                path=response.url.path,
+                status=response.status,
+                method=response.method,
+            )
             return result
 
     async def threads_add(self, chat_id: str, msg_id: str) -> ThreadAddResponse:

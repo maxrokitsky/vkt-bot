@@ -127,10 +127,19 @@ class TestEnrichMembers:
         fake_bot.results["get_chat_info"] = private(isBot=True)
 
         await chatinfo.enrich_members(fake_bot, [USER_ID])  # type: ignore[arg-type]
-        assert (await ChatUserRepository(session).get(USER_ID)).is_bot is True
+        user = await ChatUserRepository(session).get(USER_ID)
+        assert user.is_bot is True
+
+        # Без этого второй заход упёрся бы в TTL, ответ без ``isBot`` не
+        # применился бы, и тест проверял бы сам себя.
+        user.info_updated_at = utcnow() - chatinfo.INFO_TTL - datetime.timedelta(days=1)
+        session.add(user)
+        await session.commit()
 
         fake_bot.results["get_chat_info"] = private()
         await chatinfo.enrich_members(fake_bot, [USER_ID])  # type: ignore[arg-type]
+
+        assert len(fake_bot.calls_of("get_chat_info")) == 2
         assert (await ChatUserRepository(session).get(USER_ID)).is_bot is True
 
     async def test_ttl_holds_back_the_second_call(

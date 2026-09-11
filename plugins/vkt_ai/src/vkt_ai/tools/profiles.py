@@ -57,7 +57,12 @@ async def chat_info(ctx: RunContext[AgentDeps], chat_id: str = "") -> str:
         ChatType.GROUP: "группа",
         ChatType.CHANNEL: "канал",
     }
-    lines = [f"{chat.title or 'без названия'} (id: {chat.id})", kinds[chat.type]]
+    lines = [
+        f"{chat.title or 'без названия'} (id: {chat.id})",
+        # ``get``, а не индекс: новый вид чата в перечислении не должен
+        # ронять инструмент на ровном месте.
+        kinds.get(chat.type, "чат неизвестного вида"),
+    ]
     if chat.about:
         lines.append(f"Описание: {chat.about}")
     if chat.rules:
