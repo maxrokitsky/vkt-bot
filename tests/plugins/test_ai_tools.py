@@ -10,20 +10,27 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
+from vkteams_client.enums import ChatType
+from vkteams_client.types import GroupChatInfo, PrivateChatInfo
+
 from vkt_agent import AgentActor, AgentDeps
 from vkt_bot.core.constants import MESSAGES_HISTORY_SETTING
 from vkt_bot.core.repositories.bot_settings import BotSettingsRepository
 from vkt_bot.core.repositories.chat import ChatMembershipRepository
 from vkt_bot.core.repositories.message import MessageRepository
+from vkt_bot.utils.datetime import utcnow
 from vkt_ai.tools import chats as chat_tools
 from vkt_ai.tools import events as event_tools
 from vkt_ai.tools import messages as message_tools
+from vkt_ai.tools import profiles as profile_tools
 from vkt_ai.tools import roles as role_tools
 
 from tests.factories import assign_role, create_chat, create_chat_user, create_role
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
+
+    from tests.conftest import FakeBot
 
 MY_CHAT = "111@chat.agent"
 FOREIGN_CHAT = "222@chat.agent"
@@ -44,6 +51,7 @@ def ctx(
     user_id: str = "member@example.com",
     is_admin: bool = False,
     chat_is_thread: bool = False,
+    bot: Any = None,
 ) -> Any:
     return Ctx(
         AgentDeps(
@@ -53,6 +61,7 @@ def ctx(
             ),
             chat_id=chat_id,
             chat_is_thread=chat_is_thread,
+            bot=bot,
         )
     )
 
@@ -209,6 +218,179 @@ class TestChats:
 
         assert "Нет доступа" in answer
         assert "Босс" not in answer
+
+
+@pytest.mark.usefixtures("world")
+class TestProfiles:
+    """``chat_info`` и ``user_info``."""
+
+    async def test_chat_info_of_own_chat(self, session: AsyncSession) -> None:
+        answer = await profile_tools.chat_info(ctx(session), chat_id=MY_CHAT)
+
+        assert "Поддержка" in answer
+        assert "группа" in answer
+
+    async def test_chat_info_without_id_means_current(
+        self, session: AsyncSession
+    ) -> None:
+        answer = await profile_tools.chat_info(ctx(session), chat_id="")
+
+        assert "Поддержка" in answer
+
+    async def test_chat_info_of_foreign_chat_refused(
+        self, session: AsyncSession
+    ) -> None:
+        answer = await profile_tools.chat_info(ctx(session), chat_id=FOREIGN_CHAT)
+
+        assert "Нет доступа" in answer
+        assert "Дирекция" not in answer
+
+    async def test_chat_info_in_thread_stays_in_thread(
+        self, session: AsyncSession
+    ) -> None:
+        """Состав обсуждения не узнать, значит и выходить из него нельзя."""
+        answer = await profile_tools.chat_info(
+            ctx(session, chat_id=THREAD, chat_is_thread=True), chat_id=MY_CHAT
+        )
+
+        assert "обсуждени" in answer
+        assert "Поддержка" not in answer
+
+    async def test_chat_info_says_when_api_was_not_asked(
+        self, session: AsyncSession
+    ) -> None:
+        """Пустое описание — это «не спрашивали», а не «описания нет»."""
+        answer = await profile_tools.chat_info(ctx(session), chat_id=MY_CHAT)
+
+        assert "ещё не спрашивали" in answer
+
+    async def test_chat_info_shows_description_and_rules(
+        self, session: AsyncSession
+    ) -> None:
+        await create_chat(
+            session,
+            "d@chat.agent",
+            title="Дежурство",
+            about="Кто на смене",
+            rules="Отвечать за 15 минут",
+            invite_link="https://icq.com/chat/AoLFkoRCn4MpaP0DjUI",
+            public=False,
+            info_updated_at=utcnow(),
+        )
+        await session.commit()
+
+        answer = await profile_tools.chat_info(
+            ctx(session, is_admin=True), chat_id="d@chat.agent"
+        )
+
+        assert "Кто на смене" in answer
+        assert "Отвечать за 15 минут" in answer
+        assert "Закрытый" in answer
+        assert "https://icq.com/chat/AoLFkoRCn4MpaP0DjUI" in answer
+
+    async def test_unknown_chat_explains_why(self, session: AsyncSession) -> None:
+        answer = await profile_tools.chat_info(
+            ctx(session, is_admin=True), chat_id="nobody@chat.agent"
+        )
+
+        assert "не знаю" in answer
+
+    async def test_user_info(self, session: AsyncSession) -> None:
+        await create_chat_user(
+            session,
+            "ivan@example.com",
+            first_name="Иван",
+            last_name="Иванов",
+            nick="ivan",
+            about="Архитектор",
+            info_updated_at=utcnow(),
+        )
+        await session.commit()
+
+        answer = await profile_tools.user_info(ctx(session), user_id="ivan@example.com")
+
+        assert "Иван Иванов" in answer
+        assert "ivan" in answer
+        assert "Архитектор" in answer
+        assert "Это человек." in answer
+
+    async def test_user_info_lists_roles(self, session: AsyncSession) -> None:
+        role = await create_role(session, "дежурный")
+        await assign_role(session, "member@example.com", role.id)
+        await session.commit()
+
+        answer = await profile_tools.user_info(
+            ctx(session), user_id="member@example.com"
+        )
+
+        assert "дежурный" in answer
+
+    async def test_user_info_without_id_means_asker(
+        self, session: AsyncSession
+    ) -> None:
+        answer = await profile_tools.user_info(ctx(session), user_id="")
+
+        assert "Иван" in answer
+
+    async def test_user_info_marks_bots(self, session: AsyncSession) -> None:
+        await create_chat_user(
+            session, "bot@bot", first_name="Бот", is_bot=True, info_updated_at=utcnow()
+        )
+        await session.commit()
+
+        answer = await profile_tools.user_info(ctx(session), user_id="bot@bot")
+
+        assert "Это бот." in answer
+
+    async def test_unknown_user_explains_why(self, session: AsyncSession) -> None:
+        answer = await profile_tools.user_info(
+            ctx(session), user_id="nobody@example.com"
+        )
+
+        assert "не знаю" in answer
+
+    async def test_stale_chat_is_refreshed(
+        self, session: AsyncSession, fake_bot: FakeBot
+    ) -> None:
+        """Данные устарели — инструмент сам сходит в API."""
+        fake_bot.results["get_chat_info"] = GroupChatInfo(
+            ok=True, type=ChatType.GROUP, title="Поддержка", about="Первая линия"
+        )
+
+        answer = await profile_tools.chat_info(
+            ctx(session, bot=fake_bot), chat_id=MY_CHAT
+        )
+
+        assert fake_bot.calls_of("get_chat_info")
+        assert "Первая линия" in answer
+
+    async def test_fresh_chat_is_not_refreshed(
+        self, session: AsyncSession, fake_bot: FakeBot
+    ) -> None:
+        await create_chat(
+            session, "f@chat.agent", title="Свежий", info_updated_at=utcnow()
+        )
+        await session.commit()
+
+        await profile_tools.chat_info(
+            ctx(session, is_admin=True, bot=fake_bot), chat_id="f@chat.agent"
+        )
+
+        assert fake_bot.calls_of("get_chat_info") == []
+
+    async def test_stale_user_is_refreshed(
+        self, session: AsyncSession, fake_bot: FakeBot
+    ) -> None:
+        fake_bot.results["get_chat_info"] = PrivateChatInfo(
+            ok=True, type=ChatType.PRIVATE, firstName="Иван", about="Архитектор"
+        )
+
+        answer = await profile_tools.user_info(
+            ctx(session, bot=fake_bot), user_id="member@example.com"
+        )
+
+        assert fake_bot.calls_of("get_chat_info")
+        assert "Архитектор" in answer
 
 
 @pytest.mark.usefixtures("world")
