@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import datetime
 import functools
 import json
 import pathlib
@@ -120,6 +121,9 @@ async def create_chat_user(
     first_name: str | None = None,
     last_name: str | None = None,
     nick: str | None = None,
+    about: str | None = None,
+    photo_url: str | None = None,
+    info_updated_at: datetime.datetime | None = None,
 ) -> ChatUser:
     """Создать пользователя бота."""
     from vkt_bot.core.models import ChatUser
@@ -131,6 +135,9 @@ async def create_chat_user(
         first_name=first_name,
         last_name=last_name,
         nick=nick,
+        about=about,
+        photo_url=photo_url,
+        info_updated_at=info_updated_at,
     )
     session.add(user)
     await session.commit()
@@ -143,13 +150,29 @@ async def create_chat(
     chat_type: str = "group",
     *,
     title: str | None = None,
+    about: str | None = None,
+    rules: str | None = None,
+    invite_link: str | None = None,
+    public: bool | None = None,
+    join_moderation: bool | None = None,
+    info_updated_at: datetime.datetime | None = None,
 ) -> Chat:
     """Создать чат."""
     from vkteams_client.enums import ChatType
 
     from vkt_bot.core.models import Chat
 
-    chat = Chat(id=chat_id, type=ChatType(chat_type), title=title)
+    chat = Chat(
+        id=chat_id,
+        type=ChatType(chat_type),
+        title=title,
+        about=about,
+        rules=rules,
+        invite_link=invite_link,
+        public=public,
+        join_moderation=join_moderation,
+        info_updated_at=info_updated_at,
+    )
     session.add(chat)
     await session.commit()
     return chat
