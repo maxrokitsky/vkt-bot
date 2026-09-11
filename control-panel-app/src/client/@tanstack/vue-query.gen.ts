@@ -25,6 +25,9 @@ import {
   getEventApiEventsEventIdGet,
   getOverviewApiOverviewGet,
   getRoleApiRolesRoleIdGet,
+  getSessionApiAiSessionsSessionIdGet,
+  getStatusApiAiStatusGet,
+  getUsageApiAiUsageGet,
   getWebhookApiWebhooksWebhookIdGet,
   getWebhookGlWebhooksWebhookIdGet,
   handleWebhookWebhooksWebhookIdPost,
@@ -37,6 +40,7 @@ import {
   listEventsApiEventsGet,
   listEventTypesApiEventsTypesGet,
   listRolesApiRolesGet,
+  listSessionsApiAiSessionsGet,
   listWebhooksApiWebhooksGet,
   listWebhooksGlWebhooksGet,
   loginApiAuthLoginPost,
@@ -98,6 +102,14 @@ import type {
   GetRoleApiRolesRoleIdGetData,
   GetRoleApiRolesRoleIdGetError,
   GetRoleApiRolesRoleIdGetResponse,
+  GetSessionApiAiSessionsSessionIdGetData,
+  GetSessionApiAiSessionsSessionIdGetError,
+  GetSessionApiAiSessionsSessionIdGetResponse,
+  GetStatusApiAiStatusGetData,
+  GetStatusApiAiStatusGetResponse,
+  GetUsageApiAiUsageGetData,
+  GetUsageApiAiUsageGetError,
+  GetUsageApiAiUsageGetResponse,
   GetWebhookApiWebhooksWebhookIdGetData,
   GetWebhookApiWebhooksWebhookIdGetError,
   GetWebhookApiWebhooksWebhookIdGetResponse,
@@ -130,6 +142,9 @@ import type {
   ListRolesApiRolesGetData,
   ListRolesApiRolesGetError,
   ListRolesApiRolesGetResponse,
+  ListSessionsApiAiSessionsGetData,
+  ListSessionsApiAiSessionsGetError,
+  ListSessionsApiAiSessionsGetResponse,
   ListWebhooksApiWebhooksGetData,
   ListWebhooksApiWebhooksGetResponse,
   ListWebhooksGlWebhooksGetData,
@@ -1509,6 +1524,185 @@ export const healthHealthGetOptions = (options?: Options<HealthHealthGetData>) =
       return data
     },
     queryKey: healthHealthGetQueryKey(options),
+  })
+
+export const getStatusApiAiStatusGetQueryKey = (options?: Options<GetStatusApiAiStatusGetData>) =>
+  createQueryKey('getStatusApiAiStatusGet', options)
+
+/**
+ * Get Status
+ *
+ * Включён ли агент и с какими лимитами.
+ *
+ * Панель без этого не отличила бы «агента выключили» от «никто ещё не
+ * спрашивал»: и там, и там пустой список.
+ */
+export const getStatusApiAiStatusGetOptions = (options?: Options<GetStatusApiAiStatusGetData>) =>
+  queryOptions<
+    GetStatusApiAiStatusGetResponse,
+    DefaultError,
+    GetStatusApiAiStatusGetResponse,
+    ReturnType<typeof getStatusApiAiStatusGetQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getStatusApiAiStatusGet({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      })
+      return data
+    },
+    queryKey: getStatusApiAiStatusGetQueryKey(options),
+  })
+
+export const listSessionsApiAiSessionsGetQueryKey = (
+  options?: Options<ListSessionsApiAiSessionsGetData>,
+) => createQueryKey('listSessionsApiAiSessionsGet', options)
+
+/**
+ * List Sessions
+ *
+ * Диалоги с агентом.
+ *
+ * Админ видит все, остальные — только свои: фильтр по участнику для них
+ * не расширяет выдачу, а сужает её внутри собственных сессий.
+ */
+export const listSessionsApiAiSessionsGetOptions = (
+  options?: Options<ListSessionsApiAiSessionsGetData>,
+) =>
+  queryOptions<
+    ListSessionsApiAiSessionsGetResponse,
+    ListSessionsApiAiSessionsGetError,
+    ListSessionsApiAiSessionsGetResponse,
+    ReturnType<typeof listSessionsApiAiSessionsGetQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await listSessionsApiAiSessionsGet({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      })
+      return data
+    },
+    queryKey: listSessionsApiAiSessionsGetQueryKey(options),
+  })
+
+export const listSessionsApiAiSessionsGetInfiniteQueryKey = (
+  options?: Options<ListSessionsApiAiSessionsGetData>,
+): QueryKey<Options<ListSessionsApiAiSessionsGetData>> =>
+  createQueryKey('listSessionsApiAiSessionsGet', options, true)
+
+/**
+ * List Sessions
+ *
+ * Диалоги с агентом.
+ *
+ * Админ видит все, остальные — только свои: фильтр по участнику для них
+ * не расширяет выдачу, а сужает её внутри собственных сессий.
+ */
+export const listSessionsApiAiSessionsGetInfiniteOptions = (
+  options?: Options<ListSessionsApiAiSessionsGetData>,
+) =>
+  infiniteQueryOptions<
+    ListSessionsApiAiSessionsGetResponse,
+    ListSessionsApiAiSessionsGetError,
+    InfiniteData<ListSessionsApiAiSessionsGetResponse>,
+    QueryKey<Options<ListSessionsApiAiSessionsGetData>>,
+    | number
+    | Pick<
+        QueryKey<Options<ListSessionsApiAiSessionsGetData>>[0],
+        'body' | 'headers' | 'path' | 'query'
+      >
+  >(
+    // @ts-ignore
+    {
+      queryFn: async ({ pageParam, queryKey, signal }) => {
+        // @ts-ignore
+        const page: Pick<
+          QueryKey<Options<ListSessionsApiAiSessionsGetData>>[0],
+          'body' | 'headers' | 'path' | 'query'
+        > =
+          typeof pageParam === 'object'
+            ? pageParam
+            : {
+                query: {
+                  page: pageParam,
+                },
+              }
+        const params = createInfiniteParams(queryKey, page)
+        const { data } = await listSessionsApiAiSessionsGet({
+          ...options,
+          ...params,
+          signal,
+          throwOnError: true,
+        })
+        return data
+      },
+      queryKey: listSessionsApiAiSessionsGetInfiniteQueryKey(options),
+    },
+  )
+
+export const getSessionApiAiSessionsSessionIdGetQueryKey = (
+  options: Options<GetSessionApiAiSessionsSessionIdGetData>,
+) => createQueryKey('getSessionApiAiSessionsSessionIdGet', options)
+
+/**
+ * Get Session
+ *
+ * Ход одного диалога.
+ */
+export const getSessionApiAiSessionsSessionIdGetOptions = (
+  options: Options<GetSessionApiAiSessionsSessionIdGetData>,
+) =>
+  queryOptions<
+    GetSessionApiAiSessionsSessionIdGetResponse,
+    GetSessionApiAiSessionsSessionIdGetError,
+    GetSessionApiAiSessionsSessionIdGetResponse,
+    ReturnType<typeof getSessionApiAiSessionsSessionIdGetQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getSessionApiAiSessionsSessionIdGet({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      })
+      return data
+    },
+    queryKey: getSessionApiAiSessionsSessionIdGetQueryKey(options),
+  })
+
+export const getUsageApiAiUsageGetQueryKey = (options?: Options<GetUsageApiAiUsageGetData>) =>
+  createQueryKey('getUsageApiAiUsageGet', options)
+
+/**
+ * Get Usage
+ *
+ * Расход токенов за период.
+ *
+ * Админ видит всех, обычный участник — только себя. Топы у него пустые
+ * не потому, что данных нет, а потому что чужой расход — это чужая
+ * активность.
+ */
+export const getUsageApiAiUsageGetOptions = (options?: Options<GetUsageApiAiUsageGetData>) =>
+  queryOptions<
+    GetUsageApiAiUsageGetResponse,
+    GetUsageApiAiUsageGetError,
+    GetUsageApiAiUsageGetResponse,
+    ReturnType<typeof getUsageApiAiUsageGetQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getUsageApiAiUsageGet({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      })
+      return data
+    },
+    queryKey: getUsageApiAiUsageGetQueryKey(options),
   })
 
 export const listWebhooksGlWebhooksGetQueryKey = (

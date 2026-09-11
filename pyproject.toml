@@ -5,6 +5,8 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "vkt-agent",
+    "vkt-ai",
     "vkt-dispatcher",
     "vkt-gitlab",
     "alembic>=1.16.2",
@@ -48,6 +50,8 @@ requires = ["uv_build>=0.7.13,<0.8.0"]
 build-backend = "uv_build"
 
 [tool.uv.sources]
+vkt_agent = { workspace = true }
+vkt_ai = { workspace = true }
 vkt_dispatcher = { workspace = true }
 vkt_gitlab = { workspace = true }
 
@@ -69,6 +73,8 @@ addopts = [
     "--cov=vkteams_client",
     "--cov=vkt_dispatcher",
     "--cov=vkt_gitlab",
+    "--cov=vkt_agent",
+    "--cov=vkt_ai",
     "--cov-report=term-missing:skip-covered",
     "--cov-fail-under=70",
 ]

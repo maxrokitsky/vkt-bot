@@ -9,6 +9,7 @@ import uvicorn
 
 from vkt_bot.config import get_settings
 from vkt_bot.core.events.retention import retention_task
+from vkt_bot.core.lifespans import background_tasks
 from vkt_bot.db.session import async_session
 from vkt_bot.app import dispatcher
 from vkt_bot.webapp.app import create_app
@@ -30,7 +31,7 @@ def check_settings() -> None:
 
 async def main() -> None:
     try:
-        async with retention_task():
+        async with retention_task(), background_tasks():
             await dispatcher.run()
     except asyncio.CancelledError:
         sys.stdout.write("\r")

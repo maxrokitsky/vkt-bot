@@ -1,0 +1,585 @@
+{
+    "actions": {
+        "name": "actions",
+        "in": "query",
+        "required": true,
+        "schema": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "enum": [
+                    "looking",
+                    "typing"
+                ]
+            }
+        },
+        "description": "tr{{mainPage.currentActionInChat}}"
+    },
+    "caption": {
+        "name": "caption",
+        "in": "query",
+        "schema": {
+            "type": "string"
+        },
+        "description": "tr{{mainPage.captionFile}}"
+    },
+    "chatName": {
+        "name": "name",
+        "in": "query",
+        "required": true,
+        "schema": {
+            "type": "string"
+        },
+        "description": "tr{{mainPage.chatName}}",
+        "example": "tr{{mainPage.chatNameExample}}"
+    },
+    "chatAbout": {
+        "name": "about",
+        "in": "query",
+        "schema": {
+            "type": "string"
+        },
+        "description": "tr{{mainPage.chatDescription}}",
+        "example": "tr{{mainPage.chatDescriptionExample}}"
+    },
+    "chatRules": {
+        "name": "rules",
+        "in": "query",
+        "schema": {
+            "type": "string"
+        },
+        "description": "tr{{mainPage.chatRules}}",
+        "example": "tr{{mainPage.chatRulesExample}}"
+    },
+    "chatPublic": {
+        "name": "public",
+        "in": "query",
+        "schema": {
+            "type": "string"
+        },
+        "description": "tr{{mainPage.chatPublic}}",
+        "example": "tr{{mainPage.stringBool}}"
+    },
+    "chatJoinModeration": {
+        "name": "joinModeration",
+        "in": "query",
+        "schema": {
+            "type": "string"
+        },
+        "description": "tr{{mainPage.chatJoinModeration}}",
+        "example": "tr{{mainPage.stringBool}}"
+    },
+    "chatId": {
+        "name": "chatId",
+        "in": "query",
+        "required": true,
+        "schema": {
+            "type": "string"
+        },
+        "description": "tr{{mainPage.uniqChatOrUserId}} tr{{mainPage.idCanBeReceivedFromIncoming,<span class='link' data-href='#operations-tag-events'>events</span>,`chatId`}}",
+        "example": "@user_id_example, tr{{mainPage.or,@public_chat_id_example,681869378@chat.agent}}"
+    },
+    "chatDefaultRole": {
+        "name": "defaultRole",
+        "in": "query",
+        "schema": {
+            "type": "string"
+        },
+        "description": "tr{{mainPage.chatDefaultRole}}",
+        "example": "tr{{mainPage.chatDefaultRoleExample}}"
+    },
+    "cursor": {
+        "name": "cursor",
+        "in": "query",
+        "schema": {
+            "type": "string"
+        },
+        "description": "tr{{mainPage.idForNextUserListPage,Cursor,`getMembers`,`cursor`}}"
+    },
+    "delLastMessages": {
+        "name": "delLastMessages",
+        "in": "query",
+        "schema": {
+            "type": "boolean"
+        },
+        "description": "tr{{mainPage.lastMessagesRemoving}}",
+        "example": "true"
+    },
+    "fileId": {
+        "name": "fileId",
+        "in": "query",
+        "required": true,
+        "schema": {
+            "type": "string"
+        },
+        "description": "tr{{mainPage.uploadedFileId}}"
+    },
+    "forwardChatId": {
+        "name": "forwardChatId",
+        "in": "query",
+        "schema": {
+            "type": "string"
+        },
+        "description": "tr{{mainPage.forwardChatId,forwardMsgId,`replyMsgId`}}"
+    },
+    "forwardMsgId": {
+        "name": "forwardMsgId",
+        "in": "query",
+        "schema": {
+            "type": "array",
+            "items": {
+                "type": "integer"
+            }
+        },
+        "description": "tr{{mainPage.forwardMessageId,forwardChatId,`replyMsgId`}}"
+    },
+    "groupOrChannelAbout": {
+        "name": "about",
+        "in": "query",
+        "required": true,
+        "schema": {
+            "type": "string"
+        },
+        "description": "tr{{mainPage.chatDescription}}",
+        "example": "tr{{mainPage.chatDescriptionExample}}"
+    },
+    "groupOrChannelId": {
+        "name": "chatId",
+        "in": "query",
+        "required": true,
+        "schema": {
+            "type": "string"
+        },
+        "description": "tr{{mainPage.uniqGroupOrChannelId}} tr{{mainPage.idCanBeReceivedFromIncoming,<span class='link' data-href='#operations-tag-events'>events</span>,`chatId`}}",
+        "example": "tr{{mainPage.or,@public_chat_id_example,681869378@chat.agent}}"
+    },
+    "groupOrChannelRules": {
+        "name": "rules",
+        "in": "query",
+        "required": true,
+        "schema": {
+            "type": "string"
+        },
+        "description": "tr{{mainPage.chatRules}}",
+        "example": "tr{{mainPage.chatRulesExample}}"
+    },
+    "groupOrChannelTitle": {
+        "name": "title",
+        "in": "query",
+        "required": true,
+        "schema": {
+            "type": "string"
+        },
+        "description": "tr{{mainPage.chatName}}",
+        "example": "tr{{mainPage.chatNameExample}}"
+    },
+    "lastEventId": {
+        "name": "lastEventId",
+        "in": "query",
+        "required": true,
+        "schema": {
+            "type": "integer"
+        },
+        "description": "tr{{mainPage.lastEventId}}"
+    },
+    "msgId": {
+        "name": "msgId",
+        "in": "query",
+        "required": true,
+        "schema": {
+            "type": "integer"
+        },
+        "description": "tr{{mainPage.messageId}}"
+    },
+    "msgIds": {
+        "name": "msgId",
+        "in": "query",
+        "required": true,
+        "schema": {
+            "type": "array",
+            "items": {
+                "type": "integer"
+            }
+        },
+        "description": "tr{{mainPage.messagesId}}"
+    },
+    "membersRequired": {
+        "name": "members",
+        "in": "query",
+        "required": true,
+        "description": "tr{{mainPage.members}}",
+        "example": "[{\"sn\": \"123456789\"}, {\"sn\": \"987654321\"}]"
+    },
+    "members": {
+        "name": "members",
+        "in": "query",
+        "required": false,
+        "description": "tr{{mainPage.members}}",
+        "example": "[{\"sn\": \"123456789\"}, {\"sn\": \"987654321\"}]"
+    },
+    "pendingApprove": {
+        "name": "approve",
+        "in": "query",
+        "required": true,
+        "schema": {
+            "type": "boolean"
+        },
+        "description": "tr{{mainPage.approveDesc}}",
+        "example": "true"
+    },
+    "pendingEveryone": {
+        "name": "everyone",
+        "in": "query",
+        "schema": {
+            "type": "boolean"
+        },
+        "description": "tr{{mainPage.pendingEveryoneDesc,`userId`}}",
+        "example": "true"
+    },
+    "pendingUserId": {
+        "name": "userId",
+        "in": "query",
+        "schema": {
+            "type": "string"
+        },
+        "description": "tr{{mainPage.pendingUserIdDesc,`everyone`}}",
+        "example": "true"
+    },
+    "pollTime": {
+        "name": "pollTime",
+        "in": "query",
+        "required": true,
+        "schema": {
+            "type": "integer"
+        },
+        "description": "tr{{mainPage.pollTimeDesc}}"
+    },
+    "replyMsgId": {
+        "name": "replyMsgId",
+        "in": "query",
+        "schema": {
+            "type": "array",
+            "items": {
+                "type": "integer"
+            }
+        },
+        "description": "tr{{mainPage.replyMsgIdDesc,`forwardChatId`,`forwardMsgId`}}"
+    },
+    "text": {
+        "name": "text",
+        "in": "query",
+        "required": true,
+        "schema": {
+            "type": "string"
+        },
+        "description": "tr{{mainPage.messageTextDesc,userId,@[userId]}}",
+        "example": "tr{{mainPage.hello,@[0123456789]}}"
+    },
+    "textAnswer": {
+        "name": "text",
+        "in": "query",
+        "schema": {
+            "type": "string"
+        },
+        "description": "tr{{mainPage.textAnswerDesc}}"
+    },
+    "token": {
+        "name": "token",
+        "in": "query",
+        "required": true,
+        "schema": {
+            "type": "string"
+        },
+        "description": "tr{{mainPage.secretToken}}",
+        "example": "001.2659914704.0218887601:747432131"
+    },
+    "userId": {
+        "name": "userId",
+        "in": "query",
+        "required": true,
+        "schema": {
+            "type": "string"
+        },
+        "description": "tr{{mainPage.uniqUserId}}"
+    },
+    "queryId": {
+        "name": "queryId",
+        "in": "query",
+        "schema": {
+            "type": "string"
+        },
+        "required": true,
+        "description": "tr{{mainPage.botReceivedCallbackId,callback query}}"
+    },
+    "showAlert": {
+        "name": "showAlert",
+        "in": "query",
+        "description": "tr{{mainPage.showAlertDesc,`true`,`alert`}}",
+        "schema": {
+            "type": "boolean"
+        }
+    },
+    "url": {
+        "name": "url",
+        "in": "query",
+        "schema": {
+            "type": "string"
+        },
+        "description": "tr{{mainPage.urlDesc}}"
+    },
+    "inlineKeyboardMarkup": {
+        "name": "inlineKeyboardMarkup",
+        "in": "body",
+        "description": "tr{{mainPage.inlineKeyboardMarkupDesc}}",
+        "schema": {
+            "type": "array",
+            "items": {
+                "type": "array",
+                "items": {
+                    "oneOf": [
+                        {
+                            "type": "object",
+                            "properties": {
+                                "text": {
+                                    "type": "string",
+                                    "description": "tr{{mainPage.textOnButton}}",
+                                    "example": "🌎 Visit website"
+                                },
+                                "url": {
+                                    "type": "string",
+                                    "description": "tr{{mainPage.buttonClickUrl}}",
+                                    "example": "http://teams.vk.com"
+                                },
+                                "style": {
+                                    "type": "string",
+                                    "description": "tr{{mainPage.buttonsTextStyle}}",
+                                    "enum": [
+                                        "attention",
+                                        "primary",
+                                        "base"
+                                    ],
+                                    "example": "attention",
+                                    "default": "base"
+                                }
+                            },
+                            "required" : [ "text", "url" ]
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "text": {
+                                    "type": "string",
+                                    "description": "tr{{mainPage.textOnButton}}",
+                                    "example": "🤖 Make a query"
+                                },
+                                "callbackData": {
+                                    "type": "string",
+                                    "description": "tr{{mainPage.botCallbackData}}",
+                                    "example": "RXhhbXBsZSBjYWxsYmFjayBkYXRhCg=="
+                                },
+                               "style": {
+                                    "type": "string",
+                                    "description": "tr{{mainPage.buttonsTextStyle}}",
+                                    "enum": [
+                                        "attention",
+                                        "primary",
+                                        "base"
+                                    ],
+                                    "example": "primary",
+                                    "default": "base"
+                                }
+                            },
+                            "required" : [ "text", "callbackData" ]
+                        }
+                    ]
+                }
+            }
+        }
+    },
+    "formatCommonParams": {
+	"type": "object",
+	"properties": {
+	    "offset": {
+		"type": "integer",
+                "description": "tr{{mainPage.formatOffsetDesc}}",
+                "example": 0
+	    },
+	    "length": {
+		"type": "integer",
+                "description": "tr{{mainPage.formatLengthDesc}}",
+                "example": 1
+	    }
+	},
+	"required": [
+	    "offset",
+	    "length"
+	]
+    },
+    "formatSchema": {
+        "type": "object",
+        "properties": {
+            "bold": {
+                "type": "array",
+                "description": "tr{{mainPage.formatBold}}",
+                "items": {
+                    "$ref": "#formatCommonParams"
+                }
+            },
+            "italic": {
+                "type": "array",
+                "description": "tr{{mainPage.formatItalic}}",
+                "items": {
+                    "$ref": "#formatCommonParams"
+                }
+            },
+            "underline": {
+                "type": "array",
+                "description": "tr{{mainPage.formatUnderline}}",
+                "items": {
+                    "$ref": "#formatCommonParams"
+                }
+            },
+            "strikethrough": {
+                "type": "array",
+                "description": "tr{{mainPage.formatStrikethrough}}",
+                "items": {
+                    "$ref": "#formatCommonParams"
+                }
+            },
+            "link": {
+                "type": "array",
+                "description": "tr{{mainPage.formatLink}}",
+                "items": {
+                    "allOf": [
+                        {
+                            "$ref": "#formatCommonParams"
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "url": {
+                                    "type": "string",
+                                    "example": "https://example.com/"
+                                }
+                            },
+                            "required": "url"
+                        }
+                    ]
+                }
+            },
+            "mention": {
+                "type": "array",
+                "description": "tr{{mainPage.formatMention}}",
+                "items": {
+                    "$ref": "#formatCommonParams"
+                }
+            },
+            "inline_code": {
+                "type": "array",
+                "description": "tr{{mainPage.formatInlineCode}}",
+                "items": {
+                    "$ref": "#formatCommonParams"
+                }
+            },
+            "pre": {
+                "type": "array",
+                "description": "tr{{mainPage.formatPre}}",
+                "items": {
+                    "allOf": [
+                        {
+                            "$ref": "#formatCommonParams"
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "code": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    ]
+                }
+            },
+            "ordered_list": {
+                "type": "array",
+                "description": "tr{{mainPage.formatOrderedList}}",
+                "items": {
+                    "$ref": "#formatCommonParams"
+                }
+            },
+            "unordered_list": {
+                "type": "array",
+                "description": "tr{{mainPage.formatUnorderedList}}",
+                "items": {
+                    "$ref": "#formatCommonParams"
+                }
+            },
+            "quote": {
+                "type": "array",
+                "description": "tr{{mainPage.formatQuote}}",
+                "items": {
+                    "$ref": "#formatCommonParams"
+                }
+            }
+        }
+    },
+    "format": {
+        "name": "format",
+        "in": "body",
+        "description": "tr{{mainPage.formatDesc}}",
+        "schema": {
+            "$ref": "#formatSchema"
+        }
+    },
+    "parseMode": {
+        "name": "parseMode",
+        "in": "query",
+        "description": "tr{{mainPage.parseModeDesc}}",
+        "schema": {
+            "type": "string",
+            "enum": [
+                "MarkdownV2",
+                "HTML"
+            ],
+            "example": "MarkdownV2"
+        }
+    },
+    "threadId": {
+        "name": "threadId",
+        "in": "query",
+        "required": true,
+        "schema": {
+            "type": "string"
+        },
+        "description": "tr{{mainPage.threadIdDesc}}",
+        "example": "2601@chat.agent"
+    },
+    "enable": {
+        "name": "enable",
+        "in": "query",
+        "required": true,
+        "schema": {
+            "type": "boolean"
+        },
+        "description": "tr{{mainPage.enableDesc}}",
+        "example": true
+    },
+    "withExisting": {
+        "name": "withExisting",
+        "in": "query",
+        "schema": {
+            "type": "boolean"
+        },
+        "description": "tr{{mainPage.withExistingDesc}}",
+        "example": true
+    },
+    "pageSize": {
+        "name": "pageSize",
+        "in": "query",
+        "schema": {
+            "type": "integer"
+        },
+        "description": "tr{{mainPage.pageSizeDesc}}",
+        "example": 10
+    }
+}

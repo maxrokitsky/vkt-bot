@@ -3,14 +3,14 @@ from __future__ import annotations
 import re
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from typing import TYPE_CHECKING, Self, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Self, cast
 
-from vkteams_client.types import NewMessageEvent
+from vkteams_client.types import CallbackQueryEvent, NewMessageEvent
 
 from vkteams_client.enums import Parts, PayLoadFileType
 
 if TYPE_CHECKING:
-    from vkteams_client.types import Event
+    from vkteams_client.types import Event, NewMessagePayload
 
 
 class FilterBase(ABC):
@@ -166,63 +166,91 @@ class RegexpFilter(MessageFilter):
         )
 
 
-class FileFilter(MessageFilter):
+def message_payload(event: Event) -> NewMessagePayload | None:
+    """Payload сообщения или ``None``, если событие другого типа.
+
+    Фильтры по вложениям спрашивают ``parts``, а они есть только у
+    сообщения. Раньше здесь читалось ``event.data`` — словарь, которого у
+    pydantic-модели нет и никогда не было (ROADMAP 3.1).
+    """
+    if isinstance(event, NewMessageEvent):
+        return event.payload
+    return None
+
+
+class PartsFilter(MessageFilter):
+    """Основа фильтров по частям сообщения."""
+
+    def parts(self, event: Event) -> list[Any]:
+        payload = message_payload(event)
+        return payload.parts if payload else []
+
+    def has(self, event: Event, kind: Parts) -> bool:
+        """Есть ли в сообщении часть такого типа."""
+        return any(part.type == kind for part in self.parts(event))
+
+
+class FileFilter(PartsFilter):
     """FileFilter."""
 
     def filter(self, event: Event) -> bool:
-        return (
-            super().filter(event)
-            and "parts" in event.data
-            and any(p["type"] == Parts.FILE.value for p in event.data["parts"])
-        )
+        return super().filter(event) and self.has(event, Parts.FILE)
 
 
-class ImageFilter(FileFilter):
+class MediaFilter(FileFilter):
+    """Файл конкретного вида: картинка, видео или аудио.
+
+    ``type`` у части есть только у медиа — у обычного документа его нет.
+    """
+
+    media_type: ClassVar[PayLoadFileType]
+
+    def filter(self, event: Event) -> bool:
+        payload = message_payload(event)
+        if not super().filter(event) or payload is None:
+            return False
+        return any(file.type is self.media_type for file in payload.files)
+
+
+class ImageFilter(MediaFilter):
     """ImageFilter."""
 
-    def filter(self, event: Event) -> bool:
-        return super().filter(event) and any(
-            p["payload"]["type"] == PayLoadFileType.IMAGE.value
-            for p in event.data["parts"]
-            if "type" in p["payload"]
-        )
+    media_type: ClassVar[PayLoadFileType] = PayLoadFileType.IMAGE
 
 
-class VideoFilter(FileFilter):
+class VideoFilter(MediaFilter):
     """VideoFilter."""
 
-    def filter(self, event: Event) -> bool:
-        return super().filter(event) and any(
-            p["payload"]["type"] == PayLoadFileType.VIDEO.value
-            for p in event.data["parts"]
-            if "type" in p["payload"]
-        )
+    media_type: ClassVar[PayLoadFileType] = PayLoadFileType.VIDEO
 
 
-class AudioFilter(FileFilter):
+class AudioFilter(MediaFilter):
     """AudioFilter."""
 
-    def filter(self, event: Event) -> bool:
-        return super().filter(event) and any(
-            p["payload"]["type"] == PayLoadFileType.AUDIO.value
-            for p in event.data["parts"]
-            if "type" in p["payload"]
-        )
+    media_type: ClassVar[PayLoadFileType] = PayLoadFileType.AUDIO
 
 
-class StickerFilter(MessageFilter):
+class StickerFilter(PartsFilter):
     """StickerFilter."""
 
     def filter(self, event: Event) -> bool:
-        return (
-            super().filter(event)
-            and "parts" in event.data
-            and any(p["type"] == Parts.STICKER.value for p in event.data["parts"])
-        )
+        return super().filter(event) and self.has(event, Parts.STICKER)
 
 
-class MentionFilter(MessageFilter):
-    """MentionFilter."""
+class VoiceFilter(PartsFilter):
+    """VoiceFilter."""
+
+    def filter(self, event: Event) -> bool:
+        return super().filter(event) and self.has(event, Parts.VOICE)
+
+
+class MentionFilter(PartsFilter):
+    """Упоминание участника.
+
+    Без ``user_id`` — любое упоминание, с ним — упоминание конкретного
+    человека. ``userId`` есть только здесь: разметка ``format.mention``
+    несёт лишь смещение и длину.
+    """
 
     user_id: str | None
 
@@ -232,35 +260,26 @@ class MentionFilter(MessageFilter):
         self.user_id = user_id
 
     def filter(self, event: Event) -> bool:
-        return (
-            super().filter(event)
-            and "parts" in event.data
-            and any(
-                p["type"] == Parts.MENTION.value
-                and (p["payload"]["userId"] == self.user_id if self.user_id else True)
-                for p in event.data["parts"]
-            )
-        )
+        payload = message_payload(event)
+        if not super().filter(event) or payload is None:
+            return False
+        if self.user_id is None:
+            return bool(payload.mentions)
+        return any(mention.userId == self.user_id for mention in payload.mentions)
 
 
-class ForwardFilter(MessageFilter):
+class ForwardFilter(PartsFilter):
     """ForwardFilter."""
 
     def filter(self, event: Event) -> bool:
-        return "parts" in event.data and any(
-            p["type"] == Parts.FORWARD.value for p in event.data["parts"]
-        )
+        return super().filter(event) and self.has(event, Parts.FORWARD)
 
 
-class ReplyFilter(MessageFilter):
+class ReplyFilter(PartsFilter):
     """ReplyFilter."""
 
     def filter(self, event: Event) -> bool:
-        return (
-            super().filter(event)
-            and "parts" in event.data
-            and any(p["type"] == Parts.REPLY.value for p in event.data["parts"])
-        )
+        return super().filter(event) and self.has(event, Parts.REPLY)
 
 
 class URLFilter(RegexpFilter):
@@ -279,33 +298,38 @@ class URLFilter(RegexpFilter):
         return super().filter(event) and self.__FILTER(event)
 
 
+def callback_data(event: Event) -> str | None:
+    """Данные нажатой кнопки или ``None``, если событие другое."""
+    if isinstance(event, CallbackQueryEvent):
+        return event.payload.callbackData
+    return None
+
+
 class CallbackDataFilter(FilterBase):
     """CallbackDataFilter."""
 
-    def __init__(self, callback_data) -> None:
+    def __init__(self, callback_data: str) -> None:
         super().__init__()
 
         self.callback_data = callback_data
 
     def filter(self, event: Event) -> bool:
-        return (
-            "callbackData" in event.data
-            and event.data["callbackData"] == self.callback_data
-        )
+        return callback_data(event) == self.callback_data
 
 
 class CallbackDataRegexpFilter(FilterBase):
     """CallbackDataRegexpFilter."""
 
-    def __init__(self, pattern) -> None:
+    def __init__(self, pattern: str | re.Pattern[str]) -> None:
         super().__init__()
 
-        self.pattern = re.compile(pattern)
+        self.pattern = re.compile(pattern) if isinstance(pattern, str) else pattern
 
     def filter(self, event: Event) -> bool:
-        return "callbackData" in event.data and self.pattern.search(
-            event.data["callbackData"]
-        )
+        data = callback_data(event)
+        # Именно bool: фильтр обязан возвращать булево, а ``search``
+        # отдаёт объект совпадения.
+        return bool(data and self.pattern.search(data))
 
 
 class Filter:
@@ -320,6 +344,7 @@ class Filter:
     media = image | video | audio
     data = file & ~media
     sticker = StickerFilter()
+    voice = VoiceFilter()
     url = URLFilter()
     text = message & ~(command | sticker | file | url)
     regexp = RegexpFilter

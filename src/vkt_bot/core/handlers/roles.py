@@ -34,12 +34,10 @@ from vkt_bot.core.events import Actor, EventType, emit
 from vkt_bot.core.models.event import EntityType, EventSource
 from vkt_bot.core.handlers.callback import CallbackData, DeleteRoleCallbackData
 from vkt_bot.core.handlers.mixins import AdminRequiredMixin
+from vkt_bot.core.threads import is_thread
 from vkt_bot.utils.message import mention, sender_name
 
 logger = structlog.get_logger("vkt_bot.handlers.roles")
-
-# Так API отвечает на ``threads/subscribers/get`` для обычного чата.
-NOT_A_THREAD = "incorrect threadid"
 
 
 @dispatcher.register_handler
@@ -452,34 +450,8 @@ class NotifyRoleIsTaggedHandler(MessageHandler):
         return await ChatMembershipRepository(session).user_ids(chat_id)
 
     async def is_thread(self, bot: VKTeams, chat_id: str) -> bool:
-        """Обсуждение ли этот чат.
-
-        По виду ``chatId`` тред от группы не отличить; единственная
-        проверка — ответ API: для обычного чата ``threads/subscribers/get``
-        отказывает с ``Incorrect threadId``. Сам список подписчиков не
-        нужен, поэтому просим одну страницу, а не обходим все.
-
-        Этот отказ ожидаем — через проверку идёт каждое сообщение обычного
-        чата. Всё остальное — сбой: сеть, права или ошибка в нашем коде.
-        Различать их важно, иначе поломка выглядит как обычный чат и молча
-        уходит в debug. При сбое отвечаем «обычный чат»: проверка по
-        членству строже, и ошибаться лучше в эту сторону.
-        """
-        try:
-            page = await bot.threads_subscribers_get(chat_id, page_size=1)
-        except Exception:
-            logger.warning("thread.check_failed", chat_id=chat_id, exc_info=True)
-            return False
-
-        if page.ok:
-            return True
-
-        description = page.description or ""
-        if NOT_A_THREAD in description.lower():
-            logger.debug("thread.check_not_a_thread", chat_id=chat_id)
-        else:
-            logger.warning("thread.check_refused", chat_id=chat_id, reason=description)
-        return False
+        """Обсуждение ли этот чат — см. ``core.threads.is_thread``."""
+        return await is_thread(bot, chat_id)
 
     async def notify(
         self,

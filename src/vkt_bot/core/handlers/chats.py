@@ -16,6 +16,7 @@ from vkt_dispatcher.handlers import (
     NewChatMembersHandler,
 )
 from vkt_dispatcher.middleware import Middleware
+from vkt_bot.core.messages import record_incoming
 from vkt_bot.core.repositories.chat import ChatMembershipRepository, ChatRepository
 from vkt_bot.core.repositories.user import ChatUserRepository
 from vkt_bot.core.threads import autosubscribe_enabled, set_thread_autosubscribe
@@ -37,6 +38,17 @@ class CreateChatMiddleware(Middleware):
             await chat_repository.upsert(event.payload.chat)
             # Сообщения — самый частый источник имён.
             await ChatUserRepository(session).update_profile(event.payload.sender)
+            # История сообщений пишется здесь же: другого источника у неё
+            # нет — прочитать переписку через Bot API нельзя.
+            await record_incoming(
+                session,
+                event.payload.chat.chatId,
+                event.payload.msgId,
+                sender=event.payload.sender,
+                text=event.payload.text,
+                ts=event.payload.timestamp,
+                parts=event.payload.parts,
+            )
             if not known:
                 await emit(
                     session,

@@ -47,6 +47,14 @@ import type {
   GetRoleApiRolesRoleIdGetData,
   GetRoleApiRolesRoleIdGetErrors,
   GetRoleApiRolesRoleIdGetResponses,
+  GetSessionApiAiSessionsSessionIdGetData,
+  GetSessionApiAiSessionsSessionIdGetErrors,
+  GetSessionApiAiSessionsSessionIdGetResponses,
+  GetStatusApiAiStatusGetData,
+  GetStatusApiAiStatusGetResponses,
+  GetUsageApiAiUsageGetData,
+  GetUsageApiAiUsageGetErrors,
+  GetUsageApiAiUsageGetResponses,
   GetWebhookApiWebhooksWebhookIdGetData,
   GetWebhookApiWebhooksWebhookIdGetErrors,
   GetWebhookApiWebhooksWebhookIdGetResponses,
@@ -80,6 +88,9 @@ import type {
   ListRolesApiRolesGetData,
   ListRolesApiRolesGetErrors,
   ListRolesApiRolesGetResponses,
+  ListSessionsApiAiSessionsGetData,
+  ListSessionsApiAiSessionsGetErrors,
+  ListSessionsApiAiSessionsGetResponses,
   ListWebhooksApiWebhooksGetData,
   ListWebhooksApiWebhooksGetResponses,
   ListWebhooksGlWebhooksGetData,
@@ -794,6 +805,84 @@ export const healthHealthGet = <ThrowOnError extends boolean = false>(
 ) =>
   (options?.client ?? client).get<HealthHealthGetResponses, unknown, ThrowOnError>({
     url: '/health',
+    ...options,
+  })
+
+/**
+ * Get Status
+ *
+ * Включён ли агент и с какими лимитами.
+ *
+ * Панель без этого не отличила бы «агента выключили» от «никто ещё не
+ * спрашивал»: и там, и там пустой список.
+ */
+export const getStatusApiAiStatusGet = <ThrowOnError extends boolean = false>(
+  options?: Options<GetStatusApiAiStatusGetData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<GetStatusApiAiStatusGetResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/ai/status',
+    ...options,
+  })
+
+/**
+ * List Sessions
+ *
+ * Диалоги с агентом.
+ *
+ * Админ видит все, остальные — только свои: фильтр по участнику для них
+ * не расширяет выдачу, а сужает её внутри собственных сессий.
+ */
+export const listSessionsApiAiSessionsGet = <ThrowOnError extends boolean = false>(
+  options?: Options<ListSessionsApiAiSessionsGetData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    ListSessionsApiAiSessionsGetResponses,
+    ListSessionsApiAiSessionsGetErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/ai/sessions',
+    ...options,
+  })
+
+/**
+ * Get Session
+ *
+ * Ход одного диалога.
+ */
+export const getSessionApiAiSessionsSessionIdGet = <ThrowOnError extends boolean = false>(
+  options: Options<GetSessionApiAiSessionsSessionIdGetData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    GetSessionApiAiSessionsSessionIdGetResponses,
+    GetSessionApiAiSessionsSessionIdGetErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/ai/sessions/{session_id}',
+    ...options,
+  })
+
+/**
+ * Get Usage
+ *
+ * Расход токенов за период.
+ *
+ * Админ видит всех, обычный участник — только себя. Топы у него пустые
+ * не потому, что данных нет, а потому что чужой расход — это чужая
+ * активность.
+ */
+export const getUsageApiAiUsageGet = <ThrowOnError extends boolean = false>(
+  options?: Options<GetUsageApiAiUsageGetData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    GetUsageApiAiUsageGetResponses,
+    GetUsageApiAiUsageGetErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/ai/usage',
     ...options,
   })
 

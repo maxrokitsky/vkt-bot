@@ -19,6 +19,12 @@ TEST_ENV = {
     "SECRET_KEY": "test-secret-key",
     "OWNER_ID": "owner@example.com",
     "PUBLIC_URL": "https://panel.example.com",
+    # Настройки плагинов тоже фиксируем: у ``AiSettings`` свой
+    # ``env_file=".env"``, и без этого тесты читали бы боевой ключ и
+    # включённого агента с машины разработчика.
+    "AI_ENABLED": "false",
+    "AI_API_KEY": "",
+    "AI_MODEL": "test/model",
 }
 for _key, _value in TEST_ENV.items():
     os.environ[_key] = _value
@@ -34,7 +40,10 @@ from sqlalchemy.ext.asyncio import (  # noqa: E402
     create_async_engine,
 )
 
-from vkteams_client.types import ThreadSubscribersResponse  # noqa: E402
+from vkteams_client.types import (  # noqa: E402
+    MsgResponse,
+    ThreadSubscribersResponse,
+)
 
 from vkt_bot.db.base import Model  # noqa: E402
 from vkt_bot.db.session import async_session  # noqa: E402
@@ -87,6 +96,7 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: ARG001
 
     importlib.import_module("vkt_bot.core.models")
     importlib.import_module("vkt_gitlab.models")
+    importlib.import_module("vkt_ai.models")
 
 
 # --------------------------------------------------------------------------- #
@@ -118,16 +128,26 @@ def is_postgres(db_url: str) -> bool:
 
 
 def _fix_sqlite_transactions(engine: AsyncEngine) -> None:
-    """Заставить pysqlite вести транзакции честно.
+    """Заставить pysqlite вести транзакции честно и проверять внешние ключи.
 
     Драйвер по умолчанию сам решает, когда открывать транзакцию, из-за чего
     ``RELEASE SAVEPOINT`` коммитит внешнюю транзакцию и откат после теста
     перестаёт работать. Рецепт из документации SQLAlchemy.
+
+    ``PRAGMA foreign_keys`` в SQLite по умолчанию **выключена**, и без неё
+    локальный прогон мягче боевого PostgreSQL: нарушение внешнего ключа
+    проходит молча и всплывает только в CI. Один такой баг так и нашёлся —
+    сессия агента вставлялась раньше участника, на которого ссылается.
+    Пусть тесты будут строгими там же, где строгая база.
     """
 
     @sa.event.listens_for(engine.sync_engine, "connect")
     def _disable_implicit_begin(dbapi_connection: Any, record: Any) -> None:  # noqa: ANN401, ARG001
         dbapi_connection.isolation_level = None
+        cursor = dbapi_connection.cursor()
+        # Только вне транзакции: внутри неё PRAGMA молча ничего не делает.
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
     @sa.event.listens_for(engine.sync_engine, "begin")
     def _explicit_begin(conn: Any) -> None:  # noqa: ANN401
@@ -248,6 +268,12 @@ class FakeBot:
         self.calls: list[BotCall] = []
         self.errors: dict[str, BaseException] = {}
         self.results: dict[str, Any] = {
+            # Настоящий клиент на успешную отправку возвращает msgId, и от
+            # него зависит логика: якорь обсуждения, запись своих
+            # сообщений в историю. Без ответа по умолчанию тесты
+            # проверяли бы поведение при отказе сервера.
+            "send_text": MsgResponse(ok=True, msgId="bot-msg-1"),
+            "edit_text": MsgResponse(ok=True, msgId="bot-msg-1"),
             # Так API отвечает на ``threads/subscribers/get`` для обычного
             # чата. Через эту проверку проходит каждое сообщение: по виду
             # ``chatId`` тред от группы не отличить. Обсуждение задаётся

@@ -228,13 +228,13 @@ class TestDelete:
         async with session_factory() as other:
             assert await ChatUserRepository(other).get("dnc@example.com")
 
-    async def test_deleting_a_chat_with_webhooks(
-        self, session: AsyncSession, is_postgres: bool
-    ) -> None:
+    async def test_deleting_a_chat_with_webhooks(self, session: AsyncSession) -> None:
         """У ``webhooks.chat_id`` объявлен ``ON DELETE CASCADE``.
 
-        PostgreSQL применяет каскад и удаляет вебхуки вместе с чатом; SQLite
-        по умолчанию не проверяет внешние ключи, поэтому строка остаётся.
+        Раньше тест фиксировал расхождение: PostgreSQL каскад применял, а
+        SQLite не проверял внешние ключи вовсе. Теперь тесты включают
+        ``PRAGMA foreign_keys`` — поведение одинаковое на обеих базах, и
+        нарушение ключа видно локально, а не только в CI.
         """
         from vkt_bot.core.models import Webhook
 
@@ -254,8 +254,7 @@ class TestDelete:
 
         await ChatRepository(session).delete("chat-1", commit=True)
 
-        expected = 0 if is_postgres else 1
-        assert await table_count(session, Webhook) == expected
+        assert await table_count(session, Webhook) == 0
 
 
 class TestChatRepository:

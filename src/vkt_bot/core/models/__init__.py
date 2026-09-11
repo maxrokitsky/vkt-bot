@@ -9,6 +9,7 @@ from .event import (
 )
 from .login_history import LoginHistory
 from .login_token import LoginToken
+from .message import Message
 from .role import Role, RoleAssignment
 from .user import ChatUser
 from .webhook import Webhook
@@ -27,5 +28,6 @@ __all__ = (
     "EntityType",
     "LoginToken",
     "LoginHistory",
+    "Message",
     "Webhook",
 )

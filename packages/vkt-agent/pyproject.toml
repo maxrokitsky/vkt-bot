@@ -1,0 +1,18 @@
+[project]
+name = "vkt-agent"
+version = "0.1.0"
+description = "Каркас ИИ-агента: зависимости инструментов, политика подтверждений, запуск сессии"
+readme = "README.md"
+authors = [
+    { name = "Max Rokitsky", email = "max@rokitsky.ru" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "pydantic-ai-slim[openai]>=1.0.0",
+    "pydantic>=2.11.7",
+    "structlog>=25.4.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.7.13,<0.8.0"]
+build-backend = "uv_build"

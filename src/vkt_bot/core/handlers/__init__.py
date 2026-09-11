@@ -1,3 +1,3 @@
-from . import auth, chats, help, roles, threads, webhooks
+from . import auth, chats, help, messages, roles, threads, webhooks
 
-__all__ = ("roles", "chats", "help", "auth", "threads", "webhooks")
+__all__ = ("roles", "chats", "help", "auth", "messages", "threads", "webhooks")

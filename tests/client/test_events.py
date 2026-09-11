@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from vkteams_client.enums import ChatType, EventType
+from vkteams_client.enums import PayLoadFileType
 from vkteams_client.types import (
     Bot,
     CallbackQueryEvent,
@@ -119,16 +120,116 @@ class TestNewMessagePayload:
         bold = payload.format["bold"][0]
         assert (bold.offset, bold.length) == (0, 6)
 
-    def test_parts_are_dropped(self) -> None:
-        """Известный дефект: вложения и упоминания теряются при парсинге.
+    def test_message_without_parts(self) -> None:
+        assert make_event("new_message").payload.parts == []
 
-        ``NewMessagePayload`` не описывает поле ``parts`` — см. ROADMAP 3.1.
-        Тест фиксирует текущее поведение, чтобы падение было замечено, когда
-        поле появится.
-        """
+
+class TestParts:
+    """Вложения, упоминания, пересылки и ответы.
+
+    Долго не разбирались вовсе (ROADMAP 3.1): в модели не было поля
+    ``parts``, из-за чего терялись и вложения, и единственный источник
+    ``userId`` у упоминания.
+    """
+
+    def test_file_and_mention_are_parsed(self) -> None:
         payload = make_event("new_message_with_parts").payload
-        assert not hasattr(payload, "parts")
-        assert payload.model_extra in (None, {})
+
+        assert [part.type for part in payload.parts] == ["file", "mention"]
+
+    def test_file_payload(self) -> None:
+        file = make_event("new_message_with_parts").payload.files[0]
+
+        assert file.fileId == "0dC76vcKS3XZOtG5DVs9y15d1daefa1ae"
+        assert file.type is PayLoadFileType.IMAGE
+        assert file.caption == "Картинка"
+
+    def test_mention_carries_user_id(self) -> None:
+        """Разметка ``format.mention`` несёт только смещение и длину."""
+        mention = make_event("new_message_with_parts").payload.mentions[0]
+
+        assert mention.userId == "9876543210"
+        assert mention.firstName == "Пётр"
+
+    def test_document_without_media_type(self) -> None:
+        """У обычного документа ``type`` не приходит — только у медиа."""
+        event = make_event(
+            "new_message_with_parts",
+            parts=[{"type": "file", "payload": {"fileId": "abc"}}],
+        )
+
+        assert event.payload.files[0].type is None
+
+    @pytest.mark.parametrize(
+        ("kind", "part"),
+        [
+            ("sticker", {"type": "sticker", "payload": {"fileId": "s1"}}),
+            ("voice", {"type": "voice", "payload": {"fileId": "v1"}}),
+        ],
+    )
+    def test_file_id_parts(self, kind: str, part: dict) -> None:
+        payload = make_event("new_message_with_parts", parts=[part]).payload
+
+        assert payload.parts[0].type == kind
+        assert payload.parts[0].payload.fileId == part["payload"]["fileId"]
+
+    @pytest.mark.parametrize("kind", ["forward", "reply"])
+    def test_quoted_message(self, kind: str) -> None:
+        payload = make_event(
+            "new_message_with_parts",
+            parts=[
+                {
+                    "type": kind,
+                    "payload": {
+                        "message": {
+                            "from": {
+                                "firstName": "Пётр",
+                                "lastName": "Петров",
+                                "userId": "9876543210",
+                            },
+                            "msgId": "6724238139063271643",
+                            "text": "исходный текст",
+                            "timestamp": 1565608694,
+                        }
+                    },
+                }
+            ],
+        ).payload
+
+        quoted = payload.parts[0].payload.message
+        assert quoted.text == "исходный текст"
+        assert quoted.sender is not None
+        assert quoted.sender.userId == "9876543210"
+
+    def test_unknown_part_does_not_break_the_event(self) -> None:
+        """Новый тип части не должен делать сообщение нечитаемым целиком.
+
+        Иначе бот молчал бы вместо того, чтобы ответить на остальное.
+        """
+        event = make_event(
+            "new_message_with_parts",
+            parts=[
+                {"type": "mention", "payload": {"userId": "9876543210"}},
+                {"type": "quantum_hologram", "payload": {"whatever": 1}},
+            ],
+        )
+
+        assert [part.type for part in event.payload.parts] == [
+            "mention",
+            "quantum_hologram",
+        ]
+        assert event.payload.parts[1].payload == {"whatever": 1}
+        # Известные части при этом разобраны как обычно.
+        assert event.payload.mentions[0].userId == "9876543210"
+
+    def test_edited_message_keeps_parts(self) -> None:
+        """``EditedMessagePayload`` наследует поле — правка вложения не теряет его."""
+        event = make_event(
+            "edited_message",
+            parts=[{"type": "file", "payload": {"fileId": "abc", "type": "image"}}],
+        )
+
+        assert event.payload.files[0].fileId == "abc"
 
 
 class TestOtherPayloads:
@@ -187,16 +288,22 @@ class TestOtherPayloads:
     @pytest.mark.parametrize(
         "fixture",
         [
-            "deleted_message",
             "pinned_message",
             "unpinned_message",
         ],
     )
     def test_untyped_payloads_stay_dicts(self, fixture: str) -> None:
-        """У трёх событий ``payload: Any`` — см. ROADMAP 3.5."""
+        """У двух событий ``payload: Any`` — см. ROADMAP 3.5."""
         event = make_event(fixture)
         assert isinstance(event.payload, dict)
         assert event.payload == raw_event(fixture)["payload"]
+
+    def test_deleted_message_payload_is_typed(self) -> None:
+        """История сообщений помечает удалённые — ей нужен ``msgId``."""
+        event = make_event("deleted_message")
+
+        assert event.payload.msgId == "6752739791872001111"
+        assert event.payload.chat.chatId == "681869378@chat.agent"
 
 
 class TestEventStr:

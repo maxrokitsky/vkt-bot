@@ -29,6 +29,20 @@ export function formatTime(value: string | Date): string {
   return timeOnly.format(new Date(value))
 }
 
+/**
+ * `2026-09-11` как локальная календарная дата.
+ *
+ * `new Date('2026-09-11')` — это полночь UTC, и западнее Гринвича график
+ * рисует предыдущий день. Дата без времени — про календарь, а не про
+ * момент, поэтому собираем её из частей.
+ */
+export function parseLocalDate(value: string): Date {
+  const parts = value.split('-').map(Number)
+  if (parts.length !== 3 || parts.some(Number.isNaN)) return new Date(value)
+  const [year, month, day] = parts as [number, number, number]
+  return new Date(year, month - 1, day)
+}
+
 /** «9 сент.» — подписи оси графика. */
 export function formatDayMonth(value: string | Date): string {
   return dayMonth.format(new Date(value))

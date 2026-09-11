@@ -4,6 +4,7 @@ from typing import Any, Literal
 
 import aiohttp
 
+from .enums import ChatAction
 from .types import (
     EventsResponse,
     GetMembersResponse,
@@ -47,6 +48,10 @@ class VKTeams:
     #: свою функцию и превращает вызовы в доменные события; пакет про них
     #: ничего не знает и в базу не ходит.
     event_sink: Callable[[str, dict[str, Any]], Awaitable[None]] | None = None
+    #: Куда отдавать отправленные сообщения целиком: приложение пишет их
+    #: в историю чата. Отдельный крючок, а не ``event_sink``: полный
+    #: текст в журнал событий и в логи не идёт.
+    message_sink: Callable[[str, str, str], Awaitable[None]] | None = None
 
     def __init__(self, token: str) -> None:
         self.token = token
@@ -63,6 +68,20 @@ class VKTeams:
             await self.event_sink(event_type, fields)
         except Exception:
             logger.exception("event_sink.failed", event_type=event_type)
+
+    async def record_message(self, chat_id: str, msg_id: str, text: str) -> None:
+        """Отдать отправленное сообщение в историю.
+
+        В поток событий свои сообщения не возвращаются, поэтому без этого
+        история читается с дырами: вопрос есть, ответа нет. Ошибка
+        наблюдателя отправку не ломает.
+        """
+        if self.message_sink is None:
+            return
+        try:
+            await self.message_sink(chat_id, msg_id, text)
+        except Exception:
+            logger.exception("message_sink.failed", chat_id=chat_id)
 
     @property
     def session(self) -> aiohttp.ClientSession:
@@ -154,6 +173,8 @@ class VKTeams:
                 text_preview=text[:50],
                 reason=result.description,
             )
+            if result.ok and result.msgId:
+                await self.record_message(chat_id, result.msgId, text)
             return result
 
     async def edit_text(
@@ -194,6 +215,48 @@ class VKTeams:
                     chat_id=chat_id,
                     reason=result.description,
                     **extra,
+                )
+            return result
+
+    async def send_actions(self, chat_id: str, *actions: ChatAction | str) -> Response:
+        """Показать в чате, что бот занят: «печатает…», «смотрит…».
+
+        Состояние надо повторять: сервер держит его недолго, поэтому
+        вызывать метод нужно при каждой смене действий и не реже раза в
+        10 секунд, пока они не изменились. Пустой список — «всё,
+        закончил»; повторять это уведомление не надо.
+
+        Параметр повторяется по одному значению на действие
+        (``actions=looking&actions=typing``) — так по умолчанию
+        сериализуются массивы в query у OpenAPI 3. Пустой список
+        отправляется как ``actions=``: именно этого просит спека.
+
+        Индикатор — украшение: отказ сервера сюда возвращается флагом и
+        не должен мешать боту ответить.
+        """
+        path = "/chats/sendActions"
+
+        params: list[tuple[str, str]] = [
+            ("token", self.token),
+            ("chatId", chat_id),
+        ]
+        params.extend(("actions", str(action)) for action in actions)
+        if not actions:
+            params.append(("actions", ""))
+
+        async with self.session.get(
+            url=self.base_url + path,
+            params=params,
+            timeout=aiohttp.ClientTimeout(10),
+        ) as response:
+            response_body = await response.text()
+            result = Response.model_validate_json(response_body)
+            if not result.ok:
+                logger.warning(
+                    "chat.actions_refused",
+                    chat_id=chat_id,
+                    actions=[str(action) for action in actions],
+                    reason=result.description,
                 )
             return result
 

@@ -93,6 +93,10 @@ class TestMaskValue:
         masked = mask_value({"Authorization": "Bearer x", "api_key_new": "k"})
         assert masked == {"Authorization": MASKED, "api_key_new": MASKED}
 
+    def test_gateway_key_is_masked(self) -> None:
+        """Ключ шлюза модели в логи попадать не должен."""
+        assert mask_value({"ai_api_key": "sk-or-v1-x"}) == {"ai_api_key": MASKED}
+
     def test_ordinary_keys_survive(self) -> None:
         assert mask_value({"chat_id": "c1"}) == {"chat_id": "c1"}
 
