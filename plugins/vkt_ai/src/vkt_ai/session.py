@@ -65,6 +65,9 @@ class SessionRequest:
     question_msg_id: str | None = None
     #: Вопрос задан внутри обсуждения.
     chat_is_thread: bool = False
+    #: Сообщение, на которое отвечали, — «Пётр Петров: текст». Без него
+    #: «о чём это?» ответом на чужую реплику для модели бессмысленно.
+    quoted: str | None = None
     #: Продолжение уже начатого диалога.
     session_id: uuid.UUID | None = None
     trace_id: str | None = None
@@ -126,7 +129,7 @@ async def _run(bot: VKTeams, request: SessionRequest) -> None:
                 if deps.history_enabled
                 else None
             )
-            prompt = build_prompt(request.question, chat_history)
+            prompt = build_prompt(request.question, chat_history, request.quoted)
 
         # Индикатор «печатает…» держится ровно столько, сколько агент
         # работает, и гаснет сам на выходе из блока.
