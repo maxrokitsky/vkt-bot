@@ -144,6 +144,7 @@ class AgentRunner:
                     max_steps=self.max_steps,
                     chat_id=deps.chat_id,
                 )
+                spent = _spent(captured)
                 return RunResult(
                     output=_last_text(captured)
                     or (
@@ -151,6 +152,8 @@ class AgentRunner:
                         "и до ответа не дошёл. Попробуй спросить конкретнее."
                     ),
                     tools=_called_tools(captured),
+                    input_tokens=spent[0],
+                    output_tokens=spent[1],
                     messages=list(captured),
                     stopped_early=True,
                 )
@@ -158,18 +161,24 @@ class AgentRunner:
                 logger.warning(
                     "agent.timeout", timeout=self.timeout, chat_id=deps.chat_id
                 )
+                spent = _spent(captured)
                 return RunResult(
                     output=_last_text(captured)
                     or "Я думал слишком долго и остановился.",
                     tools=_called_tools(captured),
+                    input_tokens=spent[0],
+                    output_tokens=spent[1],
                     messages=list(captured),
                     stopped_early=True,
                 )
             except Exception as exc:
                 logger.exception("agent.failed", chat_id=deps.chat_id)
+                spent = _spent(captured)
                 return RunResult(
                     output="Не получилось ответить: внутренняя ошибка.",
                     tools=_called_tools(captured),
+                    input_tokens=spent[0],
+                    output_tokens=spent[1],
                     messages=list(captured),
                     error=f"{type(exc).__name__}: {exc}",
                 )
@@ -194,6 +203,24 @@ def _as_step(event: Any) -> Step | None:  # noqa: ANN401
             kind=StepKind.TOOL_RESULT, tool=getattr(event.part, "tool_name", None)
         )
     return None
+
+
+def _spent(messages: Sequence[ModelMessage]) -> tuple[int, int]:
+    """Сколько токенов уже израсходовано, по ответам модели.
+
+    Нужно там, где сессия оборвалась и ``RunResult`` библиотеки не
+    достался: упёрлись в лимит шагов, вышел таймаут, упал шлюз. Запросы к
+    этому моменту уже сделаны и оплачены — не посчитать их значит
+    систематически занижать расход и раздавать бюджет бесплатно.
+    """
+    incoming = outgoing = 0
+    for message in messages:
+        usage = getattr(message, "usage", None)
+        if usage is None:
+            continue
+        incoming += getattr(usage, "input_tokens", 0) or 0
+        outgoing += getattr(usage, "output_tokens", 0) or 0
+    return incoming, outgoing
 
 
 def _called_tools(messages: Sequence[ModelMessage]) -> list[str]:

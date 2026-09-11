@@ -71,14 +71,31 @@ class AgentSessionRepository(
         tokens_in: int = 0,
         tokens_out: int = 0,
     ) -> AgentSession | None:
-        """Закрыть сессию и досчитать расход токенов."""
+        """Закрыть сессию и досчитать расход токенов.
+
+        Начисление идёт отдельным ``UPDATE`` со сложением на стороне базы:
+        продолжения одного диалога уходят в разные фоновые задачи, а
+        семафор ограничивает их общее число, но не сериализует одну
+        сессию. Чтение-изменение-запись в Python потеряло бы начисление
+        соседней задачи — а это деньги.
+        """
+        if tokens_in or tokens_out:
+            await self.session.execute(
+                sa.update(AgentSession)
+                .where(AgentSession.id == session_id)
+                .values(
+                    tokens_in=AgentSession.tokens_in + tokens_in,
+                    tokens_out=AgentSession.tokens_out + tokens_out,
+                )
+            )
         row = await self.get_or_none(session_id)
         if row is None:
             return None
         row.status = status
-        row.tokens_in += tokens_in
-        row.tokens_out += tokens_out
         self.session.add(row)
+        # Счётчики поменяла база, а не сессия: перечитываем, иначе
+        # вызывающий увидит старые значения.
+        await self.session.refresh(row, ["tokens_in", "tokens_out"])
         return row
 
     async def tokens_since(self, user_id: str, since: datetime.datetime) -> int:

@@ -75,6 +75,12 @@ class AskAgentHandler(CommandHandler):
         chat_id = payload.chat.chatId
         question = (payload.text or "").partition(" ")[2].strip()
 
+        # ``CommandHandler`` отправителя не разбирает, поэтому чужой бот с
+        # `/ai` запустил бы платную сессию и выел бы чей-то дневной бюджет.
+        # Разговор без команды это уже проверяет — здесь та же причина.
+        if isinstance(payload.sender, Bot):
+            return
+
         if not question:
             await bot.send_text(chat_id, HELP, parse_mode="MarkdownV2")
             return

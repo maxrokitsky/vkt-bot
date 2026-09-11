@@ -26,13 +26,17 @@ async def purge_old_sessions(session: AsyncSession, days: int) -> int:
 
     Сообщения и вызовы инструментов уходят каскадом: они не имеют смысла
     без сессии, к которой относятся.
+
+    Срок считается от последней активности, а не от начала: диалог,
+    начатый месяц назад и продолженный вчера, — живой, и сносить его
+    вместе со всей перепиской было бы неожиданно.
     """
     if days <= 0:
         return 0
     edge = datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=days)
     stale = (
         await session.scalars(
-            sa.select(AgentSession.id).where(AgentSession.created_at < edge)
+            sa.select(AgentSession.id).where(AgentSession.updated_at < edge)
         )
     ).all()
     if not stale:

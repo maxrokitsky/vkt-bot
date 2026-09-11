@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import { Bot, CircleAlert, Coins, MessagesSquare } from 'lucide-vue-next'
 import type { AgentSessionResponse, SessionStatus } from '@/client'
@@ -56,6 +56,13 @@ const isAdmin = computed(() => authStore.isAdmin)
 const { page, pageSize } = useListQuery({ size: 25 })
 const status = ref<SessionStatus | typeof ALL>(ALL)
 const selectedId = ref<string | null>(null)
+
+// `useListQuery` сбрасывает страницу только на поиске. Без этого выбор
+// состояния на пятой странице показывал бы пустой список при наличии
+// результатов.
+watch(status, () => {
+  page.value = 1
+})
 
 /** Без статуса пустой список не отличить от выключенного агента. */
 const { data: agent } = useQuery(getStatusApiAiStatusGetOptions())
@@ -241,11 +248,16 @@ function open(session: AgentSessionResponse) {
 
         <template #body>
           <TableBody>
+            <!-- Строка открывается и с клавиатуры: карточка диалога —
+                 единственный способ увидеть ход разговора. -->
             <TableRow
               v-for="row in data?.items ?? []"
               :key="row.id"
               class="cursor-pointer"
+              tabindex="0"
               @click="open(row)"
+              @keydown.enter.self="open(row)"
+              @keydown.space.self.prevent="open(row)"
             >
               <TableCell class="whitespace-nowrap text-muted-foreground">
                 <Tooltip :delay-duration="400">

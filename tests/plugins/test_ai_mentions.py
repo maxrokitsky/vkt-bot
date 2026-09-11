@@ -155,6 +155,46 @@ class TestSpans:
             is False
         )
 
+    def test_exact_ids_win_over_the_name(self) -> None:
+        """Упомянули тёзку бота — значит, не бота.
+
+        Разметка опознаёт по имени, и оно грубое: если точные
+        идентификаторы пришли и нас среди них нет, гадать поверх нельзя.
+        """
+        text = "Бот Петров, посмотри"
+
+        assert (
+            mentions_bot(
+                text,
+                user_id=BOT_ID,
+                nick=NICK,
+                first_name="Бот",
+                spans=[(0, 10)],
+                mentioned_ids=["987"],
+            )
+            is False
+        )
+
+    def test_exact_id_of_the_bot_matches(self) -> None:
+        assert (
+            mentions_bot(
+                "кто угодно", user_id=BOT_ID, nick=NICK, mentioned_ids=[BOT_ID]
+            )
+            is True
+        )
+
+    def test_typed_nick_works_next_to_someone_elses_mention(self) -> None:
+        """Ник напечатали руками — части для него нет, а текст остался."""
+        assert (
+            mentions_bot(
+                f"@[987] эй @{NICK} посмотри",
+                user_id=BOT_ID,
+                nick=NICK,
+                mentioned_ids=["987"],
+            )
+            is True
+        )
+
     def test_span_is_cut_from_the_question(self) -> None:
         text = "Бот Ассистент, кто дежурный?"
 

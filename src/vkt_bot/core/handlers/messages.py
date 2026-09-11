@@ -26,6 +26,7 @@ from vkt_bot.utils.message import mention
 logger = structlog.get_logger("vkt_bot.handlers.messages")
 
 OFF_ARGS = frozenset({"off", "выкл", "0", "false", "no"})
+ON_ARGS = frozenset({"on", "вкл", "1", "true", "yes"})
 
 
 @dispatcher.register_handler
@@ -35,8 +36,11 @@ class MessageEditedHandler(EditedMessageHandler):
     async def callback(self, bot: VKTeams, event: EditedMessageEvent) -> None:
         payload = event.payload
         async with async_session() as session:
-            if not await history_enabled(session, payload.chat.chatId):
-                return
+            # Проверки на ``history_enabled`` здесь нет намеренно, как и у
+            # удаления: новых строк правка не создаёт, а оставить уже
+            # сохранённую с дореакционным текстом — хуже, чем обновить.
+            # Запись выключили — значит, в истории не должно остаться того,
+            # что человек уже исправил.
             await MessageRepository(session).mark_edited(
                 payload.chat.chatId,
                 payload.msgId,
@@ -86,7 +90,18 @@ class HistoryHandler(AdminRequiredMixin, CommandHandler):
                 )
                 return
 
-            enable = args[0].lower() not in OFF_ARGS
+            argument = args[0].lower()
+            if argument not in OFF_ARGS | ON_ARGS:
+                # Опечатка не должна молча включать запись переписки:
+                # «/history оff» с латинской o раньше означала «включить».
+                await bot.send_text(
+                    chat_id,
+                    f"{who}, не понял «{args[0]}». "
+                    "Включить — /history on, выключить — /history off.",
+                )
+                return
+
+            enable = argument in ON_ARGS
             await set_chat_history(session, chat_id, enabled=enable)
             await session.commit()
 

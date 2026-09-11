@@ -129,6 +129,17 @@ class TestAskCommand:
         assert fake_bot.texts == []
         assert len(asked) == 1
 
+    async def test_other_bots_cannot_spend_the_budget(
+        self, fake_bot: FakeBot, asked: list[SessionRequest]
+    ) -> None:
+        """`CommandHandler` отправителя не разбирает, а сессия платная."""
+        await AskAgentHandler.callback(
+            fake_bot, make_event("new_message_from_bot", text="/ai кто дежурный?")
+        )
+
+        assert asked == []
+        assert fake_bot.calls == []
+
     async def test_disabled_agent_says_so(
         self,
         fake_bot: FakeBot,

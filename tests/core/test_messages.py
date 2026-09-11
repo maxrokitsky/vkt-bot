@@ -9,7 +9,11 @@ import pytest
 
 from vkt_bot.core.constants import MESSAGES_HISTORY_SETTING
 from vkt_bot.core.handlers.chats import CreateChatMiddleware
-from vkt_bot.core.handlers.messages import MessageDeletedHandler, MessageEditedHandler
+from vkt_bot.core.handlers.messages import (
+    HistoryHandler,
+    MessageDeletedHandler,
+    MessageEditedHandler,
+)
 from vkt_bot.core.messages import (
     ATTACHMENT_PLACEHOLDER,
     message_text,
@@ -33,6 +37,8 @@ if TYPE_CHECKING:
 
 CHAT_ID = "681869378@chat.agent"
 MSG_ID = "6752739791872001111"
+#: Команду ``/history`` принимает только администратор.
+SENDER = {"firstName": "Бот", "lastName": "Админ", "userId": "botadmin@example.com"}
 
 
 @pytest.fixture
@@ -287,11 +293,88 @@ class TestEditAndDelete:
         assert message.deleted_at is not None
         assert await MessageRepository(session).recent(CHAT_ID) == []
 
+    async def test_edit_updates_even_when_history_is_off(
+        self,
+        session: AsyncSession,
+        middleware: CreateChatMiddleware,
+        fake_bot: FakeBot,
+    ) -> None:
+        """Строка уже есть — оставить в ней доисправленный текст хуже.
+
+        Выключение записи не должно консервировать то, что человек уже
+        поправил.
+        """
+        await middleware.on_event(make_event("new_message"))
+        await BotSettingsRepository(session).set_value(MESSAGES_HISTORY_SETTING, "off")
+        await session.commit()
+
+        await MessageEditedHandler.callback(fake_bot, make_event("edited_message"))
+
+        message = await MessageRepository(session).get_by_msg_id(CHAT_ID, MSG_ID)
+        assert message is not None
+        assert message.text == "Привет! (исправлено)"
+
     async def test_delete_of_unknown_message_is_harmless(
         self, fake_bot: FakeBot, session_factory: object
     ) -> None:
         """До внедрения истории сообщений нет — удалять нечего."""
         await MessageDeletedHandler.callback(fake_bot, make_event("deleted_message"))
+
+
+class TestHistoryCommand:
+    """``/history``."""
+
+    async def test_unknown_argument_is_refused(
+        self, session: AsyncSession, fake_bot: FakeBot, bot_admin: object
+    ) -> None:
+        """Опечатка не должна молча включать запись чужой переписки."""
+        await HistoryHandler.handle(
+            make_event("new_message", text="/history оff", **{"from": SENDER}),
+            _dispatcher(fake_bot),
+        )
+
+        assert "не понял" in fake_bot.texts[0]
+        assert await history_enabled(session, CHAT_ID) is True
+
+    async def test_off_disables(
+        self, session: AsyncSession, fake_bot: FakeBot, bot_admin: object
+    ) -> None:
+        await HistoryHandler.handle(
+            make_event("new_message", text="/history off", **{"from": SENDER}),
+            _dispatcher(fake_bot),
+        )
+
+        assert await history_enabled(session, CHAT_ID) is False
+
+    async def test_on_enables_back(
+        self, session: AsyncSession, fake_bot: FakeBot, bot_admin: object
+    ) -> None:
+        await set_chat_history(session, CHAT_ID, enabled=False)
+        await session.commit()
+
+        await HistoryHandler.handle(
+            make_event("new_message", text="/history on", **{"from": SENDER}),
+            _dispatcher(fake_bot),
+        )
+
+        assert await history_enabled(session, CHAT_ID) is True
+
+    async def test_without_arguments_reports_state(
+        self, fake_bot: FakeBot, bot_admin: object
+    ) -> None:
+        await HistoryHandler.handle(
+            make_event("new_message", text="/history", **{"from": SENDER}),
+            _dispatcher(fake_bot),
+        )
+
+        assert "включена" in fake_bot.texts[0]
+
+
+def _dispatcher(fake_bot: FakeBot) -> object:
+    """Диспетчер с фейковым ботом: хендлеру нужен только он."""
+    from vkt_dispatcher import Dispatcher
+
+    return Dispatcher(bot=fake_bot)  # type: ignore[arg-type]
 
 
 class TestQueries:

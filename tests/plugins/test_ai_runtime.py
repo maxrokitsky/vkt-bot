@@ -163,9 +163,13 @@ class TestRetention:
             {"chat_id": CHAT, "user_id": "u1"}
         )
         await session.flush()
-        row.created_at = datetime.datetime.now(datetime.UTC).replace(
+        # Срок считается от последней активности: диалог, начатый месяц
+        # назад и продолженный вчера, — живой.
+        moment = datetime.datetime.now(datetime.UTC).replace(
             tzinfo=None
         ) - datetime.timedelta(days=days_ago)
+        row.created_at = moment
+        row.updated_at = moment
         session.add(row)
         session.add(AgentMessage(session_id=row.id, role="user", content="вопрос"))
         await session.commit()
@@ -186,6 +190,15 @@ class TestRetention:
         await purge_old_sessions(session, days=30)
 
         assert await table_count(session, AgentMessage) == 0
+
+    async def test_continued_dialog_survives(self, session: AsyncSession) -> None:
+        """Начат давно, продолжен вчера — сносить его было бы неожиданно."""
+        row = await self.make_session(session, days_ago=100)
+        row.updated_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+        session.add(row)
+        await session.commit()
+
+        assert await purge_old_sessions(session, days=30) == 0
 
     async def test_fresh_dialogs_survive(self, session: AsyncSession) -> None:
         await self.make_session(session, days_ago=1)

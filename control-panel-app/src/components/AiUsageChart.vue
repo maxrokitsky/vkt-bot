@@ -10,7 +10,7 @@ import {
   ChartTooltipContent,
   componentToString,
 } from '@/components/ui/chart'
-import { formatDayMonth } from '@/lib/format'
+import { formatDayMonth, parseLocalDate } from '@/lib/format'
 
 /**
  * Расход токенов по дням. Столбцы, а не линия: это суточные счётчики, и
@@ -28,7 +28,7 @@ const config = {
 } satisfies ChartConfig
 
 const data = computed<Point[]>(() =>
-  props.points.map((point) => ({ date: new Date(point.date), tokens: point.tokens })),
+  props.points.map((point) => ({ date: parseLocalDate(point.date), tokens: point.tokens })),
 )
 
 /** Период без обращений показывает шкалу 0–1, а не пустой SVG. */

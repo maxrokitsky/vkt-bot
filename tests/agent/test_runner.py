@@ -171,6 +171,45 @@ class TestLimits:
         assert result.tools.count("user_roles") >= 2
         assert "остановился" in result.output or "не дошёл" in result.output
 
+    async def test_step_limit_keeps_the_spent_tokens(self) -> None:
+        """Запросы уже сделаны и оплачены — не посчитать их значит
+        занижать расход и раздавать бюджет бесплатно."""
+
+        def endless(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:  # noqa: ARG001
+            return ModelResponse(parts=[ToolCallPart("user_roles", {"user_id": "u2"})])
+
+        runner = AgentRunner(
+            FunctionModel(endless),
+            registry=build_registry(),
+            instructions="Ты бот",
+            max_steps=2,
+        )
+
+        result = await runner.run(deps(), "зациклись")
+
+        assert result.stopped_early is True
+        assert result.input_tokens > 0
+
+    async def test_failure_keeps_the_spent_tokens(self) -> None:
+        """Шлюз мог упасть после нескольких успешных ответов."""
+        calls = {"n": 0}
+
+        def flaky(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:  # noqa: ARG001
+            calls["n"] += 1
+            if calls["n"] > 1:
+                msg = "шлюз лёг"
+                raise RuntimeError(msg)
+            return ModelResponse(parts=[ToolCallPart("user_roles", {"user_id": "u2"})])
+
+        runner = AgentRunner(
+            FunctionModel(flaky), registry=build_registry(), instructions="Ты бот"
+        )
+
+        result = await runner.run(deps(), "привет")
+
+        assert result.ok is False
+        assert result.input_tokens > 0
+
     async def test_timeout(self) -> None:
         def slow(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:  # noqa: ARG001
             return ModelResponse(parts=[TextPart("не успею")])

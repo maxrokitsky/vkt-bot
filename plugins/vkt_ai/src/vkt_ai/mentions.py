@@ -108,11 +108,18 @@ def mentions_bot(
     ``mentioned_ids`` — идентификаторы из частей сообщения. Проверяются
     первыми: это точное совпадение, остальное — восстановление по тексту.
     """
-    if user_id and user_id in set(mentioned_ids):
+    exact = set(mentioned_ids)
+    if user_id and user_id in exact:
         return True
     if not text:
         return False
-    if matching_spans(text, spans, user_id=user_id, nick=nick, first_name=first_name):
+    # Разметка — восстановление по имени, и оно грубое: у бота имя «Бот»,
+    # а упомянуть могли участника «Бот Петров». Если точные
+    # идентификаторы пришли и нас среди них нет — значит, не нас; гадать
+    # поверх этого нельзя.
+    if not exact and matching_spans(
+        text, spans, user_id=user_id, nick=nick, first_name=first_name
+    ):
         return True
     if user_id and by_id(user_id).lower() in text.lower():
         return True

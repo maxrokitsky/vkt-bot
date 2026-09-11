@@ -237,6 +237,22 @@ class TestListSessions:
     async def test_requires_auth(self, client: httpx.AsyncClient) -> None:
         assert (await client.get("/api/ai/sessions")).status_code == 403
 
+    @pytest.mark.parametrize(
+        "params",
+        [{"size": 100_000}, {"size": 0}, {"page": 0}],
+    )
+    async def test_pagination_is_bounded(
+        self, client: httpx.AsyncClient, params: dict
+    ) -> None:
+        """Без потолка один запрос выгружал бы все диалоги разом."""
+        response = await client.get(
+            "/api/ai/sessions",
+            params=params,
+            headers=auth_headers("member@example.com"),
+        )
+
+        assert response.status_code == 422
+
 
 @pytest.mark.usefixtures("people")
 class TestSessionDetail:

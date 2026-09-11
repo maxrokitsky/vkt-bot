@@ -145,8 +145,10 @@ def public_session(
 async def list_sessions(
     session: SessionDep,
     current_user: CurrentUser,
-    page: int = 1,
-    size: int = 20,
+    page: int = Query(1, ge=1),
+    # Без потолка один запрос с ``size=100000`` выгружает все диалоги
+    # разом — и базе, и памяти это заметно.
+    size: int = Query(20, ge=1, le=100),
     user_id: str | None = None,
     chat_id: str | None = None,
     session_status: SessionStatus | None = None,

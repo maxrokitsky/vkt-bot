@@ -1,9 +1,14 @@
 """Типы событий агента.
 
 Регистрируются из ``install()``: колонка ``type`` хранит строку, миграции
-для своих типов не нужны. ``EntityType`` и ``EventSource`` тоже строковые
-(``sa.String`` без CHECK), поэтому ``agent_session`` и ``agent``
-добавляются просто значениями.
+для своих типов не нужны. ``EntityType`` — тоже строка, поэтому
+``agent_session`` добавляется просто значением.
+
+А вот ``EventSource`` своим значением плагину не расширить, хотя план это
+предполагал: колонка объявлена как ``enum_column(EventSource)``, и
+SQLAlchemy сверяет значение с перечислением ещё до базы. Поэтому события
+агента идут с источником ``system`` — он их и правда порождает сам, без
+человека за кнопкой.
 """
 
 from vkt_bot.core.events import EventSpec, register
@@ -11,8 +16,6 @@ from vkt_bot.core.models.event import EventSeverity, EventSource
 
 #: Сущность, к которой относятся события агента.
 ENTITY_AGENT_SESSION = "agent_session"
-#: Источник действия: агент — не человек и не панель.
-SOURCE_AGENT = "agent"
 
 SESSION_STARTED = "agent.session_started"
 TOOL_CALLED = "agent.tool_called"
