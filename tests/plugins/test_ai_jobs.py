@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from vkt_ai import jobs as jobs_module
+from vkt_ai import session as session_module
 from vkt_ai.jobs import enqueue_session, purge_sessions, run_session_task
 from vkt_ai.models import AgentSession
 from vkt_ai.repositories import AgentSessionRepository
@@ -148,5 +149,54 @@ class TestPurgeSessions:
         await session.commit()
 
         await purge_sessions()
+
+        assert await table_count(session, AgentSession) == 0
+
+
+@pytest.mark.usefixtures("session_factory")
+class TestBudgetIsRecheckedInTheWorker:
+    """Между постановкой в очередь и запуском бюджет мог кончиться."""
+
+    async def test_exhausted_budget_stops_the_session(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        fake_bot: FakeBot,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Хендлер проверил бюджет, но очередь ждала — проверяем снова.
+
+        Иначе на разборе накопившейся очереди лимит перешагивался бы на
+        столько задач, сколько успели поставить: списание идёт после
+        вызова модели, а проверка шла только до постановки.
+        """
+        called: list[str] = []
+
+        async def over(db: Any, user_id: str) -> bool:  # noqa: ARG001
+            return True
+
+        monkeypatch.setattr(session_module, "over_budget", over)
+        monkeypatch.setattr(
+            session_module, "get_runner", lambda: called.append("модель")
+        )
+
+        with caplog.at_level("WARNING", logger="vkt_bot.events"):
+            await session_module.run_session(fake_bot, a_request())
+
+        assert called == []
+        assert "лимит" in fake_bot.texts[0]
+        assert "agent.limit_exceeded" in caplog.text
+
+    async def test_session_row_is_not_created(
+        self, monkeypatch: pytest.MonkeyPatch, fake_bot: FakeBot, session: AsyncSession
+    ) -> None:
+        """Отказная сессия не стоит строки в таблице."""
+        from vkt_ai.models import AgentSession
+
+        async def over(db: Any, user_id: str) -> bool:  # noqa: ARG001
+            return True
+
+        monkeypatch.setattr(session_module, "over_budget", over)
+
+        await session_module.run_session(fake_bot, a_request())
 
         assert await table_count(session, AgentSession) == 0

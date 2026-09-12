@@ -15,7 +15,6 @@ import structlog
 from vkteams_client import VKTeams
 from vkteams_client.enums import ChatType
 from vkteams_client.types import Bot, Event, GetSelfResponse, NewMessageEvent
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from vkt_bot.app import dispatcher
 from vkt_bot.core.events import Actor, emit
@@ -32,7 +31,7 @@ from .jobs import enqueue_session
 from .mentions import mentions_bot, spans_of, strip_mention
 from .quotes import quote_line, quoted, replies_to
 from .repositories import AgentSessionRepository
-from .session import SessionRequest, day_start
+from .session import SessionRequest, over_budget
 
 logger = structlog.get_logger("vkt_ai.handlers")
 
@@ -52,18 +51,6 @@ HELP = """
 """.strip()
 
 DISABLED = "Агент сейчас выключен."
-
-
-async def over_budget(db: AsyncSession, user_id: str) -> bool:
-    """Исчерпан ли суточный бюджет токенов у этого участника.
-
-    Считается по обоим направлениям сразу: платят и за вход, и за выход.
-    """
-    budget = get_ai_settings().daily_token_budget
-    if budget <= 0:
-        return False
-    spent = await AgentSessionRepository(db).tokens_since(user_id, day_start())
-    return spent >= budget
 
 
 @dispatcher.register_handler

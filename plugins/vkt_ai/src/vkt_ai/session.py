@@ -23,6 +23,7 @@ from pydantic_ai.messages import ModelMessagesTypeAdapter, ModelRequest, TextPar
 from vkt_agent import AgentActor, AgentDeps
 from vkt_bot.core.events import Actor, emit
 from vkt_bot.core.messages import history_enabled
+from vkt_bot.core.models.event import ActorType
 from vkt_bot.core.models.role import Role, RoleAssignment
 from vkt_bot.core.repositories.user import ChatUserRepository
 from vkt_bot.core.threads import get_or_create_thread
@@ -126,6 +127,26 @@ async def _run(bot: VKTeams, request: SessionRequest) -> None:
     async with async_session() as db:
         sessions = AgentSessionRepository(db)
         messages = AgentMessageRepository(db)
+
+        if await over_budget(db, request.user_id):
+            # Между постановкой в очередь и запуском бюджет мог выбрать
+            # кто угодно, включая соседние задачи того же человека.
+            # Сессию не заводим: она стоила бы строки в журнале и
+            # ничего бы не дала.
+            await emit(
+                db,
+                ai_events.LIMIT_EXCEEDED,
+                actor=Actor(ActorType.USER, request.user_id, request.user_id),
+                chat_id=request.chat_id,
+                payload={"reason": "суточный бюджет токенов"},
+            )
+            await db.commit()
+            await _say(
+                bot,
+                request,
+                "На сегодня лимит запросов к агенту исчерпан. Попробуй завтра.",
+            )
+            return
 
         row = await _session_row(db, request)
         actor = await _actor(db, request.user_id)
@@ -361,3 +382,21 @@ def day_start() -> datetime.datetime:
     """Начало текущих суток UTC — граница суточного бюджета."""
     now = datetime.datetime.now(datetime.UTC)
     return now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+async def over_budget(db: AsyncSession, user_id: str) -> bool:
+    """Исчерпан ли суточный бюджет токенов у этого участника.
+
+    Считается по обоим направлениям сразу: платят и за вход, и за выход.
+
+    Спрашивают дважды — в хендлере, чтобы не ставить заведомо отказную
+    задачу, и здесь, перед вызовом модели. Между постановкой и запуском
+    проходит время, и за него очередь успевает списать токены соседних
+    сессий: без второй проверки на разборе накопившейся очереди лимит
+    перешагивался бы на столько задач, сколько успели поставить.
+    """
+    budget = get_ai_settings().daily_token_budget
+    if budget <= 0:
+        return False
+    spent = await AgentSessionRepository(db).tokens_since(user_id, day_start())
+    return spent >= budget
