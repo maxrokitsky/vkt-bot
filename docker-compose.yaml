@@ -1,5 +1,23 @@
 volumes:
   vk-bot-pg:
+  vk-bot-redis:
+
+# Внутри сети адреса другие, чем в ``.env``: там они указывают на
+# проброшенные порты — для процессов, запущенных на хосте.
+x-net: &net
+  DB_URL: postgresql+psycopg://postgres@postgres-db:5432/postgres
+  REDIS_URL: redis://redis:6379/0
+
+# Общее для процессов приложения: образ один, различаются командой.
+x-app: &app
+  build: .
+  env_file: .env
+  depends_on:
+    postgres-db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  restart: unless-stopped
 
 services:
   postgres-db:
@@ -14,3 +32,65 @@ services:
     #   - "5432"
     ports:
       - "16432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    # Очередь нельзя вытеснять: выброшенное сообщение — это вопрос, на
+    # который никто не ответит и о котором никто не узнает. appendonly —
+    # чтобы перезапуск Redis не съедал уже принятые вопросы.
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - vk-bot-redis:/data
+    ports:
+      # Только петля. Официальный образ отключает protected mode и пароля
+      # не спрашивает, поэтому публикация на все интерфейсы отдала бы
+      # очередь — с текстами вопросов — любому, кто дотянется до хоста.
+      - "127.0.0.1:16379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  bot:
+    <<: *app
+    environment:
+      <<: *net
+      SERVICE_NAME: vkt-bot
+    command: ["uv", "run", "bot"]
+
+  worker:
+    <<: *app
+    environment:
+      <<: *net
+      SERVICE_NAME: vkt-worker
+    # Один процесс и потолок одновременных сессий. Общий предел —
+    # реплики × max-async-tasks, и держать его в голове проще с одной
+    # репликой: лимиты у шлюза модели общие на всех.
+    command:
+      - taskiq
+      - worker
+      - vkt_bot.worker.app:broker
+      - --workers
+      - "1"
+      - --max-async-tasks
+      - "3"
+      - --shutdown-timeout
+      - "150"
+    # Больше, чем AI_TIMEOUT_SECONDS (120): подтверждений у очереди нет,
+    # и недоработанная при выкладке задача пропадёт вместе с ответом.
+    stop_grace_period: 160s
+
+  scheduler:
+    <<: *app
+    environment:
+      <<: *net
+      SERVICE_NAME: vkt-scheduler
+    # Строго один: второй экземпляр запустит каждую чистку дважды.
+    command: ["taskiq", "scheduler", "vkt_bot.worker.app:scheduler"]

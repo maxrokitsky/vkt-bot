@@ -1,10 +1,15 @@
-"""Фоновые задачи агента.
+"""Фоновые задачи агента — режим без Redis.
 
-Главное ограничение всей затеи: ``Dispatcher.start_polling`` вызывает
-``await self.trigger(event)`` в цикле по пачке событий, а ``trigger`` ждёт
-закрытия ``TaskGroup``. Значит, вызов модели на тридцать секунд внутри
-хендлера останавливает опрос событий для **всех** чатов. Поэтому хендлер
-только ставит задачу и сразу возвращает управление.
+Работа уехала в очередь (``jobs.py``), но ``InMemoryBroker`` исполняет
+задачу в том же процессе, что и опрос событий. Значит, здесь по-прежнему
+нужны две вещи: лимит одновременных сессий и снятие висящих задач при
+остановке бота. С настоящим брокером оба делает воркер — семафор флагом
+``--max-async-tasks``, остановку ``--shutdown-timeout``.
+
+Исходное ограничение никуда не делось: ``Dispatcher.start_polling``
+вызывает ``await self.trigger(event)`` в цикле по пачке событий, а
+``trigger`` ждёт закрытия ``TaskGroup``. Вызов модели на тридцать секунд
+внутри хендлера останавливает опрос событий для **всех** чатов.
 """
 
 from __future__ import annotations
@@ -65,12 +70,3 @@ async def cancel_all() -> None:
     for task in tasks:
         with contextlib.suppress(asyncio.CancelledError, Exception):
             await task
-
-
-@contextlib.asynccontextmanager
-async def agent_tasks():  # noqa: ANN201
-    """Жизненный цикл фоновых задач на время работы бота."""
-    try:
-        yield
-    finally:
-        await cancel_all()

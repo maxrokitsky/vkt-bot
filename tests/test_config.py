@@ -91,6 +91,31 @@ class TestSettingsSchema:
         settings = VktSettings(_env_file=None, **REQUIRED_KWARGS)  # type: ignore[call-arg]
         assert "application/pdf" in settings.allowed_file_types
 
+    def test_queue_defaults(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("REDIS_URL", raising=False)
+        monkeypatch.delenv("TASK_QUEUE", raising=False)
+        settings = VktSettings(_env_file=None, **REQUIRED_KWARGS)  # type: ignore[call-arg]
+
+        assert settings.redis_url is None
+        assert settings.task_queue == "vkt-bot-tasks"
+
+    def test_blank_redis_url_means_no_redis(self) -> None:
+        """``os.environ`` перебивает ``.env`` только заданной переменной.
+
+        Пустая строка — единственный способ погасить боевой ``REDIS_URL``
+        с машины разработчика, а ``RedisDsn`` её не принимает.
+        """
+        settings = VktSettings(_env_file=None, **{**REQUIRED_KWARGS, "redis_url": ""})  # type: ignore[call-arg]
+
+        assert settings.redis_url is None
+
+    def test_redis_dsn_is_parsed(self) -> None:
+        settings = VktSettings(  # type: ignore[call-arg]
+            _env_file=None, **{**REQUIRED_KWARGS, "redis_url": "redis://host:6379/0"}
+        )
+
+        assert str(settings.redis_url) == "redis://host:6379/0"
+
 
 class TestGetSettings:
     """``get_settings``."""

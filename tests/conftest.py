@@ -26,6 +26,12 @@ TEST_ENV = {
     "AI_API_KEY": "",
     "AI_MODEL": "test/model",
     "AI_REPLY_ON_REPLY": "true",
+    # Брокер выбирается по ``REDIS_URL``, и пустая строка означает
+    # «Redis нет». Пустая, а не отсутствующая: ``os.environ`` перебивает
+    # ``.env`` только если переменная задана, иначе тесты на машине
+    # разработчика ушли бы в его локальный Redis и ловили чужие задачи.
+    "REDIS_URL": "",
+    "TASK_QUEUE": "vkt-bot-test",
 }
 for _key, _value in TEST_ENV.items():
     os.environ[_key] = _value
@@ -377,6 +383,34 @@ def owner_id(settings: Any) -> str:  # noqa: ANN401
 # --------------------------------------------------------------------------- #
 
 
+@pytest.fixture(scope="session", autouse=True)
+async def broker() -> AsyncIterator[Any]:
+    """Брокер задач в тестах.
+
+    Подменить его нечем: ``@broker.task`` прибивает задачу к экземпляру
+    в момент импорта, поэтому нужный брокер выбирается настройками —
+    пустой ``REDIS_URL`` в ``TEST_ENV`` даёт ``InMemoryBroker``. Проверка
+    здесь той же породы, что ``_no_global_session_factory``: тест не
+    должен уметь сходить в настоящий Redis.
+
+    ``await_inplace``: ``kiq()`` выполняет задачу тут же и в том же
+    цикле. Иначе taskiq заводит свою ``asyncio``-задачу, тест успевает
+    закончиться раньше неё, и откат внешней транзакции приходится на
+    середину чужого запроса.
+    """
+    from taskiq import InMemoryBroker
+
+    from vkt_bot.worker.broker import broker as task_broker
+
+    assert isinstance(task_broker, InMemoryBroker), (
+        "тесты не ходят в настоящий Redis — проверьте REDIS_URL в TEST_ENV"
+    )
+    task_broker.await_inplace = True
+    await task_broker.startup()
+    yield task_broker
+    await task_broker.shutdown()
+
+
 @pytest.fixture(scope="session")
 def app() -> Any:  # noqa: ANN401
     """FastAPI-приложение со всеми роутерами и плагинами.
@@ -384,15 +418,15 @@ def app() -> Any:  # noqa: ANN401
     ``init_logging`` подменяется: перенастройка logging сломала бы вывод
     pytest.
     """
-    import vkt_bot
+    import vkt_bot.bootstrap as bootstrap_module
     import vkt_bot.webapp.app as webapp_app
 
-    original_init_logging = vkt_bot.init_logging
-    vkt_bot.init_logging = lambda: None  # type: ignore[assignment]
+    original_init_logging = bootstrap_module.init_logging
+    bootstrap_module.init_logging = lambda: None  # type: ignore[assignment]
     try:
         return webapp_app.create_app()
     finally:
-        vkt_bot.init_logging = original_init_logging  # type: ignore[assignment]
+        bootstrap_module.init_logging = original_init_logging  # type: ignore[assignment]
 
 
 @pytest.fixture

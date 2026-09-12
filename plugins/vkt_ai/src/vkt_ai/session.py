@@ -14,7 +14,7 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import sqlalchemy as sa
 import structlog
@@ -23,6 +23,7 @@ from pydantic_ai.messages import ModelMessagesTypeAdapter, ModelRequest, TextPar
 from vkt_agent import AgentActor, AgentDeps
 from vkt_bot.core.events import Actor, emit
 from vkt_bot.core.messages import history_enabled
+from vkt_bot.core.models.event import ActorType
 from vkt_bot.core.models.role import Role, RoleAssignment
 from vkt_bot.core.repositories.user import ChatUserRepository
 from vkt_bot.core.threads import get_or_create_thread
@@ -43,6 +44,8 @@ from .repositories import (
 from .tasks import concurrency_limiter
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from pydantic_ai.messages import ModelMessage
     from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -72,6 +75,31 @@ class SessionRequest:
     session_id: uuid.UUID | None = None
     trace_id: str | None = None
 
+    def as_payload(self) -> dict[str, Any]:
+        """Запрос как JSON-совместимый словарь: он поедет через Redis.
+
+        ``uuid`` приводится к строке руками: taskiq гонит аргумент через
+        ``json.dumps``, а тот на ``UUID`` падает — причём падает уже
+        внутри ``kiq()``, то есть в хендлере.
+        """
+        data = dataclasses.asdict(self)
+        data["session_id"] = str(self.session_id) if self.session_id else None
+        return data
+
+    @classmethod
+    def from_payload(cls, data: Mapping[str, Any]) -> SessionRequest:
+        """Собрать запрос обратно.
+
+        Неизвестные ключи отбрасываются намеренно: во время выкладки в
+        очереди лежат сообщения, собранные предыдущей версией, и
+        появившееся поле не должно ронять воркер.
+        """
+        known = {field.name for field in dataclasses.fields(cls)}
+        kwargs = {key: value for key, value in data.items() if key in known}
+        if kwargs.get("session_id"):
+            kwargs["session_id"] = uuid.UUID(str(kwargs["session_id"]))
+        return cls(**kwargs)
+
 
 async def run_session(bot: VKTeams, request: SessionRequest) -> None:
     """Отработать вопрос и ответить в чат."""
@@ -99,6 +127,26 @@ async def _run(bot: VKTeams, request: SessionRequest) -> None:
     async with async_session() as db:
         sessions = AgentSessionRepository(db)
         messages = AgentMessageRepository(db)
+
+        if await over_budget(db, request.user_id):
+            # Между постановкой в очередь и запуском бюджет мог выбрать
+            # кто угодно, включая соседние задачи того же человека.
+            # Сессию не заводим: она стоила бы строки в журнале и
+            # ничего бы не дала.
+            await emit(
+                db,
+                ai_events.LIMIT_EXCEEDED,
+                actor=Actor(ActorType.USER, request.user_id, request.user_id),
+                chat_id=request.chat_id,
+                payload={"reason": "суточный бюджет токенов"},
+            )
+            await db.commit()
+            await _say(
+                bot,
+                request,
+                "На сегодня лимит запросов к агенту исчерпан. Попробуй завтра.",
+            )
+            return
 
         row = await _session_row(db, request)
         actor = await _actor(db, request.user_id)
@@ -334,3 +382,21 @@ def day_start() -> datetime.datetime:
     """Начало текущих суток UTC — граница суточного бюджета."""
     now = datetime.datetime.now(datetime.UTC)
     return now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+async def over_budget(db: AsyncSession, user_id: str) -> bool:
+    """Исчерпан ли суточный бюджет токенов у этого участника.
+
+    Считается по обоим направлениям сразу: платят и за вход, и за выход.
+
+    Спрашивают дважды — в хендлере, чтобы не ставить заведомо отказную
+    задачу, и здесь, перед вызовом модели. Между постановкой и запуском
+    проходит время, и за него очередь успевает списать токены соседних
+    сессий: без второй проверки на разборе накопившейся очереди лимит
+    перешагивался бы на столько задач, сколько успели поставить.
+    """
+    budget = get_ai_settings().daily_token_budget
+    if budget <= 0:
+        return False
+    spent = await AgentSessionRepository(db).tokens_since(user_id, day_start())
+    return spent >= budget

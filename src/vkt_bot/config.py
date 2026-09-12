@@ -2,7 +2,7 @@ import functools
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import PostgresDsn
+from pydantic import PostgresDsn, RedisDsn, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -39,6 +39,16 @@ class VktSettings(BaseSettings):
     #: ``0`` снимает ограничение.
     messages_max_per_chat: int = 10_000
 
+    #: Redis под очередь задач. Пусто — задачи исполняются в процессе
+    #: бота, как раньше: локальная разработка и тесты не должны требовать
+    #: поднятого Redis. В боевом окружении это заметная деградация,
+    #: поэтому она громкая — предупреждение в первой же строке лога.
+    redis_url: RedisDsn | None = None
+    #: Имя списка задач в Redis. Отдельное, потому что stage и prod
+    #: обычно делят один инстанс, а перемешать их очереди — это ответы
+    #: агента не в тот чат.
+    task_queue: str = "vkt-bot-tasks"
+
     # Настройки для загрузки файлов
     max_file_size: int = 50 * 1024 * 1024  # 50 MB по умолчанию
     allowed_file_types: list[str] = [
@@ -54,6 +64,17 @@ class VktSettings(BaseSettings):
         "application/vnd.ms-excel",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     ]
+
+    @field_validator("redis_url", mode="before")
+    @classmethod
+    def _blank_is_none(cls, value: Any) -> Any:  # noqa: ANN401
+        """Пустая строка — «Redis нет».
+
+        ``os.environ`` перебивает ``.env`` только если переменная задана,
+        поэтому пустым ``REDIS_URL`` тесты гасят боевое значение с машины
+        разработчика. Пустую строку ``RedisDsn`` не принимает.
+        """
+        return value or None
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"

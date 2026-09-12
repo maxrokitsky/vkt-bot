@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from vkt_bot.core.security import get_password_hash, get_random_string
-from vkt_gitlab import install
+from vkt_gitlab import install, install_api
 from vkt_gitlab.api import construct_messsage, fail_message, success_message
 from vkt_gitlab.handlers import (
     CreateGlWebhook,
@@ -93,13 +93,14 @@ async def gl_webhook(
 
 
 class TestInstall:
-    """Точка входа плагина."""
+    """Точки входа плагина."""
 
     def test_registers_router(self) -> None:
         from fastapi import FastAPI
 
         app = FastAPI()
-        install(app)
+        install()
+        install_api(app)
 
         paths = {route.path for route in app.routes if hasattr(route, "path")}
         assert "/gl/webhooks" in paths

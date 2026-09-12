@@ -29,8 +29,6 @@ from tests.factories import create_chat_user, make_event
 install_events()
 
 if TYPE_CHECKING:
-    from collections.abc import Coroutine
-
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from tests.conftest import FakeBot
@@ -62,27 +60,22 @@ def answering(text: str = "Дежурный — Иван.") -> AgentRunner:
 
 @pytest.fixture
 def asked(monkeypatch: pytest.MonkeyPatch) -> list[SessionRequest]:
-    """Что хендлер отправил в фоновую задачу.
+    """Что хендлер поставил в очередь.
 
-    Сама задача не запускается: хендлер отвечает за решение — кому, о чём
-    и продолжаем ли начатое, — а не за сессию. Запустить её здесь и нельзя:
+    Задача не выполняется: хендлер отвечает за решение — кому, о чём и
+    продолжаем ли начатое, — а не за сессию. Выполнить её здесь и нельзя:
     тестовая сессия сидит на одном соединении с внешней транзакцией, и
     второй параллельный запрос по нему вешает тест.
 
-    Заодно проверяется главное: ждать задачу внутри хендлера нельзя — пока
-    агент думает, опрос событий стоит и бот молчит во всех чатах.
+    Заодно проверяется главное: ждать агента внутри хендлера нельзя — пока
+    он думает, опрос событий стоит и бот молчит во всех чатах.
     """
     captured: list[SessionRequest] = []
 
-    def record(bot: Any, request: SessionRequest) -> Coroutine[Any, Any, None]:  # noqa: ARG001
+    async def record(bot: Any, request: SessionRequest) -> None:  # noqa: ARG001
         captured.append(request)
 
-        async def noop() -> None: ...
-
-        return noop()
-
-    monkeypatch.setattr(handlers_module, "run_session", record)
-    monkeypatch.setattr(handlers_module, "spawn", lambda coro: coro.close())
+    monkeypatch.setattr(handlers_module, "enqueue_session", record)
     return captured
 
 

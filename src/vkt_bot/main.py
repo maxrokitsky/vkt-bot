@@ -4,34 +4,33 @@ from pathlib import Path
 import sys
 
 import IPython
-from pydantic import ValidationError
 import uvicorn
 
-from vkt_bot.config import get_settings
-from vkt_bot.core.events.retention import retention_task
+from vkt_bot.bootstrap import bootstrap, check_settings
 from vkt_bot.core.lifespans import background_tasks
 from vkt_bot.db.session import async_session
 from vkt_bot.app import dispatcher
 from vkt_bot.webapp.app import create_app
+from vkt_bot.worker import broker_client, local_retention
 from .loggers import main_logger
 
-
-def check_settings() -> None:
-    """Проверить настройки и завершить процесс, если они неполные.
-
-    Единственная точка, где невалидная конфигурация приводит к ``sys.exit``:
-    импорт модулей приложения сам по себе процесс не роняет.
-    """
-    try:
-        get_settings()
-    except ValidationError as e:
-        print(e, file=sys.stderr)  # noqa: T201
-        sys.exit(1)
+__all__ = (
+    "check_settings",
+    "export_schema",
+    "main",
+    "shell",
+    "start_bot",
+    "start_server",
+)
 
 
 async def main() -> None:
     try:
-        async with retention_task(), background_tasks():
+        # Брокер снаружи: он нужен хендлерам всё время их работы и
+        # закрывается последним. Явно, а не через ``lifespans.register``:
+        # тот намеренно глотает сбой любой фабрики, а молча подняться без
+        # очереди — значит отвечать «не смог» на каждый вопрос агенту.
+        async with broker_client(), local_retention(), background_tasks():
             await dispatcher.run()
     except asyncio.CancelledError:
         sys.stdout.write("\r")
@@ -67,8 +66,8 @@ def export_schema() -> None:
 
 def shell() -> None:
     check_settings()
-    # create_app() сам вызывает setup(): логирование, модели, плагины.
-    create_app()
+    # Веб в IPython не нужен, а логи, модели и плагины — нужны.
+    bootstrap()
     session = async_session()
     try:
         IPython.start_ipython(

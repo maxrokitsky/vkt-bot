@@ -27,7 +27,15 @@ if TYPE_CHECKING:
     from vkt_bot.config import VktSettings
 
 #: Логгеры приложения — им ставится уровень из ``LOGGING``.
-APP_LOGGERS = ("vkt_bot", "vkt_dispatcher", "vkteams_client", "vkt_gitlab")
+APP_LOGGERS = (
+    "vkt_bot",
+    "vkt_dispatcher",
+    "vkteams_client",
+    "vkt_gitlab",
+    "vkt_agent",
+    "vkt_ai",
+    "taskiq",
+)
 
 #: Уровни, которыми глушится чужой шум. Перебиваются через ``LOG_LEVELS``.
 DEFAULT_LEVELS = {
@@ -37,6 +45,11 @@ DEFAULT_LEVELS = {
     "uvicorn.access": "WARNING",
     "aiosqlite": "WARNING",
     "multipart": "WARNING",
+    # Планировщик печатает строку своего цикла ожидания раз в секунду:
+    # на ``LOGGING=DEBUG`` она одна забивает общий вывод и прячет всё
+    # остальное. Про отправку задачи он пишет уровнем INFO, так что
+    # единственное его осмысленное событие видно по-прежнему.
+    "taskiq.cli.scheduler.run": "INFO",
 }
 
 MASK = "***"

@@ -1,11 +1,8 @@
-import importlib
 from importlib.metadata import version
-import importlib.metadata
 from typing import TYPE_CHECKING, Any
 
 from fastapi import FastAPI
 
-from vkt_bot.logging_setup import init_logging, setup_sentry
 from .config import get_settings
 
 
@@ -27,23 +24,15 @@ def __getattr__(name: str) -> Any:  # noqa: ANN401
 
 
 def setup(app: FastAPI) -> None:
-    init_logging()
-    setup_sentry()
-    importlib.import_module("vkt_bot.core.models")
-    importlib.import_module("vkt_bot.core.handlers")
+    """Собрать приложение вместе с веб-частью.
 
-    # Действия бота становятся событиями: клиент сам в базу не ходит.
-    from vkt_bot.app import bot
-    from vkt_bot.core.bot_events import record_bot_action
-    from vkt_bot.core.messages import record_outgoing
+    Тонкая обёртка: общая сборка живёт в ``vkt_bot.bootstrap`` — её же
+    зовут воркер и планировщик, которым ``FastAPI`` взять неоткуда.
+    """
+    from vkt_bot.bootstrap import bootstrap, install_api
 
-    bot.event_sink = record_bot_action
-    # Свои сообщения — в историю чата: в поток событий они не приходят.
-    bot.message_sink = record_outgoing
-
-    for plugin in importlib.metadata.entry_points(group="vkt_bot.plugins"):
-        module = plugin.load()
-        module.install(app)
+    bootstrap()
+    install_api(app)
 
 
 if TYPE_CHECKING:
